@@ -47,6 +47,7 @@ export type ProductVariant = {
   status: string;
   isActive: boolean;
   hasOrder?: boolean;
+  weightGrams?: number | null;
   attributes: Array<{ attrName: string; attrValue: string }>;
 };
 
@@ -61,6 +62,7 @@ export type ProductImage = {
 
 export type SellerProductDetail = SellerProduct & {
   description?: string | null;
+  weightGrams?: number | null;
   specifications?: ProductSpecification[] | null;
   images: ProductImage[];
   variants: ProductVariant[];
@@ -118,9 +120,8 @@ export type NewVariant = {
   name: string;
   price: number;
   currency: string;
-  quantity: number;
+  weightGrams?: number | null;
   isActive?: boolean;
-  warehouseId?: string | null;
   attributes: Array<{ attrName: string; attrValue: string }>;
 };
 
@@ -246,6 +247,7 @@ export const sellerCatalogService = {
     name: string;
     description?: string;
     brand?: string;
+    weightGrams: number;
     specifications?: ProductSpecification[] | null;
     variants: NewVariant[];
   }): Promise<CreatedProductResponse> {
@@ -265,6 +267,7 @@ export const sellerCatalogService = {
       description: string;
       brand: string;
       categoryId: string;
+      weightGrams?: number;
       specifications?: ProductSpecification[] | null;
     },
   ) {
@@ -288,6 +291,7 @@ export const sellerCatalogService = {
       name: string;
       price: number;
       currency?: string;
+      weightGrams?: number | null;
       attributes?: Array<{ attrName: string; attrValue: string }>;
     },
   ) {
@@ -344,9 +348,12 @@ export const sellerCatalogService = {
     );
   },
 
-  async changeStatus(id: string, status: "ACTIVE" | "INACTIVE" | "DRAFT", statusReason?: string) {
+  async changeStatus(id: string, status: "ACTIVE" | "INACTIVE" | "DRAFT" | "PENDING_APPROVAL", statusReason?: string) {
+    // Catalog currently parses the C# enum with Enum.TryParse, which accepts
+    // PendingApproval but not the documented underscore spelling.
+    const apiStatus = status === "PENDING_APPROVAL" ? "PendingApproval" : status;
     await api.patch(`/api/v1/products/${encodeURIComponent(id)}/status`, {
-      status,
+      status: apiStatus,
       ...(statusReason ? { statusReason } : {}),
     });
   },

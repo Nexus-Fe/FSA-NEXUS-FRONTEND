@@ -17,7 +17,8 @@ import { SellerShopAddressFields } from "./components/SellerShopAddressFields";
 import { ghnPresets } from "./ghn-presets";
 import { sellerCatalogService, type InventoryBalance, type ProductVariant, type SellerProductDetail } from "./services/catalog.service";
 import { sellerOrdersService } from "./services/seller-orders.service";
-import { MAX_INVENTORY_QUANTITY, parseInitialInventoryQuantity } from "./services/inventory-quantity";
+import { SellerBuyerReview } from "./SellerBuyerReview";
+import { MAX_INVENTORY_QUANTITY } from "./services/inventory-quantity";
 import { describeCategoryError, leafCategoryOptions } from "./services/category-options";
 
 export { BecomeSellerScreen } from "./BecomeSellerScreen";
@@ -43,7 +44,7 @@ type DraftVariantItem = {
   skuCode: string;
   name: string;
   price: string;
-  quantity: string;
+  weightGrams: string;
   currency: string;
   isActive: boolean;
   attributes: Array<{ attrName: string; attrValue: string }>;
@@ -198,7 +199,7 @@ export function SellerProductEditorScreen({ initialProduct }: { initialProduct?:
   const [categoryId, setCategoryId] = useState(initialProduct?.categoryId ?? "");
   const [brand, setBrand] = useState(initialProduct?.brand ?? "");
   const [description, setDescription] = useState(initialProduct?.description ?? "");
-  const [warehouseId, setWarehouseId] = useState("");
+  const [weightGrams, setWeightGrams] = useState(String(initialProduct?.weightGrams ?? ""));
 
   // Dynamic specifications (JSON object per R105_POST_PRODUCTS.md)
   const [specs, setSpecs] = useState<Array<{ key: string; value: string }>>(() => initialProduct
@@ -220,71 +221,27 @@ export function SellerProductEditorScreen({ initialProduct }: { initialProduct?:
         skuCode: variant.skuCode,
         name: variant.name,
         price: String(variant.price ?? ""),
-        quantity: "0",
+        weightGrams: variant.weightGrams == null ? "" : String(variant.weightGrams),
         currency: variant.currency || "VND",
         isActive: variant.isActive,
         attributes: variant.attributes ?? [],
       }))
     : [{
-        id: "var-1", skuCode: "", name: "Tiêu chuẩn", price: "", quantity: "20",
+        id: "var-1", skuCode: "", name: "Tiêu chuẩn", price: "", weightGrams: "",
         currency: "VND", isActive: true,
         attributes: [{ attrName: "Màu sắc", attrValue: "" }, { attrName: "Kích cỡ", attrValue: "" }],
       }]);
-
-  // Quick create warehouse drawer (WH-04)
-  const [showCreateWarehouse, setShowCreateWarehouse] = useState(false);
-  useEffect(() => {
-    const openWarehouseFormFromHash = () => {
-      if (window.location.hash === "#create-warehouse") setShowCreateWarehouse(true);
-    };
-    window.addEventListener("hashchange", openWarehouseFormFromHash);
-    const initialCheck = window.setTimeout(openWarehouseFormFromHash, 0);
-    return () => {
-      window.removeEventListener("hashchange", openWarehouseFormFromHash);
-      window.clearTimeout(initialCheck);
-    };
-  }, []);
-  const [newWhCode, setNewWhCode] = useState("");
-  const [newWhName, setNewWhName] = useState("");
-  const [newWhAddress, setNewWhAddress] = useState("");
-  const [creatingWh, setCreatingWh] = useState(false);
 
   const [error, setError] = useState("");
   const [progressNote, setProgressNote] = useState("");
   const [busy, setBusy] = useState(false);
 
   const categories = useApiResource("seller-product-categories", sellerCatalogService.categories);
-  const sellerProfile = useApiResource(
-    user?.id ? `seller-editor-profile:${user.id}` : null,
-    async (signal) => unwrap(await sellerService.getProfile(signal)),
-  );
-  const sellerProfileId = sellerProfile.data?.sellerId ?? sellerProfile.data?.shopId;
-  const shopName = sellerProfile.data?.shopName;
-  const rawPickupAddress = sellerProfile.data?.pickupAddress;
-  const pickupAddress =
-    typeof rawPickupAddress === "string"
-      ? rawPickupAddress
-      : rawPickupAddress?.streetAddress ?? sellerProfile.data?.streetAddress ?? "";
-  const warehouses = useApiResource(
-    user?.id && !sellerProfile.loading
-      ? `seller-warehouses:${user.id}:${sellerProfileId ?? ""}:${shopName ?? ""}`
-      : null,
-    (signal) =>
-      sellerCatalogService.listWarehouses(user?.id, signal, {
-        sellerId: sellerProfileId,
-        shopName,
-        pickupAddress,
-      }),
-  );
-
-
   const categoryOptions = leafCategoryOptions(categories.data ?? []);
   const selectedCategory = categoryOptions.find((c) => c.categoryId === categoryId)
     ?? (initialProduct && categoryId === initialProduct.categoryId
       ? { categoryId, label: initialProduct.categoryName ?? categoryId }
       : undefined);
-  const activeWarehouseId = warehouseId || warehouses.data?.[0]?.id || "";
-  const selectedWarehouse = warehouses.data?.find((w) => w.id === activeWarehouseId);
 
   function handleSelectImages(fileList: FileList | null) {
     if (!fileList || fileList.length === 0) return;
@@ -351,7 +308,7 @@ export function SellerProductEditorScreen({ initialProduct }: { initialProduct?:
         skuCode: buildAutoSku(name, `Phien-ban-${nextIdx}`, nextIdx - 1),
         name: `Phiên bản #${nextIdx}`,
         price: prev[0]?.price || "",
-        quantity: "10",
+        weightGrams: "",
         currency: "VND",
         isActive: false,
         attributes: [{ attrName: "Màu sắc", attrValue: "" }],
@@ -420,37 +377,6 @@ export function SellerProductEditorScreen({ initialProduct }: { initialProduct?:
     });
   }
 
-  async function handleQuickCreateWarehouse() {
-    if (!newWhCode.trim() || !newWhName.trim()) {
-      setError("Vui lòng nhập Mã kho và Tên kho.");
-      return;
-    }
-    if (warehouses.data?.length) {
-      setError("Gian hàng đã có kho riêng; không thể tạo thêm kho.");
-      return;
-    }
-    setCreatingWh(true);
-    setError("");
-    try {
-      const created = await sellerCatalogService.createWarehouse({
-        code: newWhCode,
-        name: newWhName,
-        address: newWhAddress || "Kho tiêu chuẩn Seller Nexus",
-        sellerId: user?.id,
-      });
-      setShowCreateWarehouse(false);
-      setNewWhCode("");
-      setNewWhName("");
-      setNewWhAddress("");
-      warehouses.reload();
-      if (created?.id) setWarehouseId(created.id);
-    } catch (cause) {
-      setError(msg(cause as Error));
-    } finally {
-      setCreatingWh(false);
-    }
-  }
-
   async function submitProduct(publishImmediately: boolean) {
     setBusy(true);
     setError("");
@@ -459,20 +385,18 @@ export function SellerProductEditorScreen({ initialProduct }: { initialProduct?:
       if (!user?.id) throw new Error("Bạn cần đăng nhập tài khoản Seller để tạo sản phẩm.");
       if (!name.trim()) throw new Error("Vui lòng nhập tên sản phẩm.");
       if (!categoryId) throw new Error("Vui lòng chọn một danh mục ngành hàng lá.");
+      const shippingWeight = Number(weightGrams);
+      if (!Number.isSafeInteger(shippingWeight) || shippingWeight <= 0) throw new Error("Khối lượng vận chuyển phải là số nguyên lớn hơn 0 gram.");
 
       if (publishImmediately && images.length === 0 && !(initialProduct?.images.some((image) => image.variantId && !deletedImageIds.includes(image.id)))) {
         throw new Error(
-          "Để Đăng bán & Lên kệ ngay (ACTIVE), sản phẩm cần ít nhất 1 ảnh đại diện. Vui lòng chọn ảnh ở Mục 2 hoặc bấm 'Lưu bản nháp'.",
+          "Để gửi sản phẩm cho staff duyệt, cần ít nhất 1 ảnh đại diện. Vui lòng chọn ảnh ở Mục 2 hoặc lưu bản nháp.",
         );
       }
 
       const specifications = specs
         .map((row) => ({ name: row.key.trim(), value: row.value.trim() }))
         .filter((row) => row.name && row.value);
-      if (variants.some((variant) => !variant.variantId) && !activeWarehouseId) {
-        throw new Error("Gian hàng cần có kho riêng trước khi tạo biến thể và khai báo tồn.");
-      }
-
       // Validate and normalize variants
       const preparedVariants = variants.map((v, idx) => {
         const sku = v.skuCode.trim() || buildAutoSku(name, v.name, idx);
@@ -480,7 +404,10 @@ export function SellerProductEditorScreen({ initialProduct }: { initialProduct?:
         if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) {
           throw new Error(`Biến thể #${idx + 1} (${sku}): Giá bán phải lớn hơn 0 ₫.`);
         }
-        const initialQuantity = v.variantId ? 0 : parseInitialInventoryQuantity(v.quantity);
+        const variantWeight = v.weightGrams.trim() ? Number(v.weightGrams) : null;
+        if (variantWeight !== null && (!Number.isSafeInteger(variantWeight) || variantWeight <= 0)) {
+          throw new Error(`Biến thể #${idx + 1} (${sku}): Khối lượng phải là số nguyên lớn hơn 0 gram.`);
+        }
         const cleanAttrs = v.attributes
           .map((a) => ({ attrName: a.attrName.trim(), attrValue: a.attrValue.trim() }))
           .filter((a) => a.attrName && a.attrValue);
@@ -491,9 +418,8 @@ export function SellerProductEditorScreen({ initialProduct }: { initialProduct?:
           name: v.name.trim() || name.trim(),
           price: parsedPrice,
           currency: v.currency || "VND",
-          quantity: initialQuantity,
           isActive: v.isActive,
-          warehouseId: activeWarehouseId || null,
+          weightGrams: variantWeight,
           attributes: cleanAttrs,
         };
       });
@@ -501,13 +427,13 @@ export function SellerProductEditorScreen({ initialProduct }: { initialProduct?:
       if (initialProduct) {
         setProgressNote("Đang cập nhật thông tin và biến thể sản phẩm…");
         await sellerCatalogService.update(initialProduct.productId, {
-          name: name.trim(), description: description.trim(), brand: brand.trim(), categoryId, specifications,
+          name: name.trim(), description: description.trim(), brand: brand.trim(), categoryId, specifications, weightGrams: shippingWeight,
         });
         let defaultVariantId = "";
         for (const variant of preparedVariants) {
           if (variant.variantId) {
             await sellerCatalogService.updateVariant(variant.variantId, {
-              name: variant.name, price: variant.price, currency: variant.currency, attributes: variant.attributes,
+              name: variant.name, price: variant.price, currency: variant.currency, attributes: variant.attributes, weightGrams: variant.weightGrams,
             });
             if (variant.isActive) defaultVariantId = variant.variantId;
           } else {
@@ -529,19 +455,20 @@ export function SellerProductEditorScreen({ initialProduct }: { initialProduct?:
         const selectedExistingImage = images.find((image) => image.isPrimary && !image.file);
         if (selectedExistingImage) await sellerCatalogService.setPrimaryImage(selectedExistingImage.id, selectedExistingImage.altText.trim() || name.trim());
         if (publishImmediately && initialProduct.status.toUpperCase() !== "ACTIVE") {
-          await sellerCatalogService.changeStatus(initialProduct.productId, "ACTIVE");
+          await sellerCatalogService.changeStatus(initialProduct.productId, "PENDING_APPROVAL");
         }
         router.push(ROUTES.seller.product(initialProduct.productId));
         return;
       }
 
-      setProgressNote("Bước 1/3: Đang khởi tạo sản phẩm & khai báo tồn kho đầu kỳ (FUL-01)…");
+      setProgressNote("Bước 1/3: Đang tạo sản phẩm và SKU trong Catalog…");
       const created = await sellerCatalogService.create({
         sellerId: user.id,
         categoryId,
         name: name.trim(),
         description: description.trim() || undefined,
         brand: brand.trim() || undefined,
+        weightGrams: shippingWeight,
         specifications,
         variants: preparedVariants,
       });
@@ -569,8 +496,8 @@ export function SellerProductEditorScreen({ initialProduct }: { initialProduct?:
       }
 
       if (publishImmediately) {
-        setProgressNote("Bước 3/3: Đang kích hoạt mở bán sản phẩm lên sàn (ACTIVE)…");
-        await sellerCatalogService.changeStatus(productId, "ACTIVE");
+        setProgressNote("Bước 3/3: Đang gửi sản phẩm để staff duyệt…");
+        await sellerCatalogService.changeStatus(productId, "PENDING_APPROVAL");
       }
 
       router.push(ROUTES.seller.product(productId));
@@ -586,32 +513,23 @@ export function SellerProductEditorScreen({ initialProduct }: { initialProduct?:
   const validPrices = variants.map((v) => Number(v.price)).filter((n) => Number.isFinite(n) && n > 0);
   const minPreviewPrice = validPrices.length ? Math.min(...validPrices) : null;
   const maxPreviewPrice = validPrices.length ? Math.max(...validPrices) : null;
-  const totalInitialStock = variants.reduce((sum, v) => {
-    const q = Number(v.quantity);
-    return sum + (Number.isInteger(q) && q >= 0 ? q : 0);
-  }, 0);
-
-  const isBasicReady = Boolean(name.trim() && categoryId);
+  const isBasicReady = Boolean(name.trim() && categoryId && Number.isSafeInteger(Number(weightGrams)) && Number(weightGrams) > 0);
   const isVariantsReady =
     variants.length > 0 &&
     variants.every(
       (v) =>
         Number.isFinite(Number(v.price)) &&
         Number(v.price) > 0 &&
-        (v.variantId || (v.quantity !== "" &&
-          Number.isInteger(Number(v.quantity)) &&
-          Number(v.quantity) >= 0 &&
-          Number(v.quantity) <= MAX_INVENTORY_QUANTITY)),
+        (!v.weightGrams.trim() || (Number.isSafeInteger(Number(v.weightGrams)) && Number(v.weightGrams) > 0)),
     );
-  const isWarehouseReady = Boolean(activeWarehouseId);
   const isImageReady = images.length > 0 || Boolean(initialProduct?.images.some((image) => image.variantId && !deletedImageIds.includes(image.id)));
 
   return (
     <>
       <PageHeading
         overline="Kênh người bán"
-        title={initialProduct ? "Chỉnh sửa sản phẩm" : "Studio Tạo Sản Phẩm & Lên Kho"}
-        description={initialProduct ? "Chỉnh sửa thông tin, ảnh và biến thể trong cùng giao diện tạo sản phẩm." : "Khởi tạo sản phẩm, thông số kỹ thuật, bộ ảnh và khai báo tồn kho đầu kỳ cho toàn bộ SKU chỉ trong một luồng."}
+        title={initialProduct ? "Chỉnh sửa sản phẩm" : "Tạo sản phẩm"}
+        description={initialProduct ? "Chỉnh sửa thông tin, ảnh và biến thể sản phẩm." : "Tạo sản phẩm và SKU trước, sau đó nhập hàng tại Quản lý kho."}
       />
 
       {error && (
@@ -656,6 +574,7 @@ export function SellerProductEditorScreen({ initialProduct }: { initialProduct?:
               </label>
 
               <div className="form-grid">
+                <label className="field-wrap"><span>Khối lượng vận chuyển (gram) *</span><input className="field" type="number" min="1" step="1" required value={weightGrams} onChange={(event) => setWeightGrams(event.target.value)} /></label>
                 <label className="field-wrap">
                   <span>
                     Danh mục ngành hàng <strong style={{ color: "#dc2626" }}>*</strong>
@@ -717,7 +636,7 @@ export function SellerProductEditorScreen({ initialProduct }: { initialProduct?:
                   </p>
                 </div>
               </div>
-              <Badge>{isImageReady ? `Đã chọn ${images.length} ảnh` : "Cần khi Mở bán ngay"}</Badge>
+              <Badge>{isImageReady ? `Đã chọn ${images.length} ảnh` : "Cần khi gửi duyệt"}</Badge>
             </div>
 
             {images.length < 5 && (
@@ -853,11 +772,8 @@ export function SellerProductEditorScreen({ initialProduct }: { initialProduct?:
               <div className="seller-section-title-group">
                 <span className="seller-section-step">4</span>
                 <div>
-                  <h2>Kho lưu trữ & Biến thể SKU ({variants.length}/10)</h2>
-                  <p>
-                    Mỗi biến thể được tạo sẽ tự động khai báo tồn kho đầu kỳ sang FulfillmentService (API FUL-01) và ghi
-                    sổ cái INITIAL.
-                  </p>
+                  <h2>Biến thể SKU ({variants.length}/10)</h2>
+                  <p>Tạo SKU và giá bán. Số lượng được nhập riêng theo từng kho tại Quản lý kho.</p>
                 </div>
               </div>
               {variants.length < 10 && (
@@ -868,91 +784,6 @@ export function SellerProductEditorScreen({ initialProduct }: { initialProduct?:
                 >
                   <Icon name="plus" size={14} /> Thêm biến thể SKU
                 </button>
-              )}
-            </div>
-
-            {/* Warehouse Selection Bar (WH-03 / WH-01 / WH-04) */}
-            <div className="seller-warehouse-box" id="create-warehouse">
-              <div className="seller-warehouse-header">
-                <div>
-                  <strong>Kho nhận hàng & Khai báo tồn đầu kỳ (WH-03 / FUL-01)</strong>
-                  <div style={{ fontSize: 12, color: "#475569", marginTop: 2 }}>
-                    Mỗi gian hàng sử dụng một kho riêng. Nếu chưa có kho, hãy tạo kho trước khi khai báo tồn.
-                  </div>
-                </div>
-                {!warehouses.data?.some((warehouse) => warehouse.type === "SellerWarehouse") && (
-                  <button
-                    type="button"
-                    className="button button-secondary button-small"
-                    onClick={() => setShowCreateWarehouse((v) => !v)}
-                  >
-                    {showCreateWarehouse ? "Đóng tạo kho" : "+ Tạo kho riêng"}
-                  </button>
-                )}
-              </div>
-
-              <label className="field-wrap">
-                <select
-                  className="select-field"
-                  value={activeWarehouseId}
-                  onChange={(e) => setWarehouseId(e.target.value)}
-                >
-                  {warehouses.data?.length ? (
-                    warehouses.data.map((wh) => (
-                      <option key={wh.id} value={wh.id}>
-                        [{wh.code}] {wh.name} · Kho của gian hàng
-                        {wh.address ? ` — ${wh.address}` : ""}
-                      </option>
-                    ))
-                  ) : (
-                    <option value="">Chưa có kho riêng của gian hàng</option>
-                  )}
-                </select>
-              </label>
-
-              {showCreateWarehouse && !warehouses.data?.some((warehouse) => warehouse.type === "SellerWarehouse") && (
-                <div className="seller-warehouse-create-drawer">
-                  <strong style={{ fontSize: 13 }}>Đăng ký kho mới cho Gian hàng (API WH-04)</strong>
-                  <div className="form-grid">
-                    <label className="field-wrap">
-                      Mã kho (Code)
-                      <input
-                        className="field"
-                        placeholder="VD: WH-SHOP-HCM01"
-                        value={newWhCode}
-                        onChange={(e) => setNewWhCode(e.target.value)}
-                      />
-                    </label>
-                    <label className="field-wrap">
-                      Tên kho hàng
-                      <input
-                        className="field"
-                        placeholder="VD: Kho Quận 1 - TP.HCM"
-                        value={newWhName}
-                        onChange={(e) => setNewWhName(e.target.value)}
-                      />
-                    </label>
-                  </div>
-                  <label className="field-wrap">
-                    Địa chỉ lấy hàng
-                    <input
-                      className="field"
-                      placeholder="VD: 122 Hoàng Văn Thụ, Phường 9, Phú Nhuận, TP.HCM"
-                      value={newWhAddress}
-                      onChange={(e) => setNewWhAddress(e.target.value)}
-                    />
-                  </label>
-                  <div className="action-row" style={{ marginTop: 4 }}>
-                    <button
-                      type="button"
-                      className="button button-primary button-small"
-                      disabled={creatingWh}
-                      onClick={() => void handleQuickCreateWarehouse()}
-                    >
-                      {creatingWh ? "Đang tạo kho…" : "Lưu & Chọn kho này"}
-                    </button>
-                  </div>
-                </div>
               )}
             </div>
 
@@ -1054,22 +885,19 @@ export function SellerProductEditorScreen({ initialProduct }: { initialProduct?:
                     </label>
 
                     <label className="field-wrap">
-                      <span>
-                        Tồn kho đầu kỳ (Quantity) <strong style={{ color: "#dc2626" }}>*</strong>
-                      </span>
+                      <span>Khối lượng riêng (gram)</span>
                       <input
                         type="number"
-                        min="0"
-                        max={MAX_INVENTORY_QUANTITY}
+                        min="1"
                         step="1"
-                        required={!variant.variantId}
-                        disabled={Boolean(variant.variantId)}
                         className="field"
-                        placeholder={variant.variantId ? "Quản lý tại trang Kho" : "Số lượng nhập kho ban đầu"}
-                        value={variant.quantity}
-                        onChange={(e) => updateVariantField(vIdx, "quantity", e.target.value)}
+                        placeholder={`Để trống dùng ${weightGrams || "khối lượng sản phẩm"} gram`}
+                        value={variant.weightGrams}
+                        onChange={(e) => updateVariantField(vIdx, "weightGrams", e.target.value)}
                       />
                     </label>
+
+                    <p className="status-note">Số lượng tồn được khai báo theo SKU và kho tại trang Quản lý kho sau khi tạo sản phẩm.</p>
                   </div>
 
                   {/* Variant Attributes */}
@@ -1164,7 +992,7 @@ export function SellerProductEditorScreen({ initialProduct }: { initialProduct?:
                 </div>
                 <div className="seller-preview-meta">
                   <span>{variants.length} biến thể SKU</span>
-                  <strong>{initialProduct ? "Tồn kho xem tại Quản lý kho" : `Tổng tồn: ${totalInitialStock} sp`}</strong>
+                  <strong>Tồn kho xem và nhập tại Quản lý kho</strong>
                 </div>
               </div>
             </div>
@@ -1186,17 +1014,8 @@ export function SellerProductEditorScreen({ initialProduct }: { initialProduct?:
                 <span>
                   <strong>Biến thể & Giá bán:</strong>{" "}
                   {isVariantsReady
-                    ? initialProduct ? `${variants.length} SKU hợp lệ` : `${variants.length} SKU hợp lệ · Tổng ${totalInitialStock} sản phẩm`
-                    : "Nhập giá > 0 và số lượng tồn >= 0"}
-                </span>
-              </li>
-              <li>
-                <span className={`seller-check-indicator${isWarehouseReady ? " is-ready" : ""}`}>
-                  {isWarehouseReady ? "✓" : "3"}
-                </span>
-                <span>
-                  <strong>Kho lưu trữ (FUL-01):</strong>{" "}
-                  {selectedWarehouse ? `${selectedWarehouse.code} (${selectedWarehouse.name})` : "Chưa có kho riêng"}
+                    ? `${variants.length} SKU hợp lệ`
+                    : "Nhập giá bán lớn hơn 0"}
                 </span>
               </li>
               <li>
@@ -1207,7 +1026,7 @@ export function SellerProductEditorScreen({ initialProduct }: { initialProduct?:
                   <strong>Ảnh đại diện mở bán:</strong>{" "}
                   {isImageReady
                     ? `Đã sẵn sàng ${images.length} ảnh sản phẩm`
-                    : "Cần ít nhất 1 ảnh nếu muốn Mở bán ngay"}
+                    : "Cần ít nhất 1 ảnh nếu muốn gửi duyệt"}
                 </span>
               </li>
             </ul>
@@ -1219,7 +1038,7 @@ export function SellerProductEditorScreen({ initialProduct }: { initialProduct?:
                 disabled={busy || !isBasicReady || !isVariantsReady}
                 onClick={() => void submitProduct(true)}
               >
-                {busy ? "Đang lưu…" : initialProduct ? "Lưu & mở bán" : "Đăng bán & Lên kho ngay (ACTIVE)"}
+                {busy ? "Đang lưu…" : "Gửi sản phẩm để staff duyệt"}
               </button>
 
               <button
@@ -1228,7 +1047,7 @@ export function SellerProductEditorScreen({ initialProduct }: { initialProduct?:
                 disabled={busy || !isBasicReady || !isVariantsReady}
                 onClick={() => void submitProduct(false)}
               >
-                {busy ? "Đang lưu…" : initialProduct ? "Lưu thay đổi" : "Lưu bản nháp & Khai báo kho (DRAFT)"}
+                {busy ? "Đang lưu…" : initialProduct ? "Lưu thay đổi" : "Lưu bản nháp"}
               </button>
 
               <ButtonLink href={ROUTES.seller.products} variant="secondary">
@@ -2514,6 +2333,7 @@ export function SellerOrderDetailScreen() {
           />
         )}
       </Card>
+      {sub && sub.status.replace(/[^a-z]/gi, "").toUpperCase() === "COMPLETED" && <SellerBuyerReview buyerId={sub.buyerId} subOrderId={sub.subOrderId} />}
     </>
   );
 }
@@ -2578,7 +2398,7 @@ export function SellerShipmentDetailScreen() {
         )}
       </Card>
       <p className="status-note">
-        Fulfillment hiện chỉ cung cấp tra cứu theo mã đơn hàng hoặc mã theo dõi; chưa có API tạo vận đơn cho Seller.
+        Xác nhận hàng hoàn và cộng lại tồn đang tạm khóa. Fulfillment cần chặn xác nhận lặp và kiểm tra quyền với đơn ở kho chung trước khi thao tác này được mở.
       </p>
     </>
   );

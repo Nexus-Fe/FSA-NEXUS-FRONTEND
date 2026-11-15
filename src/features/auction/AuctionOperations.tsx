@@ -46,7 +46,7 @@ export function OperationsListScreen({ role }: { role: Role }) {
       <PageHeading
         title={role === "seller" ? "Quản lý phiên đấu giá" : role === "staff" ? "Giám sát đấu giá" : "Quản lý đấu giá"}
         description={role === "seller" ? "Quản lý và tạo mới các phiên đấu giá cho sản phẩm của gian hàng bạn." : "Theo dõi danh sách và trạng thái các phiên đấu giá toàn sàn."}
-        action={role === "seller" ? <ButtonLink href={ROUTES.seller.newAuction}>+ Tạo phiên đấu giá</ButtonLink> : undefined}
+        action={role === "seller" ? <div className="action-row"><ButtonLink href={ROUTES.seller.newAuctionProduct} variant="secondary">Tạo sản phẩm đấu giá</ButtonLink><ButtonLink href={ROUTES.seller.newAuction}>+ Tạo phiên đấu giá</ButtonLink></div> : undefined}
       />
       <form
         className="auction-lookup"
@@ -197,6 +197,7 @@ export function OperationsDetailScreen({ role }: { role: Role }) {
   return (
     <div className="auction-surface">
       <PageHeading title={auction?.productName ?? "Chi tiết phiên đấu giá"} description={`Mã phiên: ${id}`} />
+      {(role === "admin" || role === "staff") && <div className="portal-page-actions"><ButtonLink href={`/${role}/auctions/${encodeURIComponent(id)}/deposits`} variant="secondary">Xem cọc và đối soát</ButtonLink></div>}
       {role === "seller" && normalizeAuctionStatus(auction?.status ?? "") === "SCHEDULED" && (
         <div className="portal-page-actions">
           <ButtonLink href={ROUTES.seller.editAuction(id)} variant="secondary">Sửa phiên</ButtonLink>
@@ -450,6 +451,7 @@ export function AdminAuctionConfigsScreen() {
           <div className="action-row" style={{ display: "flex", gap: 8 }}>
             <ButtonLink href={ROUTES.admin.configs} variant="secondary">Cấu hình toàn sàn</ButtonLink>
             <ButtonLink href={ROUTES.admin.auctions} variant="secondary">Quản lý đấu giá</ButtonLink>
+            <ButtonLink href="/admin/auction-configs/deposit-policy" variant="secondary">Chính sách cọc</ButtonLink>
           </div>
         }
       />

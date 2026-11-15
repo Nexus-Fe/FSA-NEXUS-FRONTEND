@@ -17,7 +17,6 @@ import {
   type ProductVariant,
   type SellerProductDetail,
 } from "./services/catalog.service";
-import { MAX_INVENTORY_QUANTITY, parseInitialInventoryQuantity } from "./services/inventory-quantity";
 import type { ProductSpecification } from "@/features/catalog/types/product-specification";
 
 const maxImageBytes = 5 * 1024 * 1024;
@@ -50,6 +49,7 @@ function ProductDetailsForm({ product, onSaved }: { product: SellerProductDetail
         description: description.trim(),
         brand: brand.trim(),
         categoryId: product.categoryId,
+        weightGrams: product.weightGrams ?? undefined,
         specifications,
       });
       onSaved();
@@ -198,7 +198,7 @@ export function SellerProductDetailScreen() {
   const [skuCode, setSkuCode] = useState("");
   const [variantName, setVariantName] = useState("");
   const [price, setPrice] = useState("");
-  const [quantity, setQuantity] = useState("20");
+  const [variantWeight, setVariantWeight] = useState("");
   const [color, setColor] = useState("");
   const [size, setSize] = useState("");
 
@@ -206,6 +206,7 @@ export function SellerProductDetailScreen() {
   const [editingVariantId, setEditingVariantId] = useState<string | null>(null);
   const [editVariantName, setEditVariantName] = useState("");
   const [editVariantPrice, setEditVariantPrice] = useState("");
+  const [editVariantWeight, setEditVariantWeight] = useState("");
 
   // Upload image state
   const [file, setFile] = useState<File | null>(null);
@@ -253,14 +254,16 @@ export function SellerProductDetailScreen() {
     setError("");
     setNotice("");
     try {
-      const initialQuantity = parseInitialInventoryQuantity(quantity);
-      await sellerCatalogService.addVariant(id, {
+      const weight = variantWeight.trim() ? Number(variantWeight) : null;
+      if (weight !== null && (!Number.isSafeInteger(weight) || weight <= 0)) {
+        throw new Error("Khối lượng biến thể phải là số nguyên lớn hơn 0 gram.");
+      }
+      const createdVariant = await sellerCatalogService.addVariant(id, {
         skuCode: skuCode.trim(),
         name: variantName.trim(),
         price: Number(price),
         currency: "VND",
-        quantity: initialQuantity,
-        warehouseId: personalWarehouseId || null,
+        weightGrams: weight,
         attributes: [
           color.trim() && { attrName: "Màu sắc", attrValue: color.trim() },
           size.trim() && { attrName: "Kích cỡ", attrValue: size.trim() },
@@ -269,12 +272,11 @@ export function SellerProductDetailScreen() {
       setSkuCode("");
       setVariantName("");
       setPrice("");
-      setQuantity("20");
+      setVariantWeight("");
       setColor("");
       setSize("");
-      setNotice("Đã thêm biến thể mới và khai báo tồn kho đầu kỳ (FUL-01).");
+      setNotice(`Đã thêm biến thể ${createdVariant.skuCode}. Nhập tồn theo kho tại Quản lý kho.`);
       product.reload();
-      batchInventory.reload();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Không thêm được biến thể.");
     } finally {
@@ -286,12 +288,18 @@ export function SellerProductDetailScreen() {
     setEditingVariantId(variant.variantId);
     setEditVariantName(variant.name);
     setEditVariantPrice(String(variant.price ?? ""));
+    setEditVariantWeight(variant.weightGrams == null ? "" : String(variant.weightGrams));
   }
 
   async function saveEditVariant(variant: ProductVariant) {
     const parsedPrice = Number(editVariantPrice);
     if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) {
       setError("Giá bán biến thể phải lớn hơn 0 ₫.");
+      return;
+    }
+    const weight = editVariantWeight.trim() ? Number(editVariantWeight) : null;
+    if (weight !== null && (!Number.isSafeInteger(weight) || weight <= 0)) {
+      setError("Khối lượng biến thể phải là số nguyên lớn hơn 0 gram.");
       return;
     }
     setBusy(true);
@@ -303,6 +311,7 @@ export function SellerProductDetailScreen() {
         price: parsedPrice,
         currency: variant.currency || "VND",
         attributes: variant.attributes,
+        weightGrams: weight,
       });
       setEditingVariantId(null);
       setNotice(`Đã cập nhật biến thể ${variant.skuCode}.`);
@@ -370,15 +379,15 @@ export function SellerProductDetailScreen() {
     }
   }
 
-  async function changeStatus(status: "ACTIVE" | "INACTIVE") {
+  async function changeStatus(status: "PENDING_APPROVAL" | "INACTIVE") {
     setBusy(true);
     setError("");
     setNotice("");
     try {
       await sellerCatalogService.changeStatus(id, status);
       setNotice(
-        status === "ACTIVE"
-          ? "Sản phẩm đã được kích hoạt mở bán trên sàn (ACTIVE)!"
+        status === "PENDING_APPROVAL"
+          ? "Đã gửi sản phẩm để staff duyệt. Sản phẩm chỉ mở bán sau khi được phê duyệt."
           : "Sản phẩm đã chuyển sang trạng thái tạm ngừng bán (INACTIVE).",
       );
       product.reload();
@@ -489,9 +498,9 @@ export function SellerProductDetailScreen() {
                     type="button"
                     className="button button-primary"
                     disabled={busy || !canActivate}
-                    onClick={() => void changeStatus("ACTIVE")}
+                    onClick={() => void changeStatus("PENDING_APPROVAL")}
                   >
-                    {data.status.toUpperCase() === "INACTIVE" ? "Mở bán lại ngay" : "Kích hoạt mở bán (ACTIVE)"}
+                    {data.status.toUpperCase() === "INACTIVE" ? "Gửi duyệt để mở bán lại" : "Gửi sản phẩm để staff duyệt"}
                   </button>
                 )}
                 <button
@@ -525,6 +534,7 @@ export function SellerProductDetailScreen() {
                     <th>Tên biến thể</th>
                     <th>Thuộc tính</th>
                     <th>Giá bán</th>
+                    <th>Khối lượng</th>
                     <th>Tồn kho</th>
                     <th>Mặc định</th>
                     <th>Thao tác</th>
@@ -566,6 +576,22 @@ export function SellerProductDetailScreen() {
                             />
                           ) : (
                             <strong>{formatMoney(variant.price)}</strong>
+                          )}
+                        </td>
+                        <td>
+                          {isEditing ? (
+                            <input
+                              className="field seller-product-number-input"
+                              type="number"
+                              min="1"
+                              step="1"
+                              value={editVariantWeight}
+                              placeholder="Theo sản phẩm"
+                              aria-label={`Khối lượng biến thể ${variant.skuCode} (gram)`}
+                              onChange={(event) => setEditVariantWeight(event.target.value)}
+                            />
+                          ) : (
+                            <span>{variant.weightGrams ?? data.weightGrams ?? "—"} g{variant.weightGrams == null ? " · Theo sản phẩm" : ""}</span>
                           )}
                         </td>
                         <td className="seller-product-stock-cell">
@@ -646,7 +672,7 @@ export function SellerProductDetailScreen() {
 
             {data.variants.length < 10 && (
               <form className="auth-fields seller-product-form" onSubmit={(event) => void addVariant(event)}>
-                <h3>Thêm biến thể SKU mới (CAT-07 + FUL-01)</h3>
+                <h3>Thêm biến thể SKU mới</h3>
                 <div className="form-grid">
                   <label className="field-wrap">
                     Mã SKU
@@ -688,19 +714,19 @@ export function SellerProductDetailScreen() {
                     />
                   </label>
                   <label className="field-wrap">
-                    Tồn kho ban đầu (Quantity)
+                    Khối lượng riêng (gram)
                     <input
                       className="field"
                       type="number"
-                      min="0"
-                      max={MAX_INVENTORY_QUANTITY}
+                      min="1"
                       step="1"
-                      required
-                      value={quantity}
-                      onChange={(event) => setQuantity(event.target.value)}
+                      placeholder="Để trống dùng khối lượng sản phẩm"
+                      value={variantWeight}
+                      onChange={(event) => setVariantWeight(event.target.value)}
                     />
                   </label>
                 </div>
+                <p className="status-note">Sau khi tạo SKU, nhập thêm hàng tại Quản lý kho và chọn đúng kho nhận.</p>
                 <div>
                   <button
                     className="button button-primary"
@@ -708,13 +734,10 @@ export function SellerProductDetailScreen() {
                       busy ||
                       !Number.isFinite(Number(price)) ||
                       Number(price) <= 0 ||
-                      quantity === "" ||
-                      !Number.isInteger(Number(quantity)) ||
-                      Number(quantity) < 0 ||
-                      Number(quantity) > MAX_INVENTORY_QUANTITY
+                      (variantWeight.trim() !== "" && (!Number.isSafeInteger(Number(variantWeight)) || Number(variantWeight) <= 0))
                     }
                   >
-                    Thêm biến thể & Khai báo kho
+                    Thêm biến thể
                   </button>
                 </div>
               </form>
@@ -815,16 +838,16 @@ export function SellerProductDetailScreen() {
               <button
                 className="button button-primary"
                 type="button"
-                disabled={busy || data.status.toUpperCase() === "ACTIVE" || !canActivate}
-                onClick={() => void changeStatus("ACTIVE")}
+                disabled={busy || ["ACTIVE", "PENDING_APPROVAL"].includes(data.status.toUpperCase()) || !canActivate}
+                onClick={() => void changeStatus("PENDING_APPROVAL")}
               >
                 {busy
                   ? "Đang xử lý…"
                   : data.status.toUpperCase() === "INACTIVE"
-                    ? "Mở bán lại (ACTIVE)"
+                    ? "Gửi duyệt để mở bán lại"
                     : data.status.toUpperCase() === "ACTIVE"
                       ? "Đang mở bán trên sàn"
-                      : "Kích hoạt sản phẩm (ACTIVE)"}
+                      : data.status.toUpperCase() === "PENDING_APPROVAL" ? "Đang chờ duyệt" : "Gửi sản phẩm để staff duyệt"}
               </button>
             </div>
           </Card>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import Link from "next/link";
 import Image from "next/image";
 import {
   AdminPagination,
@@ -92,7 +93,7 @@ export function StaffProductModerationScreen() {
     if (upper === "SUSPENDED") {
       setAction("UNLOCK");
     } else if (upper === "ACTIVE") {
-      setAction("SUSPENDED" as unknown as "SUSPEND");
+      setAction("SUSPEND");
     } else {
       setAction("APPROVE");
     }
@@ -142,6 +143,7 @@ export function StaffProductModerationScreen() {
         overline="Nghiệp vụ Staff"
         title="Duyệt sản phẩm đăng bán"
         description="Duyệt sản phẩm mới đăng tải, từ chối hoặc tạm đình chỉ các sản phẩm vi phạm quy định sàn."
+        action={<Link className="button button-secondary" href="/staff/product-reports">Báo cáo sản phẩm</Link>}
       />
 
       {/* Filter bar */}

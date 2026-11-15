@@ -26,3 +26,30 @@ export type WalletTransactionPage = {
 export type DepositRequest = {
   amount: number;
 };
+
+export type TopupResponse = {
+  transactionId: string;
+  paymentUrl: string;
+  amount: number;
+  currency: string;
+  status: string;
+  createdAt: string;
+};
+
+export type TopupStatus = Omit<TopupResponse, "paymentUrl"> & { updatedAt?: string | null };
+
+export type WithdrawalRequest = {
+  amount: number;
+  currency: "VND";
+  bankCode: string;
+  accountNumber: string;
+  accountHolderName: string;
+};
+
+export type WithdrawalResponse = {
+  withdrawalId: string;
+  amount: number;
+  fee: number;
+  status: string;
+  requestedAt: string;
+};
