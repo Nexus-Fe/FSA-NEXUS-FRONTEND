@@ -58,8 +58,8 @@ export function SellerWithdrawalForm() {
     </Card><Card className="card-pad seller-withdrawal-balance"><h2>Số dư có thể rút</h2>
       {balance.error && <p className="notice" role="alert">{balance.error.message}</p>}
       {balance.data ? <strong className="seller-money-amount">{formatMoney(balance.data.availableBalance)}</strong> : !balance.error && <NoData title={balance.loading ? "Đang tải số dư…" : "Chưa có dữ liệu"} />}
-      {created && <div role="status"><h3>Đang chờ staff xử lý</h3><p>Mã yêu cầu: <strong>{created.withdrawalId}</strong></p><p>Số tiền: {formatMoney(created.amount)} · Phí: {formatMoney(created.fee)}</p></div>}
-      <p className="status-note">Lịch sử yêu cầu đang chờ backend cung cấp API. Giao dịch ví chỉ hiển thị khoản đã ghi sổ.</p>
+      {created && <div className="wallet-withdrawal-result" role="status"><h3>{created.status.toUpperCase() === "PENDING" ? "Đang chờ staff xử lý" : "Đã ghi nhận yêu cầu rút"}</h3><p>Mã yêu cầu: <strong>{created.withdrawalId}</strong></p><p>Số tiền: <strong>{formatMoney(created.amount)}</strong></p><p>Phí: {formatMoney(created.fee)}</p><p>Staff sẽ chuyển khoản thủ công sau khi duyệt. Trạng thái đã duyệt chưa xác nhận tiền đã được chuyển.</p></div>}
+      <p className="status-note">Chưa có danh sách yêu cầu rút từ backend. Lịch sử giao dịch ví chỉ hiển thị các khoản đã ghi sổ.</p>
     </Card></div>
   </>;
 }

@@ -98,7 +98,7 @@ export type WarehouseInfo = {
 
 export function isPlatformWarehouse(warehouse: WarehouseInfo): boolean {
   const type = String(warehouse.type ?? "").toLowerCase();
-  return type === "platformwarehouse" || type === "1" || warehouse.code?.toUpperCase() === "WH-CENTRAL-01";
+  return !warehouse.sellerId || type === "platformwarehouse" || type === "1" || ["WH-CENTRAL-01", "WH-DEFAULT-01"].includes(warehouse.code?.toUpperCase() ?? "");
 }
 
 export function isSellerWarehouse(warehouse: WarehouseInfo, sellerId?: string): boolean {
@@ -390,7 +390,7 @@ export const sellerCatalogService = {
   }) {
     return unwrap(
       await api.post<ApiResponse<InventoryAdjustmentResponse> | InventoryAdjustmentResponse>(
-        "/api/v1/inventories",
+        "/api/v1/inventories/initialize",
         {
           skuId: input.skuId,
           ...(input.warehouseId ? { warehouseId: input.warehouseId } : {}),
@@ -428,18 +428,13 @@ export const sellerCatalogService = {
 
     // 1. Primary: GET /api/v1/warehouses/me
     try {
-      const query = new URLSearchParams();
-      if (options?.sellerId) query.set("sellerId", options.sellerId);
-      if (options?.shopName) query.set("shopName", options.shopName);
-      if (options?.pickupAddress) query.set("address", options.pickupAddress);
-      const qs = query.toString();
       const meResult = unwrap(
         await api.get<ApiResponse<WarehouseInfo> | WarehouseInfo>(
-          `/api/v1/warehouses/me${qs ? `?${qs}` : ""}`,
+          "/api/v1/warehouses/me",
           { signal },
         ),
       );
-      if (meResult?.id && !isPlatformWarehouse(meResult)) {
+      if (meResult?.id && isSellerWarehouse(meResult, userId)) {
         return [{ ...meResult, type: "SellerWarehouse" }];
       }
     } catch {
@@ -457,7 +452,7 @@ export const sellerCatalogService = {
         );
         const warehouses = Array.isArray(result) ? result : result ? [result] : [];
         const personal = warehouses
-          .filter((warehouse) => warehouse?.id && !isPlatformWarehouse(warehouse))
+          .filter((warehouse) => warehouse?.id && isSellerWarehouse(warehouse, userId))
           .slice(0, 1)
           .map((warehouse) => ({ ...warehouse, type: "SellerWarehouse" }));
         if (personal.length > 0) return personal;

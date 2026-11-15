@@ -12,7 +12,7 @@ import { SellerWithdrawalForm } from "./SellerWithdrawalForm";
 
 function sellerTransactionType(type: string): string {
   return ({ ESCROWRELEASE: "Doanh thu đơn hàng", WITHDRAWAL: "Rút tiền", WITHDRAWALDEBIT: "Rút tiền",
-    REFUND: "Hoàn tiền", REFUNDCREDIT: "Hoàn tiền" } as Record<string, string>)[type.toUpperCase()] ?? type;
+    REFUND: "Hoàn tiền", REFUNDCREDIT: "Hoàn tiền", TOPUPSTRIPE: "Nạp tiền" } as Record<string, string>)[type.toUpperCase()] ?? type;
 }
 
 function sellerTransactionStatus(status: string): string {
@@ -23,7 +23,7 @@ function sellerTransactionStatus(status: string): string {
 function sellerTransactionDirection(type: string, status: string, amount: number): "credit" | "debit" | null {
   if (!Number.isFinite(amount) || amount === 0 || !["SUCCESS", "COMPLETED"].includes(status.toUpperCase())) return null;
   const normalizedType = type.toUpperCase();
-  if (["ESCROWRELEASE", "REFUNDCREDIT", "WITHDRAWALREVERSAL", "TRANSFERIN", "ADJUSTMENTCREDIT", "TOPUPVNPAY"].includes(normalizedType)) return "credit";
+  if (["ESCROWRELEASE", "REFUNDCREDIT", "WITHDRAWALREVERSAL", "TRANSFERIN", "ADJUSTMENTCREDIT", "TOPUPVNPAY", "TOPUPSTRIPE"].includes(normalizedType)) return "credit";
   if (["WITHDRAWALDEBIT", "PURCHASEDEBIT", "DIRECTGATEWAYPAYMENT", "TRANSFEROUT", "ADJUSTMENTDEBIT"].includes(normalizedType)) return "debit";
   return null;
 }

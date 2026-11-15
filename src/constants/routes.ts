@@ -24,6 +24,8 @@ export const ROUTES = {
     wallet: "/buyer/wallet",
     topUp: "/buyer/wallet/top-up",
     topUpResult: "/buyer/wallet/top-up/result",
+    topUps: "/buyer/wallet/top-ups",
+    topUpDetail: (id: string) => "/buyer/wallet/top-ups/" + encodeURIComponent(id),
     reports: "/buyer/reports",
   },
   seller: {

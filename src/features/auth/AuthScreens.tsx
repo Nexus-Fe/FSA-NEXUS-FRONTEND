@@ -29,6 +29,17 @@ function landingPath(user: AuthUser): string {
   return ROUTES.home;
 }
 
+function safeReturnPath(value: string | null, user: AuthUser): string | null {
+  if (!value || !value.startsWith("/") || value.startsWith("//") || value.includes("\\")) return null;
+  const path = value.split(/[?#]/, 1)[0];
+  const roles = (user.roles ?? (user.role ? [user.role] : [])).map((role) => role.toLowerCase());
+  if ((path === "/buyer" || path.startsWith("/buyer/")) && !roles.some((role) => ["buyer", "customer", "seller"].includes(role))) return null;
+  if ((path === "/seller" || path.startsWith("/seller/")) && !roles.includes("seller")) return null;
+  if ((path === "/staff" || path.startsWith("/staff/")) && !roles.some((role) => ["staff", "supportstaff", "admin"].includes(role))) return null;
+  if ((path === "/admin" || path.startsWith("/admin/")) && !roles.includes("admin")) return null;
+  return value;
+}
+
 export function LoginScreen() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -46,7 +57,7 @@ export function LoginScreen() {
     try {
       const response = await authService.login({ identifier, password });
       setAuthenticatedUser(response.user);
-      router.replace(landingPath(response.user));
+      router.replace(safeReturnPath(searchParams.get("returnTo"), response.user) ?? landingPath(response.user));
     } catch (reason) {
       setError(reason instanceof ApiError && reason.status === 423 ? "Tài khoản tạm khóa do đăng nhập sai nhiều lần. Vui lòng thử lại sau." : reason instanceof Error ? reason.message : "Không thể đăng nhập.");
     } finally {

@@ -15,7 +15,7 @@ import { fulfillmentService } from "@/features/fulfillment";
 import { loadSafeRegistrationDraft, sellerService } from "./services/seller.service";
 import { SellerShopAddressFields } from "./components/SellerShopAddressFields";
 import { ghnPresets } from "./ghn-presets";
-import { sellerCatalogService, type InventoryBalance, type ProductVariant, type SellerProductDetail } from "./services/catalog.service";
+import { isSellerWarehouse, sellerCatalogService, type InventoryBalance, type ProductVariant, type SellerProductDetail } from "./services/catalog.service";
 import { sellerOrdersService } from "./services/seller-orders.service";
 import { SellerBuyerReview } from "./SellerBuyerReview";
 import { MAX_INVENTORY_QUANTITY } from "./services/inventory-quantity";
@@ -1160,7 +1160,7 @@ export function SellerInventoryScreen() {
     : (filteredRows[0]?.variant.variantId ?? allVariantRows[0]?.variant.variantId ?? "");
   const activeRow = allVariantRows.find((row) => row.variant.variantId === activeSkuId) ?? null;
   const selectedBalance = activeSkuId ? resolveSellerWarehouseBalance(activeSkuId) : undefined;
-  const isOwnWarehouse = Boolean(personalWarehouse?.id);
+  const isOwnWarehouse = Boolean(personalWarehouse?.id && isSellerWarehouse(personalWarehouse, user?.id));
   const currentTotalQuantity = selectedBalance?.totalQuantity ?? 0;
   const intakeQuantityNumber = Number(intakeQuantity);
   const projectedTotal =
@@ -1281,6 +1281,7 @@ export function SellerInventoryScreen() {
   }
 
   async function submitIntake() {
+    if (intakeBusy) return;
     const quantity = Number(intakeQuantity);
     setIntakeError("");
     setIntakeSuccess("");
@@ -1299,29 +1300,20 @@ export function SellerInventoryScreen() {
     setIntakeBusy(true);
     try {
       const noteText = intakeNote.trim() || "Seller nhập thêm hàng vào kho riêng";
-      if (!selectedBalance || selectedBalance.warehouseId !== activeWarehouseId) {
-        await sellerCatalogService.declareInventory({
-          skuId: activeSkuId,
-          warehouseId: activeWarehouseId,
-          quantity,
-          note: noteText,
-        });
-      } else {
-        await sellerCatalogService.adjustInventory({
-          skuId: activeSkuId,
-          warehouseId: activeWarehouseId,
-          type: "Intake",
-          quantity,
-          note: noteText,
-        });
-      }
+      await sellerCatalogService.adjustInventory({
+        skuId: activeSkuId,
+        warehouseId: activeWarehouseId,
+        type: "Intake",
+        quantity,
+        note: noteText,
+      });
       setIntakeSuccess(`Đã nhập thêm ${quantity.toLocaleString("vi-VN")} sản phẩm vào ${warehouseDisplayLabel}.`);
       setIntakeQuantity("");
       setIntakeNote("");
       setIntakeModalOpen(false);
       batchBalances.reload();
     } catch (cause) {
-      setIntakeError(cause instanceof Error ? cause.message : "Không nhập thêm được hàng. Vui lòng thử lại.");
+      setIntakeError(`${cause instanceof Error ? cause.message : "Không nhập thêm được hàng."} Hãy kiểm tra tồn kho trước khi gửi lại.`);
       batchBalances.reload();
     } finally {
       setIntakeBusy(false);
