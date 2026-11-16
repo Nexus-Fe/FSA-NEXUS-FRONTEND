@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import Link from "next/link";
 import Image from "next/image";
 import {
   AdminPagination,
@@ -27,21 +28,24 @@ const statuses = [
   { value: "Draft", label: "Bản nháp" },
 ];
 
-function statusLabel(status: string): string {
+function statusLabel(status: string, statusReason?: string | null): string {
   const val = status?.toUpperCase();
+  const reason = statusReason?.toUpperCase();
   if (val === "PENDINGAPPROVAL" || val === "PENDING_APPROVAL") return "Chờ duyệt";
   if (val === "ACTIVE") return "Đang hoạt động";
-  if (val === "REJECTED") return "Bị từ chối";
-  if (val === "SUSPENDED") return "Bị đình chỉ";
+  if (val === "REJECTED" || (val === "DRAFT" && reason === "REJECTED")) return "Bị từ chối";
+  if (val === "SUSPENDED" || (val === "INACTIVE" && reason === "ADMINLOCKED")) return "Bị đình chỉ";
+  if (val === "INACTIVE") return "Tạm ngưng";
   if (val === "DRAFT") return "Bản nháp";
   return status || "—";
 }
 
-function statusTone(status: string): "sky" | "green" | "amber" | "slate" | "red" {
+function statusTone(status: string, statusReason?: string | null): "sky" | "green" | "amber" | "slate" | "red" {
   const val = status?.toUpperCase();
+  const reason = statusReason?.toUpperCase();
   if (val === "ACTIVE") return "green";
   if (val === "PENDINGAPPROVAL" || val === "PENDING_APPROVAL") return "amber";
-  if (val === "REJECTED" || val === "SUSPENDED") return "red";
+  if (val === "REJECTED" || val === "SUSPENDED" || (val === "DRAFT" && reason === "REJECTED") || (val === "INACTIVE" && reason === "ADMINLOCKED")) return "red";
   return "slate";
 }
 
@@ -89,10 +93,10 @@ export function StaffProductModerationScreen() {
   function openModerate(product: AdminProductItem) {
     setSelectedProduct(product);
     const upper = product.status?.toUpperCase();
-    if (upper === "SUSPENDED") {
+    if (upper === "SUSPENDED" || (upper === "INACTIVE" && product.statusReason?.toUpperCase() === "ADMINLOCKED")) {
       setAction("UNLOCK");
     } else if (upper === "ACTIVE") {
-      setAction("SUSPENDED" as unknown as "SUSPEND");
+      setAction("SUSPEND");
     } else {
       setAction("APPROVE");
     }
@@ -142,6 +146,7 @@ export function StaffProductModerationScreen() {
         overline="Nghiệp vụ Staff"
         title="Duyệt sản phẩm đăng bán"
         description="Duyệt sản phẩm mới đăng tải, từ chối hoặc tạm đình chỉ các sản phẩm vi phạm quy định sàn."
+        action={<Link className="button button-secondary" href="/staff/product-reports">Báo cáo sản phẩm</Link>}
       />
 
       {/* Filter bar */}
@@ -279,7 +284,7 @@ export function StaffProductModerationScreen() {
                         : "—"}
                     </td>
                     <td style={{ padding: "12px 10px" }}>
-                      <Badge tone={statusTone(p.status)}>{statusLabel(p.status)}</Badge>
+                      <Badge tone={statusTone(p.status, p.statusReason)}>{statusLabel(p.status, p.statusReason)}</Badge>
                       {p.statusReason && (
                         <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2, wordBreak: "break-word" }}>{p.statusReason}</div>
                       )}
@@ -356,8 +361,8 @@ export function StaffProductModerationScreen() {
               </div>
               <div className="info-row">
                 <span>Trạng thái hiện tại</span>
-                <Badge tone={statusTone(selectedProduct.status)}>
-                  {statusLabel(selectedProduct.status)}
+                <Badge tone={statusTone(selectedProduct.status, selectedProduct.statusReason)}>
+                  {statusLabel(selectedProduct.status, selectedProduct.statusReason)}
                 </Badge>
               </div>
             </div>

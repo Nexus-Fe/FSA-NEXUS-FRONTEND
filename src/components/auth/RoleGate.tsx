@@ -42,7 +42,8 @@ const roles = user?.roles?.length ? user.roles : (user?.role ? [user.role] : [])
       <main className="access-state">
         <h1>Đăng nhập để tiếp tục</h1>
         <p>Khu vực này yêu cầu tài khoản Nexus có quyền phù hợp.</p>
-        <Link className="button button-primary" href="/login">Đăng nhập</Link>
+        <Link className="button button-primary" href={ROUTES.auth.login}
+          onClick={(event) => { event.preventDefault(); router.push(`${ROUTES.auth.login}?returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`); }}>Đăng nhập</Link>
       </main>
     );
   }

@@ -1,11 +1,10 @@
-import { api, ApiError, unwrap, type ApiResponse } from "@/lib/api/client";
-import type { AuctionDetail, AuctionResult, AuctionSaga, AuctionStatus, AuctionSummary, BidItem, BidRequest, CreateAuctionRequest, MyBidItem, PagedData, PlaceBidResponse, UpdateAuctionRequest, WinnerOffer } from "../types";
+import { api, unwrap, type ApiResponse } from "@/lib/api/client";
+import type { AuctionDetail, AuctionResult, AuctionSaga, AuctionStatus, AuctionSummary, BidItem, BidRequest, CreateAuctionRequest, DepositRequirement, MyAuctionDeposit, MyBidItem, MySecondChanceOffer, PagedData, PlaceBidResponse, UpdateAuctionRequest, WinnerOffer } from "../types";
 import { parseAuctionList } from "../contract";
 
 const idPath = (id: string) => encodeURIComponent(id);
 const envelope = <T>(data: T): ApiResponse<T> => ({ success: true, statusCode: 200, data });
 const query = (page: number, pageSize: number, status?: AuctionStatus | "ALL") => `?page=${page}&pageSize=${pageSize}${status && status !== "ALL" ? `&status=${status}` : ""}`;
-type Settlement = { sellerId: string; orderId: string | null; paymentDeadlineAt: string | null; paidAt: string | null };
 export type AuctionSettlementRow = { auctionId: string; productTitle: string; finalPriceAmount: number | null; settlementStatus: string; status: string; winnerId: string | null; orderId: string | null; paymentDeadlineAt: string | null; paidAt: string | null; determinedAt: string };
 
 async function auctionList(path: string, signal?: AbortSignal): Promise<ApiResponse<PagedData<AuctionSummary>>> {
@@ -41,16 +40,16 @@ export const auctionService = {
     if (determinedFrom) params.set("determinedFrom", new Date(`${determinedFrom}T00:00:00`).toISOString());
     return unwrap(await api.get<ApiResponse<PagedData<AuctionSettlementRow>> | PagedData<AuctionSettlementRow>>(`/api/v1/auction-settlements?${params}`, { signal }));
   },
-  acceptOffer: (id: string, offerId: string) => api.post(`/api/v1/auctions/${idPath(id)}/winner-offers/${idPath(offerId)}/accept`),
-  declineOffer: (id: string, offerId: string, reason?: string) => api.post(`/api/v1/auctions/${idPath(id)}/winner-offers/${idPath(offerId)}/decline`, { reason }),
+  depositRequirement: async (id: string, signal?: AbortSignal): Promise<DepositRequirement> => unwrap(await api.get<ApiResponse<DepositRequirement> | DepositRequirement>(`/api/v1/auctions/${idPath(id)}/deposit-requirement`, { signal })),
+  myDeposit: async (id: string, signal?: AbortSignal): Promise<MyAuctionDeposit> => unwrap(await api.get<ApiResponse<MyAuctionDeposit> | MyAuctionDeposit>(`/api/v1/auctions/${idPath(id)}/deposits/me`, { signal })),
+  createDeposit: async (id: string, acceptedPolicyVersion: number, acceptedDepositAmount: number, key: string) => unwrap(await api.post(`/api/v1/auctions/${idPath(id)}/deposits`, { acceptedPolicyVersion, acceptedDepositAmount }, { headers: { "Idempotency-Key": key } })),
+  mySecondChance: async (id: string, signal?: AbortSignal): Promise<MySecondChanceOffer> => unwrap(await api.get<ApiResponse<MySecondChanceOffer> | MySecondChanceOffer>(`/api/v1/auctions/${idPath(id)}/second-chance/me`, { signal })),
+  acceptOffer: (id: string, acceptedPrice: number, key: string) => api.post(`/api/v1/auctions/${idPath(id)}/second-chance/accept`, { acceptedPrice }, { headers: { "Idempotency-Key": key } }),
+  declineOffer: (id: string, key: string) => api.post(`/api/v1/auctions/${idPath(id)}/second-chance/decline`, {}, { headers: { "Idempotency-Key": key } }),
   result: async (id: string, signal?: AbortSignal): Promise<ApiResponse<AuctionResult>> => {
-    const result = unwrap(await api.get<ApiResponse<Pick<AuctionResult, "auctionId" | "status" | "winnerId" | "winningBidId" | "finalPriceAmount" | "determinedAt">> | Pick<AuctionResult, "auctionId" | "status" | "winnerId" | "winningBidId" | "finalPriceAmount" | "determinedAt">>(`/api/v1/auctions/${idPath(id)}/result`, { signal }));
-    let settlement: Settlement | null = null;
-    if (result.winnerId) {
-      try { settlement = unwrap(await api.get<ApiResponse<Settlement> | Settlement>(`/api/v1/auctions/${idPath(id)}/settlement`, { signal })); }
-      catch (cause) { if (!(cause instanceof ApiError && cause.status === 404)) throw cause; }
-    }
-    return envelope({ ...result, hasWinner: Boolean(result.winnerId), winnerDisplayName: null, sellerId: settlement?.sellerId ?? "", orderId: settlement?.orderId ?? null, paymentDeadlineAt: settlement?.paymentDeadlineAt ?? null, paidAt: settlement?.paidAt ?? null });
+    const result = unwrap(await api.get<ApiResponse<AuctionResult> | AuctionResult>(`/api/v1/auctions/${idPath(id)}/result`, { signal }));
+    const hasWinner = ["AWAITING_WINNER_PAYMENT", "SECOND_CHANCE_OFFERED", "AWAITING_RUNNER_UP_PAYMENT", "WINNER_PAID_AWAITING_SELLER", "SETTLED"].includes(result.phase);
+    return envelope({ ...result, hasWinner, winnerDisplayName: result.winner?.displayName ?? null, orderId: result.settlement?.orderId ?? null, paymentDeadlineAt: result.settlement?.paymentDeadlineAt ?? null, paidAt: null });
   },
   create: async (body: CreateAuctionRequest) => envelope(unwrap(await api.post<ApiResponse<{ auctionId: string }> | { auctionId: string }>("/api/v1/auctions", body))),
   update: async (id: string, body: UpdateAuctionRequest) => envelope(unwrap(await api.put<ApiResponse<{ auctionId: string }> | { auctionId: string }>(`/api/v1/auctions/${idPath(id)}`, body))),

@@ -23,6 +23,9 @@ export const ROUTES = {
     notifications: "/buyer/notifications",
     wallet: "/buyer/wallet",
     topUp: "/buyer/wallet/top-up",
+    topUpResult: "/buyer/wallet/top-up/result",
+    topUps: "/buyer/wallet/top-ups",
+    topUpDetail: (id: string) => "/buyer/wallet/top-ups/" + encodeURIComponent(id),
     reports: "/buyer/reports",
   },
   seller: {
@@ -36,6 +39,7 @@ export const ROUTES = {
     shop: "/seller/shop",
     notifications: "/seller/notifications",
     newProduct: "/seller/products/new",
+    newAuctionProduct: "/seller/products/auction/new",
     inventory: "/seller/inventory",
     orders: "/seller/orders",
     order: (id: string) => "/seller/orders/" + encodeURIComponent(id),

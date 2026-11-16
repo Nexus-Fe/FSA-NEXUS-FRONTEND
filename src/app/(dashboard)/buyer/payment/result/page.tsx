@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { ROUTES } from "@/constants/routes";
 import { api, type ApiResponse } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
+import { WalletTopUpReturn } from "@/features/wallet/WalletTopUpFlow";
 
 type PaymentOrder = { id: string; status: string; totalAmount: number; paymentDeadlineAt: string };
 
@@ -16,9 +17,10 @@ function PaymentResultContent() {
     return "data" in response ? response.data : response;
   });
   const status = (order.data?.status ?? "").replace(/[^a-z]/gi, "").toUpperCase();
+  if (!orderId) return <WalletTopUpReturn />;
   return <main className="card card-pad">
     <h1>Kết quả thanh toán</h1>
-    {!orderId ? <p>Thiếu mã đơn hàng để tra cứu.</p> : order.loading ? <p>Đang kiểm tra trạng thái đơn hàng…</p> : order.error ? <p role="alert">{order.error.message}</p> : status === "PAID" ? <p>Backend đã xác nhận thanh toán cho đơn {orderId}.</p> : <p>Backend chưa xác nhận thanh toán đơn. Trạng thái hiện tại: {order.data?.status ?? "Chưa rõ"}. Trang quay về từ cổng thanh toán không tự xác nhận đơn đã trả tiền.</p>}
+    {order.loading ? <p>Đang kiểm tra trạng thái đơn hàng…</p> : order.error ? <p role="alert">{order.error.message}</p> : status === "PAID" ? <p>Backend đã xác nhận thanh toán cho đơn {orderId}.</p> : <p>Backend chưa xác nhận thanh toán đơn. Trạng thái hiện tại: {order.data?.status ?? "Chưa rõ"}. Trang quay về từ cổng thanh toán không tự xác nhận đơn đã trả tiền.</p>}
     {orderId && <button className="button button-secondary" type="button" disabled={order.loading} onClick={() => order.reload()}>Kiểm tra lại trạng thái</button>}
     {orderId && <Link href={ROUTES.buyer.order(orderId)}>Xem chi tiết đơn hàng</Link>}
   </main>;

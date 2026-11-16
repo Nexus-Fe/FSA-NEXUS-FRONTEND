@@ -47,6 +47,7 @@ export type ProductVariant = {
   status: string;
   isActive: boolean;
   hasOrder?: boolean;
+  weightGrams?: number | null;
   attributes: Array<{ attrName: string; attrValue: string }>;
 };
 
@@ -61,6 +62,7 @@ export type ProductImage = {
 
 export type SellerProductDetail = SellerProduct & {
   description?: string | null;
+  weightGrams?: number | null;
   specifications?: ProductSpecification[] | null;
   images: ProductImage[];
   variants: ProductVariant[];
@@ -96,7 +98,7 @@ export type WarehouseInfo = {
 
 export function isPlatformWarehouse(warehouse: WarehouseInfo): boolean {
   const type = String(warehouse.type ?? "").toLowerCase();
-  return type === "platformwarehouse" || type === "1" || warehouse.code?.toUpperCase() === "WH-CENTRAL-01";
+  return !warehouse.sellerId || type === "platformwarehouse" || type === "1" || ["WH-CENTRAL-01", "WH-DEFAULT-01"].includes(warehouse.code?.toUpperCase() ?? "");
 }
 
 export function isSellerWarehouse(warehouse: WarehouseInfo, sellerId?: string): boolean {
@@ -118,9 +120,8 @@ export type NewVariant = {
   name: string;
   price: number;
   currency: string;
-  quantity: number;
+  weightGrams?: number | null;
   isActive?: boolean;
-  warehouseId?: string | null;
   attributes: Array<{ attrName: string; attrValue: string }>;
 };
 
@@ -246,6 +247,7 @@ export const sellerCatalogService = {
     name: string;
     description?: string;
     brand?: string;
+    weightGrams: number;
     specifications?: ProductSpecification[] | null;
     variants: NewVariant[];
   }): Promise<CreatedProductResponse> {
@@ -265,6 +267,7 @@ export const sellerCatalogService = {
       description: string;
       brand: string;
       categoryId: string;
+      weightGrams?: number;
       specifications?: ProductSpecification[] | null;
     },
   ) {
@@ -288,6 +291,7 @@ export const sellerCatalogService = {
       name: string;
       price: number;
       currency?: string;
+      weightGrams?: number | null;
       attributes?: Array<{ attrName: string; attrValue: string }>;
     },
   ) {
@@ -344,9 +348,12 @@ export const sellerCatalogService = {
     );
   },
 
-  async changeStatus(id: string, status: "ACTIVE" | "INACTIVE" | "DRAFT", statusReason?: string) {
+  async changeStatus(id: string, status: "ACTIVE" | "INACTIVE" | "DRAFT" | "PENDING_APPROVAL", statusReason?: string) {
+    // Catalog currently parses the C# enum with Enum.TryParse, which accepts
+    // PendingApproval but not the documented underscore spelling.
+    const apiStatus = status === "PENDING_APPROVAL" ? "PendingApproval" : status;
     await api.patch(`/api/v1/products/${encodeURIComponent(id)}/status`, {
-      status,
+      status: apiStatus,
       ...(statusReason ? { statusReason } : {}),
     });
   },
@@ -383,7 +390,7 @@ export const sellerCatalogService = {
   }) {
     return unwrap(
       await api.post<ApiResponse<InventoryAdjustmentResponse> | InventoryAdjustmentResponse>(
-        "/api/v1/inventories",
+        "/api/v1/inventories/initialize",
         {
           skuId: input.skuId,
           ...(input.warehouseId ? { warehouseId: input.warehouseId } : {}),
@@ -421,18 +428,13 @@ export const sellerCatalogService = {
 
     // 1. Primary: GET /api/v1/warehouses/me
     try {
-      const query = new URLSearchParams();
-      if (options?.sellerId) query.set("sellerId", options.sellerId);
-      if (options?.shopName) query.set("shopName", options.shopName);
-      if (options?.pickupAddress) query.set("address", options.pickupAddress);
-      const qs = query.toString();
       const meResult = unwrap(
         await api.get<ApiResponse<WarehouseInfo> | WarehouseInfo>(
-          `/api/v1/warehouses/me${qs ? `?${qs}` : ""}`,
+          "/api/v1/warehouses/me",
           { signal },
         ),
       );
-      if (meResult?.id && !isPlatformWarehouse(meResult)) {
+      if (meResult?.id && isSellerWarehouse(meResult, userId)) {
         return [{ ...meResult, type: "SellerWarehouse" }];
       }
     } catch {
@@ -450,7 +452,7 @@ export const sellerCatalogService = {
         );
         const warehouses = Array.isArray(result) ? result : result ? [result] : [];
         const personal = warehouses
-          .filter((warehouse) => warehouse?.id && !isPlatformWarehouse(warehouse))
+          .filter((warehouse) => warehouse?.id && isSellerWarehouse(warehouse, userId))
           .slice(0, 1)
           .map((warehouse) => ({ ...warehouse, type: "SellerWarehouse" }));
         if (personal.length > 0) return personal;

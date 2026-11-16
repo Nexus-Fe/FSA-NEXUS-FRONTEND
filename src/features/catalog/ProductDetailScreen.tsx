@@ -12,6 +12,7 @@ import { ApiError, api, unwrap, type ApiResponse } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatMoney, resolveImageUrl } from "@/lib/presentation";
 import type { ProductSpecification } from "./types/product-specification";
+import { ProductFeedback } from "./ProductFeedback";
 
 type ProductImage = {
   url: string;
@@ -356,6 +357,7 @@ export function ProductDetailScreen() {
     </div>
 
     <div className="product-detail-content">
+      <ProductFeedback productId={product.productId} canReport={Boolean(user && (user.roles?.some((role) => /^(buyer|seller)$/i.test(role)) || /^(buyer|seller)$/i.test(user.role ?? "")))} />
       <section className="product-detail-section" aria-labelledby="product-description-title">
         <SectionHeading id="product-description-title" title="Mô tả sản phẩm" />
         <Card className="card-pad"><p className="product-detail-copy">{product.description?.trim() || "Người bán chưa cung cấp mô tả sản phẩm."}</p></Card>
