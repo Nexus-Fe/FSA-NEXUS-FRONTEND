@@ -2,7 +2,7 @@ import { api, unwrap, type ApiResponse } from "@/lib/api/client";
 
 export type AuctionOrderDetail = {
   id: string; orderNo: string; auctionId: string; productName: string;
-  winningAmount: number; shippingFeeAmount: number | null; totalAmount: number | null;
+  winningAmount: number; depositAmount: number; shippingFeeAmount: number | null; totalAmount: number | null;
   status: string; paymentDeadlineAt: string; sellerRespondDeadlineAt: string | null;
   paidAt: string | null; shippedAt: string | null; deliveredAt: string | null;
 };

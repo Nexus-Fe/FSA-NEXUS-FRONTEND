@@ -89,6 +89,7 @@ export function WalletScreen() {
     (signal) => walletService.getTransactions(signal).then((response) => response.items),
   );
   const topups = useApiResource("buyer-pending-topups", (signal) => walletService.topups(1, 10, signal));
+  const holds = useApiResource("buyer-auction-holds", (signal) => walletService.getHolds(signal));
   const pendingTopups = topups.data?.items.filter((item) => item.status.toUpperCase() === "PENDING") ?? [];
   const isReady = balance.data?.status?.toUpperCase() === "ACTIVE";
 
@@ -109,6 +110,7 @@ export function WalletScreen() {
           ) : balance.data ? (
             <>
               <strong>{formatMoney(balance.data.balance)}</strong>
+              <p className="status-note">Đang giữ cọc: <strong>{formatMoney(balance.data.lockedBalance)}</strong> · Có thể dùng: <strong>{formatMoney(balance.data.availableBalance)}</strong></p>
               <p className="status-note">
                 Ví {isReady ? "đã sẵn sàng" : `đang ở trạng thái ${balance.data.status}`}
                 {" · mã "}{balance.data.walletId}
@@ -118,6 +120,10 @@ export function WalletScreen() {
             !balance.error && <NoData title="Chưa xác nhận được ví" />
           )}
         </div>
+      </Card>
+
+      <Card className="card-pad wallet-pending-topups"><div className="section-heading"><div><h2>Cọc đấu giá đang giữ</h2><p>Khoản này chưa bị trừ khỏi ví nhưng không thể dùng để thanh toán hoặc rút.</p></div></div>
+        {holds.error ? <p className="notice" role="alert">Không tải được danh sách cọc. <button className="button button-secondary" onClick={holds.reload}>Thử lại</button></p> : holds.loading ? <p>Đang tải tiền cọc…</p> : holds.data?.items.length ? <ul className="wallet-pending-list">{holds.data.items.map((hold) => <li key={hold.holdId}><span>Phiên {hold.auctionId}</span><strong>{formatMoney(hold.amount)}</strong><Badge tone="amber">Đang giữ</Badge></li>)}</ul> : <p>Không có khoản cọc đang giữ.</p>}
       </Card>
 
       <Card className="card-pad wallet-pending-topups"><div className="section-heading"><div><h2>Lượt nạp đang chờ</h2><p>Thanh toán hoặc webhook có thể vẫn đang được xử lý.</p></div><Link href={ROUTES.buyer.topUps}>Xem tất cả lượt nạp</Link></div>

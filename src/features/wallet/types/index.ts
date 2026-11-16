@@ -23,6 +23,21 @@ export type WalletTransactionPage = {
   items: WalletTransaction[];
 };
 
+export type WalletHold = {
+  holdId: string;
+  auctionId: string;
+  amount: number;
+  status: string;
+  createdAt: string;
+};
+
+export type WalletHoldPage = {
+  items: WalletHold[];
+  pageIndex: number;
+  pageSize: number;
+  totalCount: number;
+};
+
 export type DepositRequest = {
   amount: number;
 };

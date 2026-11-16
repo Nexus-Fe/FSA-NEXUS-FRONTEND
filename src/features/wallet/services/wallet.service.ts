@@ -1,5 +1,5 @@
 import { api, unwrap, type ApiResponse } from "@/lib/api/client";
-import type { DepositRequest, ResumeTopupResponse, TopupPage, TopupResponse, TopupStatus, WalletBalance, WalletTransactionPage, WithdrawalRequest, WithdrawalResponse } from "../types";
+import type { DepositRequest, ResumeTopupResponse, TopupPage, TopupResponse, TopupStatus, WalletBalance, WalletHoldPage, WalletTransactionPage, WithdrawalRequest, WithdrawalResponse } from "../types";
 
 export const walletService = {
   async getBalance(signal?: AbortSignal): Promise<WalletBalance> {
@@ -9,6 +9,9 @@ export const walletService = {
   async getTransactions(signal?: AbortSignal): Promise<WalletTransactionPage> {
     const response = await api.get<ApiResponse<WalletTransactionPage> | WalletTransactionPage>("/api/v1/wallets/transactions?page=1&pageSize=10", { signal });
     return "data" in response ? response.data : response;
+  },
+  async getHolds(signal?: AbortSignal): Promise<WalletHoldPage> {
+    return unwrap(await api.get<ApiResponse<WalletHoldPage> | WalletHoldPage>("/api/v1/wallets/me/holds?status=Held&page=1&pageSize=50", { signal }));
   },
   deposit: async (input: DepositRequest, idempotencyKey: string): Promise<TopupResponse> =>
     unwrap(await api.post<ApiResponse<TopupResponse> | TopupResponse>("/api/v1/wallets/topups/stripe", input, { headers: { "Idempotency-Key": idempotencyKey } })),

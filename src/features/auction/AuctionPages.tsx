@@ -16,6 +16,8 @@ import { AuctionBidLeaderboard } from "./AuctionBidLeaderboard";
 import { AuctionUnavailableState } from "./AuctionUnavailableState";
 import { BuyerAuctionOffers } from "./BuyerAuctionOffers";
 import { AuctionResultExtras } from "./AuctionResultExtras";
+import { AuctionDepositPanel } from "./AuctionDepositPanel";
+import { describeOutcome } from "./auction-outcome";
 import { auctionService } from "./services/auction.service";
 import { normalizeAuctionStatus, statusLabel, auctionStatusTone } from "./contract";
 import type { AuctionStatus, AuctionSummary, Pagination, PlaceBidResponse } from "./types";
@@ -101,7 +103,7 @@ export function AuctionRoomScreen() {
     {detail.error && <div className="notice" role="alert"><p>{message(detail.error)}</p><button className="button button-secondary button-small" type="button" onClick={refreshAuction}>Tải lại phiên</button></div>}
     {error && <p className="notice" role="alert">{error}</p>}{success && <p className="form-success" role="status">{success}</p>}
     {detail.loading && !auction ? <NoData title="Đang tải phiên đấu giá…" /> : auction ? <>
-      {active && canBid && <Card className="card-pad"><h2>Điều kiện đặt cọc</h2>{requirement.data && <p>Số tiền cần giữ: <strong>{formatMoney(requirement.data.depositAmount)}</strong> ({requirement.data.ratePercent}%).</p>}{deposit.data && <p>Trạng thái: {deposit.data.status}. {deposit.data.blockReason ?? ""}</p>}{(requirement.error || deposit.error) && <p className="notice" role="alert">Không kiểm tra được điều kiện cọc. Hãy thử tải lại phiên.</p>}{deposit.data?.canBid !== true && <p role="status">Đặt cọc đang chờ WalletService hỗ trợ giữ tiền. Bạn chưa thể đặt giá trong phiên này.</p>}</Card>}
+      {active && canBid && user && auction.sellerId !== user.id && <AuctionDepositPanel auctionId={id} userId={user.id} requirement={requirement.data ?? null} deposit={deposit.data ?? null} loading={requirement.loading || deposit.loading} error={requirement.error ?? deposit.error} reload={() => { requirement.reload(); deposit.reload(); }} />}
       <div className="auction-room-grid">
         <div className="auction-room-main">
           <Card className="card-pad">
@@ -164,7 +166,45 @@ export function MyAuctionsScreen() {
   </div>;
 }
 
-export function BuyerAuctionResultScreen({ payment = false }: { payment?: boolean }) { const id = useAuctionId(); const { user } = useSession(); const now = useClock(); const resource = useApiResource(isAuctionId(id) ? `result:${id}` : null, (signal) => auctionService.result(id, signal).then((response) => response.data)); const result = resource.data; const won = Boolean(result?.hasWinner && result.winnerId === user?.id); const deadlinePassed = Boolean(now && result?.paymentDeadlineAt && new Date(result.paymentDeadlineAt).getTime() < now); return <div className="auction-surface"><PageHeading title={payment ? "Thanh toán đơn đấu giá" : "Kết quả đấu giá"} description={`Phiên ${id}`} action={<button type="button" className="button button-secondary button-small" onClick={resource.reload} disabled={resource.loading}>Kiểm tra lại</button>} />{resource.error && <p role="alert" className="notice">{message(resource.error)}</p>}{resource.loading && !result ? <NoData title="Đang tải kết quả…" /> : result ? <div className="split"><Card className="card-pad"><Badge tone={won ? "green" : "slate"}>{statusLabel(result.status)}</Badge><h2>{result.hasWinner ? won ? "Bạn đã thắng phiên này" : "Phiên đã có người thắng" : "Phiên chưa có người thắng"}</h2><div className="info-row"><span>Giá cuối</span><strong>{formatMoney(result.finalPriceAmount)}</strong></div><div className="info-row"><span>Thời điểm xác định</span><strong>{dateText(result.determinedAt)}</strong></div>{result.paymentDeadlineAt && <div className="info-row"><span>Hạn thanh toán</span><strong>{dateText(result.paymentDeadlineAt)}</strong></div>}{won && deadlinePassed && result.phase === "AWAITING_WINNER_PAYMENT" && <p role="status">Đã quá hạn thanh toán. Vui lòng xem trạng thái đơn hàng.</p>}<AuctionResultExtras result={result} /></Card><Card className="card-pad"><h2>Bước tiếp theo</h2>{won && result.orderId ? <><p>Đơn hàng thắng đấu giá đã được tạo. Kiểm tra số tiền, trạng thái và phương thức thanh toán trong chi tiết đơn hàng.</p>{payment && <><div className="info-row"><span>Thời hạn</span><strong>{deadlinePassed ? "Đã quá hạn" : result.paymentDeadlineAt ? <Countdown end={result.paymentDeadlineAt} /> : "Đang chờ cập nhật"}</strong></div><p>Thanh toán trước hạn hiển thị ở trên. Tổng tiền lấy từ đơn đấu giá. Nhập địa chỉ nhận hàng trước khi thanh toán bằng Ví Nexus.</p><AuctionOrderPayment orderId={result.orderId} deadlinePassed={deadlinePassed} /><ButtonLink href={ROUTES.buyer.wallet} variant="secondary">Kiểm tra Ví Nexus</ButtonLink></>}{!payment && <ButtonLink href={ROUTES.buyer.auctionPayment(id)} variant="secondary">Thông tin thanh toán</ButtonLink>}</> : <p>{won ? "Đơn hàng thắng đấu giá đang được tạo. Vui lòng tải lại kết quả sau." : result.hasWinner ? payment ? "Chỉ người thắng có thể thanh toán phiên này." : "Bạn không thắng phiên này. Xem các phiên khác để tiếp tục tham gia." : "Kết quả sẽ được cập nhật sau khi phiên kết thúc."}</p>}<div className="action-row"><ButtonLink href={ROUTES.buyer.auctions} variant="secondary">Đấu giá của tôi</ButtonLink></div></Card></div> : <NoData title="Chưa có kết quả phiên đấu giá" />}</div>; }
+export function BuyerAuctionResultScreen({ payment = false }: { payment?: boolean }) {
+  const id = useAuctionId();
+  const { user } = useSession();
+  const now = useClock();
+  const resource = useApiResource(isAuctionId(id) ? `result:${id}` : null, (signal) => auctionService.result(id, signal).then((response) => response.data));
+  const result = resource.data;
+  const outcome = result ? describeOutcome(result, user?.id) : null;
+  const won = Boolean(outcome?.won);
+  const deadlinePassed = Boolean(now && result?.paymentDeadlineAt && new Date(result.paymentDeadlineAt).getTime() < now);
+  return <div className="auction-surface">
+    <PageHeading title={payment ? "Thanh toán đơn đấu giá" : "Kết quả đấu giá"} description={`Phiên ${id}`} action={<button type="button" className="button button-secondary button-small" onClick={resource.reload} disabled={resource.loading}>Kiểm tra lại</button>} />
+    {resource.error && <p role="alert" className="notice">{message(resource.error)}</p>}
+    {resource.loading && !result ? <NoData title="Đang tải kết quả…" /> : result && outcome ? <div className="split">
+      <Card className="card-pad">
+        <Badge tone={won ? "green" : outcome.hasOffer ? "sky" : "slate"}>{statusLabel(result.status)}</Badge>
+        <h2>{outcome.title}</h2>
+        <div className="info-row"><span>Giá cuối</span><strong>{formatMoney(result.finalPriceAmount)}</strong></div>
+        <div className="info-row"><span>Thời điểm xác định</span><strong>{dateText(result.determinedAt)}</strong></div>
+        {won && result.paymentDeadlineAt && <div className="info-row"><span>Hạn thanh toán</span><strong>{dateText(result.paymentDeadlineAt)}</strong></div>}
+        {won && deadlinePassed && ["AWAITING_WINNER_PAYMENT", "AWAITING_RUNNER_UP_PAYMENT"].includes(result.phase) && <p role="status">Đã quá hạn thanh toán. Vui lòng xem trạng thái đơn hàng.</p>}
+        <AuctionResultExtras result={result} showPrivate={won || outcome.hasOffer} won={won} />
+      </Card>
+      <Card className="card-pad">
+        <h2>Bước tiếp theo</h2>
+        {won && result.orderId ? <>
+          <p>Đơn hàng thắng đấu giá đã được tạo. Kiểm tra số tiền, trạng thái và phương thức thanh toán trong chi tiết đơn hàng.</p>
+          {payment && <>
+            <div className="info-row"><span>Thời hạn</span><strong>{deadlinePassed ? "Đã quá hạn" : result.paymentDeadlineAt ? <Countdown end={result.paymentDeadlineAt} /> : "Đang chờ cập nhật"}</strong></div>
+            <p>Thanh toán trước hạn hiển thị ở trên. Tổng tiền lấy từ đơn đấu giá. Nhập địa chỉ nhận hàng trước khi thanh toán bằng Ví Nexus.</p>
+            <AuctionOrderPayment orderId={result.orderId} deadlinePassed={deadlinePassed} />
+            <ButtonLink href={ROUTES.buyer.wallet} variant="secondary">Kiểm tra Ví Nexus</ButtonLink>
+          </>}
+          {!payment && <ButtonLink href={ROUTES.buyer.auctionPayment(id)} variant="secondary">Thông tin thanh toán</ButtonLink>}
+        </> : <p>{won ? "Đơn hàng thắng đấu giá đang được tạo. Vui lòng tải lại kết quả sau." : payment && !outcome.hasOffer ? "Chỉ người đang giữ quyền mua có thể thanh toán phiên này." : outcome.nextStep}</p>}
+        <div className="action-row"><ButtonLink href={ROUTES.buyer.auctions} variant={outcome.hasOffer ? "primary" : "secondary"}>{outcome.hasOffer ? "Phản hồi lời mời" : "Đấu giá của tôi"}</ButtonLink></div>
+      </Card>
+    </div> : <NoData title="Chưa có kết quả phiên đấu giá" />}
+  </div>;
+}
 
 
 

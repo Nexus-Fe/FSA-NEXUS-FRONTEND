@@ -246,6 +246,8 @@ export function SellerProductDetailScreen() {
   }
 
   const defaultStock = defaultVariant ? stockMap.get(defaultVariant.variantId) : undefined;
+  const inventoryPending = data?.variants.filter((variant) => variant.inventoryInitState === "Pending") ?? [];
+  const inventoryBroken = data?.variants.filter((variant) => variant.inventoryInitState === "NeedsAttention") ?? [];
   const canActivate = Boolean(defaultVariant && hasImage);
 
   async function addVariant(event: FormEvent<HTMLFormElement>) {
@@ -601,6 +603,10 @@ export function SellerProductDetailScreen() {
                               <span><strong>{inv.availableQuantity}</strong><small>Khả dụng</small></span>
                               <span><strong>{inv.reservedQuantity}</strong><small>Đang giữ</small></span>
                             </div>
+                          ) : variant.inventoryInitState === "NeedsAttention" ? (
+                            <span className="seller-inventory-init seller-inventory-init-error" role="status">Chưa tạo được kho. Liên hệ hỗ trợ.</span>
+                          ) : variant.inventoryInitState === "Pending" ? (
+                            <span className="seller-inventory-init" role="status">Đang khởi tạo kho…</span>
                           ) : (
                             <span style={{ color: "var(--muted)", fontSize: 12 }}>Đang đồng bộ…</span>
                           )}
@@ -823,7 +829,17 @@ export function SellerProductDetailScreen() {
             {defaultVariant && (
               <p className="seller-product-status-copy">
                 SKU mặc định: <strong>{defaultVariant.skuCode}</strong> · Tồn khả dụng:{" "}
-                <strong>{defaultStock ? `${defaultStock.availableQuantity} sản phẩm` : "Đã khai báo kho"}</strong>
+                <strong>{defaultStock ? `${defaultStock.availableQuantity} sản phẩm` : defaultVariant.inventoryInitState === "Pending" ? "Đang khởi tạo kho" : "Chưa có dữ liệu kho"}</strong>
+              </p>
+            )}
+            {inventoryPending.length > 0 && (
+              <p className="seller-product-status-copy" role="status">
+                Đang tạo kho cho {inventoryPending.length} SKU. Người mua chưa đặt được các SKU này cho tới khi kho sẵn sàng; hệ thống tự thử lại.
+              </p>
+            )}
+            {inventoryBroken.length > 0 && (
+              <p className="notice" role="alert">
+                Chưa tạo được kho cho {inventoryBroken.map((variant) => variant.skuCode).join(", ")} sau nhiều lần thử. Kiểm tra kho của bạn đang hoạt động rồi liên hệ hỗ trợ.
               </p>
             )}
             <div className="seller-product-status-actions">

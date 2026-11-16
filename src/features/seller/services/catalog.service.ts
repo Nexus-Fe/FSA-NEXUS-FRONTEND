@@ -48,6 +48,8 @@ export type ProductVariant = {
   isActive: boolean;
   hasOrder?: boolean;
   weightGrams?: number | null;
+  /** Whether Fulfillment already has this SKU's inventory row. Pending is retried in the background by Catalog. */
+  inventoryInitState?: "NotRequired" | "Pending" | "Done" | "NeedsAttention";
   attributes: Array<{ attrName: string; attrValue: string }>;
 };
 
