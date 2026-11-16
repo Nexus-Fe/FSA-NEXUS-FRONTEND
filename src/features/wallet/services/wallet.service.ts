@@ -1,5 +1,5 @@
 import { api, unwrap, type ApiResponse } from "@/lib/api/client";
-import type { DepositRequest, ResumeTopupResponse, TopupPage, TopupResponse, TopupStatus, WalletBalance, WalletHoldPage, WalletTransactionPage, WithdrawalRequest, WithdrawalResponse } from "../types";
+import type { DepositRequest, ResumeTopupResponse, TopupPage, TopupResponse, TopupStatus, WalletBalance, WalletHoldPage, WalletTransactionPage } from "../types";
 
 export const walletService = {
   async getBalance(signal?: AbortSignal): Promise<WalletBalance> {
@@ -21,8 +21,6 @@ export const walletService = {
     unwrap(await api.get<ApiResponse<TopupPage> | TopupPage>(`/api/v1/wallets/topups?page=${page}&pageSize=${pageSize}`, { signal })),
   resumeTopup: async (id: string): Promise<ResumeTopupResponse> =>
     unwrap(await api.post<ApiResponse<ResumeTopupResponse> | ResumeTopupResponse>(`/api/v1/wallets/topups/${encodeURIComponent(id)}/resume`, {})),
-  withdraw: async (input: WithdrawalRequest): Promise<WithdrawalResponse> =>
-    unwrap(await api.post<ApiResponse<WithdrawalResponse> | WithdrawalResponse>("/api/v1/wallets/withdrawals", input)),
   createDirectCheckout: (input: { orderId: string; amount: number; gateway: "VNPAY"; bankCode?: string; returnUrl: string }) =>
     api.post<ApiResponse<{ transactionId: string; orderId: string; amount: number; paymentUrl: string; status: string }>>("/api/v1/wallets/checkout/direct", input),
 };

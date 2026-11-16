@@ -5,6 +5,7 @@ import { ApiError } from "@/lib/api/client";
 import { auctionOrderService } from "./services/auction-order.service";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatMoney } from "@/lib/presentation";
+import { PartnerReviewCard } from "@/features/reviews/PartnerReviewCard";
 
 export function AuctionOrderSellerActions({ orderId }: { orderId: string }) {
   const order = useApiResource(`seller-auction-order:${orderId}`, (signal) => auctionOrderService.detail(orderId, signal));
@@ -40,6 +41,7 @@ export function AuctionOrderSellerActions({ orderId }: { orderId: string }) {
     {order.loading && !order.data && <p>Đang tải đơn hàng…</p>}
     {order.data && <><div className="info-row"><span>Mã đơn</span><strong>{order.data.orderNo}</strong></div><div className="info-row"><span>Giá trúng</span><strong>{formatMoney(order.data.winningAmount)}</strong></div><div className="info-row"><span>Cọc áp dụng</span><strong>{formatMoney(order.data.depositAmount)}</strong></div><div className="info-row"><span>Phí giao hàng</span><strong>{formatMoney(order.data.shippingFeeAmount)}</strong></div><div className="info-row"><span>Buyer đã trả thêm</span><strong>{formatMoney(order.data.totalAmount)}</strong></div><div className="info-row"><span>Trạng thái</span><strong>{order.data.status}</strong></div>{order.data.sellerRespondDeadlineAt && <div className="info-row"><span>Hạn phản hồi</span><strong>{new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(order.data.sellerRespondDeadlineAt))}</strong></div>}
       {status === "PAID" && <><div className="action-row"><button type="button" className="button button-primary" disabled={busy} onClick={() => void respond(true)}>{busy ? "Đang xử lý…" : "Tiếp nhận đơn"}</button><button type="button" className="button button-secondary" disabled={busy} onClick={() => setRejecting((value) => !value)}>Từ chối đơn</button></div>{rejecting && <div className="auction-reject-form"><label className="field-wrap">Lý do từ chối<input className="field" value={reason} onChange={(event) => setReason(event.target.value)} /></label><button type="button" className="button auction-danger-button" disabled={busy || !reason.trim()} onClick={() => void respond(false)}>Xác nhận từ chối</button></div>}</>}
+      {status === "COMPLETED" && <PartnerReviewCard referenceType="Auction" referenceId={orderId} title="Đánh giá người mua" counterpart="người mua" />}
     </>}
   </section>;
 }

@@ -27,6 +27,7 @@ export const ROUTES = {
     topUps: "/buyer/wallet/top-ups",
     topUpDetail: (id: string) => "/buyer/wallet/top-ups/" + encodeURIComponent(id),
     reports: "/buyer/reports",
+    reputation: "/buyer/reputation",
   },
   seller: {
     auction: (id: string) => "/seller/auctions/" + encodeURIComponent(id),
@@ -45,6 +46,7 @@ export const ROUTES = {
     order: (id: string) => "/seller/orders/" + encodeURIComponent(id),
     wallet: "/seller/wallet",
     withdrawals: "/seller/withdrawals",
+    reviews: "/seller/reviews",
     shipments: "/seller/shipments",
     shipment: (id: string) => "/seller/shipments/" + encodeURIComponent(id),
     auctions: "/seller/auctions",
