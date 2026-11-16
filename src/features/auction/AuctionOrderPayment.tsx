@@ -7,6 +7,7 @@ import { auctionOrderService } from "./services/auction-order.service";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatMoney } from "@/lib/presentation";
 import { PartnerReviewCard } from "@/features/reviews/PartnerReviewCard";
+import { ProductReviewCard } from "@/features/reviews/ProductReviewCard";
 
 type AddressForm = { fullName: string; phoneNumber: string; addressLine: string; provinceName: string; districtName: string; wardName: string; ghnDistrictId: string; ghnWardCode: string };
 const initialAddress: AddressForm = { fullName: "", phoneNumber: "", addressLine: "", provinceName: "", districtName: "", wardName: "", ghnDistrictId: "", ghnWardCode: "" };
@@ -81,6 +82,7 @@ export function AuctionOrderPayment({ orderId, deadlinePassed }: { orderId: stri
       {["SHIPPED", "DELIVERED"].includes(status ?? "") && <div className="auction-receipt"><p>Chỉ xác nhận sau khi bạn thực sự nhận hàng.</p>{confirmReceipt && <p role="alert">Xác nhận sẽ hoàn tất đơn và bắt đầu giải ngân cho người bán.</p>}<button type="button" className="button button-primary" disabled={busy} onClick={() => confirmReceipt ? void receive() : setConfirmReceipt(true)}>{confirmReceipt ? "Xác nhận đã nhận hàng" : "Tôi đã nhận hàng"}</button>{confirmReceipt && <button type="button" className="button button-secondary" onClick={() => setConfirmReceipt(false)}>Quay lại</button>}</div>}
       {deadlinePassed && status === "PENDINGPAYMENT" && <p role="status">Đã quá hạn thanh toán.</p>}
       {status === "COMPLETED" && <PartnerReviewCard referenceType="Auction" referenceId={orderId} title="Đánh giá người bán" counterpart="người bán" />}
+      {status === "COMPLETED" && order.data.productId && <ProductReviewCard productId={order.data.productId} productName={order.data.productName} subOrderId={orderId} />}
     </>}
     {error && <p role="alert" className="notice">{error}</p>}{success && <p role="status" className="form-success">{success}</p>}
   </section>;
