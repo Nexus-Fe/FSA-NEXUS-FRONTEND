@@ -1,0 +1,81 @@
+/**
+ * =========================================================================
+ * BẢNG MÀU TỔNG THỂ TOÀN BỘ WEBSITE NEXUS (NEXUS CENTRAL THEME CONFIG)
+ * =========================================================================
+ * 
+ * Hướng dẫn tùy chỉnh:
+ * - Khi bạn muốn đổi màu sắc của toàn bộ website, chỉ cần chỉnh sửa các mã màu
+ *   dưới đây (hoặc gửi bảng màu mới, hệ thống sẽ cập nhật vào file này).
+ * - Mọi nút bấm, đường dẫn, hiệu ứng hover, thanh tab, huy hiệu (badge), 
+ *   khung đăng nhập, viền focus... sẽ tự động áp dụng màu mới ngay lập tức.
+ */
+
+:root {
+  --font-ui: var(--font-plus-jakarta-sans, "Plus Jakarta Sans"), "Segoe UI", Arial, sans-serif;
+
+  /* =======================================================================
+   * 1. MÀU XANH CHỦ ĐẠO (PRIMARY BLUE NAVY)
+   * Thay đổi mã hex này để thay đổi toàn bộ màu xanh của web.
+   * ======================================================================= */
+  --primary: #192841;
+  /* Màu chính: Nút bấm (Buttons), liên kết, tab active, brand */
+  --primary-hover: #121e31;
+  /* Màu khi di chuột (hover) vào nút bấm hoặc menu */
+  --primary-active: #0d1726;
+  /* Màu khi bấm giữ (active/click) */
+  --primary-soft: #eaf0f6;
+  /* Nền nhạt: Huy hiệu (badge), avatar, card highlight */
+  --primary-border: #bac9dc;
+  /* Viền nhạt màu xanh đồng bộ */
+  --primary-rgb: 25, 40, 65;
+  /* RGB của --primary (dùng cho hiệu ứng đổ bóng shadow, độ mờ) */
+
+  /* =======================================================================
+   * 2. ĐIỂM NHẤN SÁNG TRÊN NỀN TỐI (HERO / AUTH EFFECTS)
+   * Các chi tiết phát sáng và chữ nổi bật ở cột trái trang đăng nhập/đăng ký.
+   * ======================================================================= */
+  --primary-accent: #5275a5;
+  /* Màu phát sáng (glow orb, pill viền, dot) */
+  --primary-accent-light: #7b9cc9;
+  /* Chữ nổi bật và icon trên nền tối */
+  --primary-accent-rgb: 82, 117, 165;
+  --hero-bg-deep: #060b13;
+  /* Nền tối sâu nhất của hiệu ứng gradient */
+
+  /* =======================================================================
+   * 3. TƯƠNG THÍCH VỚI BIẾN CŨ (BACKWARD COMPATIBILITY)
+   * ======================================================================= */
+  --sky: var(--primary);
+  --sky-dark: var(--primary-hover);
+  --sky-soft: var(--primary-soft);
+  --sky-border: var(--primary-border);
+
+  /* =======================================================================
+   * 4. MÀU NỀN & MÀU CHỮ CƠ BẢN (KHÔNG PHẢI MÀU XANH - GIỮ NGUYÊN)
+   * ======================================================================= */
+  --ink: #0f172a;
+  /* Màu chữ đậm chính */
+  --muted: #64748b;
+  /* Màu chữ phụ / xám mờ */
+  --canvas: #f8fafc;
+  /* Nền xám nhạt toàn trang */
+  --surface: #ffffff;
+  /* Nền trắng thẻ card, form, modal */
+  --line: #e2e8f0;
+  /* Đường kẻ chia vạch phân cách */
+
+  /* =======================================================================
+   * 5. MÀU TRẠNG THÁI NGHIỆP VỤ (STATUS COLORS)
+   * ======================================================================= */
+  --red: #dc2626;
+  /* Đỏ: Thông báo lỗi, hủy đơn, xóa */
+  --red-dark: #b91c1c;
+  --red-soft: #fef2f2;
+  --green: #16a34a;
+  /* Xanh lá: Thành công, tiền vào ví, đã giao hàng */
+  --green-soft: #f0fdf4;
+  --amber: #d97706;
+  /* Vàng: Chờ xử lý, cảnh báo */
+  --amber-soft: #fffbeb;
+  --indigo: #4f46e5;
+}

@@ -657,7 +657,7 @@ export function AdminRolesScreen({ embedded = false }: { embedded?: boolean } = 
                         background: isDisabledOption
                           ? "#f8fafc"
                           : isChecked
-                            ? "#f0f9ff"
+                            ? "var(--primary-soft)"
                             : "var(--surface)",
                         opacity: isDisabledOption ? 0.65 : 1,
                         cursor: isDisabledOption ? "not-allowed" : "pointer",
