@@ -174,3 +174,7 @@ export const SellerReviewsScreenClient = dynamic(
   () => import("@/features/reviews/SellerReviewsScreen").then((module) => module.SellerReviewsScreen),
   { ssr: false, loading: ScreenLoading },
 );
+export const SellerCouponsScreenClient = dynamic(
+  () => import("@/features/coupons/SellerCouponsScreen").then((module) => module.SellerCouponsScreen),
+  { ssr: false, loading: ScreenLoading },
+);

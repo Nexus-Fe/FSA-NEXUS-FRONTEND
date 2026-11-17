@@ -690,6 +690,21 @@ h1,h2,h3 { letter-spacing: -.025em; }
 .checkout-summary p { margin:14px 0; color:var(--muted); font-size:12px; line-height:1.55; }
 .checkout-summary .checkout-field-error { color:#b91c1c; }
 .checkout-summary > a { color:var(--sky-dark); font-size:13px; font-weight:700; }
+.checkout-voucher { margin:18px 0; padding:14px; border:1px solid var(--line); border-radius:10px; background:#f8fbff; }
+.coupon-preview-note { margin:16px 0 24px; }
+.checkout-voucher-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:12px; }
+.checkout-voucher-heading h3 { margin:0; font-size:14px; }
+.checkout-voucher-heading span { color:var(--sky-dark); font-size:11px; font-weight:700; }
+.checkout-voucher-entry { display:flex; gap:8px; }
+.checkout-voucher-entry .field { min-width:0; flex:1; }
+.checkout-voucher-entry .button { width:auto; flex:none; }
+.checkout-voucher-saved { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+.checkout-voucher-chip { padding:6px 8px; border:1px dashed #8cb6d0; border-radius:7px; background:#fff; color:var(--sky-dark); font-size:11px; font-weight:700; cursor:pointer; }
+.checkout-voucher-chip.is-selected { border-style:solid; background:#e0f2fe; box-shadow:0 0 0 2px #0284c733; }
+.checkout-voucher-estimate { display:flex; justify-content:space-between; gap:8px; margin-top:12px; font-size:12px; }
+.checkout-voucher-estimate strong { text-align:right; color:var(--sky-dark); }
+.checkout-summary .checkout-voucher-disclaimer,.checkout-summary .checkout-voucher-notice { margin:10px 0 0; font-size:11px; }
+@media(max-width:480px) { .checkout-voucher-entry { flex-wrap:wrap; } .checkout-voucher-entry .button { width:100%; } .checkout-voucher-estimate { flex-direction:column; } .checkout-voucher-estimate strong { text-align:left; } }
 .checkout-required { color:#dc2626; text-decoration:none; font-weight:700; margin-left:2px; }
 .checkout-form .field[aria-invalid="true"], .field[aria-invalid="true"], .select-field[aria-invalid="true"], .textarea-field[aria-invalid="true"] { border-color:#dc2626; background:#fffafa; }
 .checkout-form .field[aria-invalid="true"]:focus, .field[aria-invalid="true"]:focus, .select-field[aria-invalid="true"]:focus, .textarea-field[aria-invalid="true"]:focus { border-color:#dc2626; box-shadow:0 0 0 3px rgba(220, 38, 38, 0.14); outline:none; }

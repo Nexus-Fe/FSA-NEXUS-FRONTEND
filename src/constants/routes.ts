@@ -49,6 +49,7 @@ export const ROUTES = {
     wallet: "/seller/wallet",
     withdrawals: "/seller/withdrawals",
     reviews: "/seller/reviews",
+    coupons: "/seller/coupons",
     shipments: "/seller/shipments",
     shipment: (id: string) => "/seller/shipments/" + encodeURIComponent(id),
     auctions: "/seller/auctions",

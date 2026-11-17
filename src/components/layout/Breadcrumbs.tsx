@@ -13,7 +13,7 @@ const labels: Record<string, string> = {
   "/seller": "Kênh người bán", "/seller/products": "Quản lý sản phẩm", "/seller/products/new": "Tạo sản phẩm",
   "/seller/shop": "Hồ sơ gian hàng", "/seller/notifications": "Thông báo", "/seller/inventory": "Quản lý kho", "/seller/orders": "Đơn bán",
   "/seller/shipments": "Vận chuyển", "/seller/auctions": "Phiên đấu giá", "/seller/auctions/new": "Tạo phiên đấu giá",
-  "/seller/wallet": "Doanh thu & ví", "/seller/withdrawals": "Yêu cầu rút tiền", "/seller/reviews": "Đánh giá & uy tín",
+  "/seller/wallet": "Doanh thu & ví", "/seller/withdrawals": "Yêu cầu rút tiền", "/seller/reviews": "Đánh giá & uy tín", "/seller/coupons": "Mã giảm giá",
   "/staff": "Vận hành sàn", "/staff/auctions": "Giám sát đấu giá", "/staff/sellers": "Duyệt người bán",
   "/staff/product-moderation": "Duyệt sản phẩm", "/staff/withdrawals": "Duyệt rút tiền",
   "/staff/reports": "Khiếu nại & Vi phạm", "/staff/penalties": "Xử phạt vi phạm",

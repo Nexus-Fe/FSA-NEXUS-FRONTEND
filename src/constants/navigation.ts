@@ -21,6 +21,7 @@ export const sellerNavigation: NavigationItem[] = [
   { label: "Phiên đấu giá", href: ROUTES.seller.auctions, icon: "gavel" },
   { label: "Đơn đấu giá", href: ROUTES.seller.auctionOrders, icon: "gavel" },
   { label: "Doanh thu & ví", href: ROUTES.seller.wallet, icon: "wallet" },
+  { label: "Mã giảm giá", href: ROUTES.seller.coupons, icon: "orders" },
   { label: "Đánh giá & uy tín", href: ROUTES.seller.reviews, icon: "users" },
 ];
 
