@@ -36,7 +36,31 @@ export type TopupResponse = {
   createdAt: string;
 };
 
-export type TopupStatus = Omit<TopupResponse, "paymentUrl"> & { updatedAt?: string | null };
+export type TopupStatus = Omit<TopupResponse, "paymentUrl"> & {
+  updatedAt?: string | null;
+  canResume?: boolean;
+  sessionExpiresAt?: string | null;
+};
+
+export type TopupListItem = TopupStatus & { canResume: boolean };
+
+export type TopupPage = {
+  items: TopupListItem[];
+  pagination: {
+    pageIndex: number;
+    pageSize: number;
+    totalCount: number;
+    totalPages: number;
+    hasPreviousPage: boolean;
+    hasNextPage: boolean;
+  };
+};
+
+export type TopupResumeResponse = {
+  transactionId: string;
+  paymentUrl: string;
+  sessionExpiresAt: string;
+};
 
 export type WithdrawalRequest = {
   amount: number;

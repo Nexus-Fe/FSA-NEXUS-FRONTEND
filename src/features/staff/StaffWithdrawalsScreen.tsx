@@ -59,7 +59,7 @@ export function StaffWithdrawalsScreen() {
 
       const message =
         action === "Approve"
-          ? `Đã duyệt giải ngân cho lệnh ${trimmedId.slice(0, 8)}… thành công.`
+          ? `Đã duyệt yêu cầu ${trimmedId.slice(0, 8)}…. Yêu cầu đang chờ chuyển khoản.`
           : `Đã từ chối lệnh ${trimmedId.slice(0, 8)}… và hoàn tiền lại vào ví.`;
 
       setSuccess(message);
@@ -91,17 +91,10 @@ export function StaffWithdrawalsScreen() {
     <>
       <PageHeading
         title="Duyệt rút tiền ví"
-        description="Thẩm định và xác nhận chuyển khoản giải ngân hoặc từ chối hoàn trả số dư."
+        description="Duyệt hoặc từ chối yêu cầu rút tiền. Đã duyệt chưa có nghĩa là đã chuyển khoản."
       />
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: "24px",
-          alignItems: "start",
-        }}
-      >
+      <div className="staff-withdrawals-layout">
         {/* Khung xử lý rút tiền */}
         <Card className="card-pad" style={{ borderRadius: "10px" }}>
           <h2 style={{ fontSize: "16px", fontWeight: 700, margin: "0 0 4px 0" }}>
@@ -173,7 +166,7 @@ export function StaffWithdrawalsScreen() {
                     padding: "0 14px",
                     borderRadius: "8px",
                     border: "2px solid",
-                    borderColor: action === "Approve" ? "#16a34a" : "var(--border)",
+                    borderColor: action === "Approve" ? "#16a34a" : "var(--line)",
                     background: action === "Approve" ? "#f0fdf4" : "var(--surface)",
                     color: action === "Approve" ? "#15803d" : "var(--muted)",
                     fontWeight: 600,
@@ -184,7 +177,7 @@ export function StaffWithdrawalsScreen() {
                     transition: "background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease",
                   }}
                 >
-                  Phê duyệt giải ngân
+                  Duyệt yêu cầu
                 </button>
 
                 <button
@@ -195,7 +188,7 @@ export function StaffWithdrawalsScreen() {
                     padding: "0 14px",
                     borderRadius: "8px",
                     border: "2px solid",
-                    borderColor: action === "Reject" ? "#dc2626" : "var(--border)",
+                    borderColor: action === "Reject" ? "#dc2626" : "var(--line)",
                     background: action === "Reject" ? "#fef2f2" : "var(--surface)",
                     color: action === "Reject" ? "#b91c1c" : "var(--muted)",
                     fontWeight: 600,
@@ -237,7 +230,7 @@ export function StaffWithdrawalsScreen() {
                 placeholder={
                   action === "Reject"
                     ? "Nhập lý do từ chối (sai tên chủ tài khoản, số tài khoản không đúng...)"
-                    : "Mã chuyển khoản hoặc ghi chú đối soát..."
+                    : "Ghi chú đối soát..."
                 }
                 value={adminNote}
                 onChange={(e) => setAdminNote(e.target.value)}
@@ -265,7 +258,7 @@ export function StaffWithdrawalsScreen() {
               {busy
                 ? "Đang xử lý…"
                 : action === "Approve"
-                ? "Xác nhận duyệt giải ngân"
+                ? "Xác nhận duyệt yêu cầu"
                 : "Xác nhận từ chối yêu cầu"}
             </button>
           </form>

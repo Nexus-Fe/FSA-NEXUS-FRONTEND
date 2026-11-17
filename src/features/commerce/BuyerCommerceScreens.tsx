@@ -685,16 +685,21 @@ export function OrderDetailScreen() {
   const order = useApiResource(orderId ? `buyer-order:${orderId}` : null, (signal) => api.get<ApiResponse<Order> | Order>(`/api/v1/orders/${encodeURIComponent(orderId)}`, { signal }).then(unwrap));
   const shipment = useApiResource(orderId ? `buyer-shipment:${orderId}` : null, (signal) => fulfillmentService.getShipmentByOrderId(orderId, signal));
   const [confirmingSubOrderId, setConfirmingSubOrderId] = useState<string | null>(null);
+  const [receiptConfirmationId, setReceiptConfirmationId] = useState<string | null>(null);
+  const [confirmedSubOrderIds, setConfirmedSubOrderIds] = useState<string[]>([]);
   const [cancellingOrder, setCancellingOrder] = useState(false);
   const [confirmMessage, setConfirmMessage] = useState("");
   const [confirmError, setConfirmError] = useState("");
 
   async function confirmDelivery(subOrderId: string) {
+    if (receiptConfirmationId !== subOrderId || confirmingSubOrderId) return;
     setConfirmingSubOrderId(subOrderId);
     setConfirmMessage("");
     setConfirmError("");
     try {
       await api.post(`/api/v1/sub-orders/${encodeURIComponent(subOrderId)}/confirm-receipt`, {});
+      setConfirmedSubOrderIds((ids) => [...ids, subOrderId]);
+      setReceiptConfirmationId(null);
       setConfirmMessage("Đã xác nhận nhận hàng. Hệ thống đang cập nhật trạng thái giải ngân cho người bán.");
       order.reload();
     } catch (reason) {
@@ -759,7 +764,8 @@ export function OrderDetailScreen() {
         const completed = isSubOrderCompleted(sub.status);
         const rejected = isSellerRejected(sub.status);
         const cancelled = isOrderCancelled(sub.status);
-        const showReceiptAction = !completed && !rejected && !cancelled;
+        const showReceiptAction = !completed && !rejected && !cancelled && !confirmedSubOrderIds.includes(sub.subOrderId);
+        const awaitingReceiptConfirmation = receiptConfirmationId === sub.subOrderId;
         return (
           <Card className="card-pad" key={sub.subOrderId}>
             {showReceiptAction && (
@@ -771,16 +777,34 @@ export function OrderDetailScreen() {
                       ? "Chỉ xác nhận khi bạn đã thực sự nhận được hàng."
                       : "Bạn có thể xác nhận sau khi đơn chuyển sang đang giao hoặc đã giao và bạn thực sự nhận được hàng."}
                   </p>
+                  {awaitingReceiptConfirmation && (
+                    <p role="alert" style={{ marginTop: 8 }}>
+                      Xác nhận sẽ hoàn tất đơn và bắt đầu giải ngân cho người bán. Chỉ tiếp tục khi bạn đã nhận được hàng.
+                    </p>
+                  )}
                 </div>
-                <button
-                  type="button"
-                  className="button button-primary"
-                  disabled={!canConfirmReceipt || confirmingSubOrderId === sub.subOrderId}
-                  title={!canConfirmReceipt ? "Chờ đơn chuyển sang đang giao hoặc đã giao" : undefined}
-                  onClick={() => void confirmDelivery(sub.subOrderId)}
-                >
-                  {confirmingSubOrderId === sub.subOrderId ? "Đang xác nhận…" : "Đã nhận được hàng"}
-                </button>
+                <div className="action-row" style={{ marginTop: 0 }}>
+                  <button
+                    type="button"
+                    className="button button-primary"
+                    disabled={!canConfirmReceipt || confirmingSubOrderId !== null}
+                    title={!canConfirmReceipt ? "Chờ đơn chuyển sang đang giao hoặc đã giao" : undefined}
+                    onClick={() => {
+                      if (awaitingReceiptConfirmation) void confirmDelivery(sub.subOrderId);
+                      else {
+                        setConfirmError("");
+                        setReceiptConfirmationId(sub.subOrderId);
+                      }
+                    }}
+                  >
+                    {confirmingSubOrderId === sub.subOrderId ? "Đang xác nhận…" : awaitingReceiptConfirmation ? "Xác nhận đã nhận hàng" : "Đã nhận được hàng"}
+                  </button>
+                  {awaitingReceiptConfirmation && (
+                    <button type="button" className="button button-secondary" disabled={confirmingSubOrderId !== null} onClick={() => setReceiptConfirmationId(null)}>
+                      Quay lại
+                    </button>
+                  )}
+                </div>
               </div>
             )}
             {rejected && (
@@ -794,9 +818,16 @@ export function OrderDetailScreen() {
               </div>
             )}
             {completed && (
-              <div className="form-success" role="status" style={{ marginBottom: 16 }}>
-                <strong>Đơn hàng đã hoàn tất!</strong> Bạn đã xác nhận nhận hàng thành công. Trạng thái giải ngân được cập nhật trong ví của người bán.
-              </div>
+              <>
+                <div className="form-success" role="status" style={{ marginBottom: 16 }}>
+                  <strong>Đơn hàng đã hoàn tất!</strong> Bạn đã xác nhận nhận hàng thành công. Trạng thái giải ngân được cập nhật trong ví của người bán.
+                </div>
+                <div className="action-row" style={{ marginBottom: 16 }}>
+                  <Link className="button button-secondary" href={ROUTES.buyer.orderReview(orderId)}>
+                    Đánh giá sản phẩm và gian hàng
+                  </Link>
+                </div>
+              </>
             )}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 12 }}>
               <h2 style={{ margin: 0 }}>Đơn gian hàng {sub.subOrderNo} · {sub.shopName}</h2>

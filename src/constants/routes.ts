@@ -24,7 +24,9 @@ export const ROUTES = {
     wallet: "/buyer/wallet",
     topUp: "/buyer/wallet/top-up",
     topUpResult: "/buyer/wallet/top-up/result",
+    topUps: "/buyer/wallet/top-ups",
     reports: "/buyer/reports",
+    reputation: "/buyer/reputation",
   },
   seller: {
     auction: (id: string) => "/seller/auctions/" + encodeURIComponent(id),
@@ -43,6 +45,7 @@ export const ROUTES = {
     order: (id: string) => "/seller/orders/" + encodeURIComponent(id),
     wallet: "/seller/wallet",
     withdrawals: "/seller/withdrawals",
+    reviews: "/seller/reviews",
     shipments: "/seller/shipments",
     shipment: (id: string) => "/seller/shipments/" + encodeURIComponent(id),
     auctions: "/seller/auctions",
@@ -62,6 +65,7 @@ export const ROUTES = {
   },
   admin: {
     overview: "/admin/overview",
+    withdrawals: "/admin/withdrawals",
     auctions: "/admin/auctions",
     auction: (id: string) => "/admin/auctions/" + encodeURIComponent(id),
     auctionConfigs: "/admin/auction-configs",

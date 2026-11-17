@@ -8,12 +8,14 @@ const labels: Record<string, string> = {
   "/catalog": "Sản phẩm", "/shops": "Gian hàng", "/auctions": "Đấu giá trực tiếp",
   "/buyer/cart": "Giỏ hàng", "/buyer/checkout": "Thông tin giao hàng",
   "/buyer/orders": "Đơn mua", "/buyer/notifications": "Thông báo", "/buyer/auctions": "Đấu giá của tôi", "/buyer/wallet": "Ví của tôi",
-  "/buyer/wallet/top-up": "Nạp tiền", "/buyer/reports": "Báo cáo", "/buyer/become-seller": "Đăng ký bán hàng",
+  "/buyer/wallet/top-up": "Nạp tiền", "/buyer/wallet/top-ups": "Lịch sử nạp tiền",
+  "/buyer/wallet/top-up/result": "Kết quả nạp", "/buyer/reports": "Báo cáo", "/buyer/become-seller": "Đăng ký bán hàng", "/buyer/reputation": "Uy tín của tôi",
+  "/payments/success": "Kết quả thanh toán", "/payments/cancel": "Kết quả thanh toán",
   "/buyer/payment": "Thanh toán", "/buyer/payment/result": "Kết quả thanh toán",
   "/seller": "Kênh người bán", "/seller/products": "Quản lý sản phẩm", "/seller/products/new": "Tạo sản phẩm",
   "/seller/shop": "Hồ sơ gian hàng", "/seller/notifications": "Thông báo", "/seller/inventory": "Quản lý kho", "/seller/orders": "Đơn bán",
   "/seller/shipments": "Vận chuyển", "/seller/auctions": "Phiên đấu giá", "/seller/auctions/new": "Tạo phiên đấu giá",
-  "/seller/wallet": "Doanh thu & ví", "/seller/withdrawals": "Yêu cầu rút tiền",
+  "/seller/wallet": "Doanh thu & ví", "/seller/withdrawals": "Yêu cầu rút tiền", "/seller/reviews": "Đánh giá & uy tín",
   "/staff": "Vận hành sàn", "/staff/auctions": "Giám sát đấu giá", "/staff/sellers": "Duyệt người bán",
   "/staff/product-moderation": "Duyệt sản phẩm", "/staff/withdrawals": "Duyệt rút tiền",
   "/staff/reports": "Khiếu nại & Vi phạm", "/staff/penalties": "Xử phạt vi phạm",
@@ -21,7 +23,7 @@ const labels: Record<string, string> = {
   "/admin": "Quản trị hệ thống", "/admin/overview": "Tổng quan hệ thống", "/admin/auctions": "Giám sát đấu giá",
   "/admin/auction-configs": "Cài đặt đấu giá", "/admin/users": "Tài khoản & Phân quyền", "/admin/roles": "Phân quyền & vai trò",
   "/admin/penalties": "Xử phạt vi phạm", "/admin/reports": "Khiếu nại & Vi phạm",
-  "/admin/categories": "Danh mục sản phẩm", "/admin/ledger": "Điều chỉnh số dư ví",
+  "/admin/categories": "Danh mục sản phẩm", "/admin/ledger": "Điều chỉnh số dư ví", "/admin/withdrawals": "Duyệt rút tiền",
   "/admin/configs": "Cài đặt hệ thống", "/admin/coupons": "Mã giảm giá",
   "/admin/notifications": "Nhật ký & Thông báo",
   "/account/profile": "Hồ sơ cá nhân", "/account/change-password": "Đổi mật khẩu",
@@ -33,7 +35,7 @@ const terminalLabels: Record<string, string> = {
 
 export function Breadcrumbs({ portal = false }: { portal?: boolean }) {
   const pathname = usePathname();
-  if (!pathname || pathname === "/" || pathname.startsWith("/catalog/") || pathname === ROUTES.buyer.cart || pathname === ROUTES.buyer.checkout) return null;
+  if (!pathname || pathname === "/" || pathname.startsWith("/catalog/") || pathname.startsWith("/shops/") || pathname === ROUTES.buyer.cart || pathname === ROUTES.buyer.checkout) return null;
 
   const pieces = pathname.split("/").filter(Boolean);
   const root = portal ? `/${pieces[0]}` : ROUTES.home;

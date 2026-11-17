@@ -2148,6 +2148,8 @@ export function SellerOrderDetailScreen() {
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [actionError, setActionError] = useState("");
+  const [rejecting, setRejecting] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
   const resource = useApiResource(
     subOrderId ? `seller-sub-order-detail:${subOrderId}` : null,
     (signal) =>
@@ -2176,15 +2178,17 @@ export function SellerOrderDetailScreen() {
   }
 
   async function handleReject() {
-    if (!sub) return;
+    if (!sub || !canAccept || busy || !rejectReason.trim()) return;
     setBusy(true);
     setFeedback("");
     setActionError("");
     try {
-      await sellerOrdersService.reject(sub.orderId, sub.subOrderId, "Gian hàng tạm hết tồn kho cho đơn hàng này.");
+      await sellerOrdersService.reject(sub.orderId, sub.subOrderId, rejectReason.trim());
       setFeedback(
         "Đã từ chối đơn hàng. Vui lòng kiểm tra trạng thái hoàn tiền trên ví của người mua.",
       );
+      setRejecting(false);
+      setRejectReason("");
       resource.reload();
     } catch (reason) {
       setActionError(msg(reason as Error));
@@ -2308,7 +2312,12 @@ export function SellerOrderDetailScreen() {
                     type="button"
                     className="button button-secondary"
                     disabled={busy}
-                    onClick={() => void handleReject()}
+                    aria-expanded={rejecting}
+                    aria-controls="seller-order-reject-form"
+                    onClick={() => {
+                      setRejecting((value) => !value);
+                      setActionError("");
+                    }}
                   >
                     Từ chối đơn
                   </button>
@@ -2318,6 +2327,44 @@ export function SellerOrderDetailScreen() {
                 Quay lại đơn hàng
               </ButtonLink>
             </div>
+            {canAccept && rejecting && (
+              <div id="seller-order-reject-form" className="seller-order-reject-form">
+                <label className="field-wrap">
+                  <span>Lý do từ chối đơn</span>
+                  <textarea
+                    className="textarea-field"
+                    value={rejectReason}
+                    onChange={(event) => setRejectReason(event.target.value)}
+                    placeholder="Nêu rõ lý do để người mua biết vì sao đơn bị từ chối"
+                    disabled={busy}
+                    required
+                  />
+                </label>
+                <p>Đơn sẽ bị hủy. Nếu đã thanh toán, hệ thống sẽ xử lý hoàn tiền cho người mua.</p>
+                <div className="action-row">
+                  <button
+                    type="button"
+                    className="button auction-danger-button"
+                    disabled={busy || !rejectReason.trim()}
+                    onClick={() => void handleReject()}
+                  >
+                    {busy ? "Đang xử lý…" : "Xác nhận từ chối"}
+                  </button>
+                  <button
+                    type="button"
+                    className="button button-secondary"
+                    disabled={busy}
+                    onClick={() => {
+                      setRejecting(false);
+                      setRejectReason("");
+                      setActionError("");
+                    }}
+                  >
+                    Hủy
+                  </button>
+                </div>
+              </div>
+            )}
               </aside>
             </div>
           </>

@@ -6,6 +6,9 @@ import { ROUTES } from "@/constants/routes";
 import { auctionOrderService } from "./services/auction-order.service";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatMoney } from "@/lib/presentation";
+import { api, ApiError } from "@/lib/api/client";
+import { BuyerReviewForm } from "@/features/commerce/BuyerReviewForm";
+import type { AuctionOrderDetail } from "./services/auction-order.service";
 
 type AddressForm = { fullName: string; phoneNumber: string; addressLine: string; provinceName: string; districtName: string; wardName: string; ghnDistrictId: string; ghnWardCode: string };
 const initialAddress: AddressForm = { fullName: "", phoneNumber: "", addressLine: "", provinceName: "", districtName: "", wardName: "", ghnDistrictId: "", ghnWardCode: "" };
@@ -78,7 +81,69 @@ export function AuctionOrderPayment({ orderId, deadlinePassed }: { orderId: stri
       {status === "PAID" && <p role="status">Đã thanh toán, đang chờ người bán phản hồi{order.data.sellerRespondDeadlineAt ? ` trước ${new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(order.data.sellerRespondDeadlineAt))}` : ""}.</p>}
       {["SHIPPED", "DELIVERED"].includes(status ?? "") && <div className="auction-receipt"><p>Chỉ xác nhận sau khi bạn thực sự nhận hàng.</p>{confirmReceipt && <p role="alert">Xác nhận sẽ hoàn tất đơn và bắt đầu giải ngân cho người bán.</p>}<button type="button" className="button button-primary" disabled={busy} onClick={() => confirmReceipt ? void receive() : setConfirmReceipt(true)}>{confirmReceipt ? "Xác nhận đã nhận hàng" : "Tôi đã nhận hàng"}</button>{confirmReceipt && <button type="button" className="button button-secondary" onClick={() => setConfirmReceipt(false)}>Quay lại</button>}</div>}
       {deadlinePassed && status === "PENDINGPAYMENT" && <p role="status">Đã quá hạn thanh toán.</p>}
+      {status === "COMPLETED" && <AuctionBuyerReviews order={order.data} />}
     </>}
     {error && <p role="alert" className="notice">{error}</p>}{success && <p role="status" className="form-success">{success}</p>}
+  </section>;
+}
+
+function AuctionBuyerReviews({ order }: { order: AuctionOrderDetail }) {
+  const [productRating, setProductRating] = useState(0);
+  const [sellerRating, setSellerRating] = useState(0);
+  const [productComment, setProductComment] = useState("");
+  const [sellerComment, setSellerComment] = useState("");
+  const [images, setImages] = useState<File[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [productDone, setProductDone] = useState(false);
+  const [sellerDone, setSellerDone] = useState(false);
+  const [error, setError] = useState("");
+
+  async function submitProduct(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (busy || productRating === 0 || !order.productId) return;
+    if (images.length > 5 || images.some((file) => !["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 5 * 1024 * 1024)) {
+      setError("Chọn tối đa 5 ảnh JPG, PNG hoặc WEBP, mỗi ảnh tối đa 5 MB.");
+      return;
+    }
+    setBusy(true); setError("");
+    try {
+      const form = new FormData();
+      form.append("orderId", order.id);
+      form.append("rating", String(productRating));
+      form.append("comment", productComment.trim());
+      images.forEach((file) => form.append("reviewImages", file));
+      await api.post(`/api/v1/products/${encodeURIComponent(order.productId)}/reviews`, form);
+      setProductDone(true);
+    } catch (cause) {
+      setError(cause instanceof ApiError && cause.status === 409 ? "Sản phẩm của đơn này đã được đánh giá." : cause instanceof Error ? cause.message : "Không gửi được đánh giá sản phẩm.");
+    } finally { setBusy(false); }
+  }
+
+  async function submitSeller(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (busy || sellerRating === 0 || !order.sellerId) return;
+    setBusy(true); setError("");
+    try {
+      await api.post("/api/v1/reviews", { revieweeId: order.sellerId, reviewerRole: "Buyer", referenceType: "Order", referenceId: order.id, rating: sellerRating, comment: sellerComment.trim() || null, mediaUrls: [] });
+      setSellerDone(true);
+    } catch (cause) {
+      setError(cause instanceof ApiError && cause.status === 409 ? "Người bán của đơn này đã được đánh giá." : cause instanceof Error ? cause.message : "Không gửi được đánh giá người bán.");
+    } finally { setBusy(false); }
+  }
+
+  return <section className="buyer-review-seller" aria-label="Đánh giá đơn đấu giá">
+    <h3>Đánh giá sau khi nhận hàng</h3>
+    <p>Đơn đã hoàn tất. Bạn có thể đánh giá sản phẩm và người bán riêng.</p>
+    {error && <p className="notice" role="alert">{error}</p>}
+    <div className="buyer-review-products">
+      <div className="buyer-review-product">
+        <h3>{order.productName}</h3>
+        {productDone ? <p className="form-success" role="status">Đã gửi đánh giá sản phẩm trong phiên này.</p> : <BuyerReviewForm kind="product" rating={productRating} onRatingChange={setProductRating} comment={productComment} onCommentChange={setProductComment} onImagesChange={setImages} busy={busy} onSubmit={(event) => void submitProduct(event)} />}
+      </div>
+      <div className="buyer-review-product">
+        <h3>Người bán</h3>
+        {sellerDone ? <p className="form-success" role="status">Đã gửi đánh giá người bán trong phiên này.</p> : <BuyerReviewForm kind="seller" rating={sellerRating} onRatingChange={setSellerRating} comment={sellerComment} onCommentChange={setSellerComment} busy={busy} onSubmit={(event) => void submitSeller(event)} />}
+      </div>
+    </div>
   </section>;
 }

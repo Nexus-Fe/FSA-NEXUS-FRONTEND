@@ -374,7 +374,7 @@ export function ProductDetailScreen() {
         <Card className="card-pad product-detail-seller">
           {sellerResource.data ? <>
             {sellerResource.data.logoUrl && <div className="product-detail-seller-logo"><BackendImage src={resolveImageUrl(sellerResource.data.logoUrl)} alt={`Logo ${sellerResource.data.shopName}`} compact /></div>}
-            <div><h3>{sellerResource.data.shopName}</h3>
+            <div><h3><Link href={ROUTES.catalog.shop(product.sellerId)}>{sellerResource.data.shopName}</Link></h3>
               {sellerResource.data.description && <p>{sellerResource.data.description}</p>}
               <div className="product-detail-seller-facts">
                 {typeof sellerResource.data.ratingAvg === "number" && sellerResource.data.ratingAvg > 0 && <span>★ {sellerResource.data.ratingAvg.toFixed(1)}/5</span>}
@@ -383,14 +383,14 @@ export function ProductDetailScreen() {
               <Link className="button button-secondary button-small product-detail-shop-link" href={ROUTES.catalog.shop(product.sellerId)}>Xem gian hàng và sản phẩm khác</Link>
             </div>
           </> : <div>
-            <p>{sellerResource.loading ? "Đang tải thông tin gian hàng…" : "Chưa tải được thông tin gian hàng."}</p>
+            <p role={sellerResource.error ? "alert" : "status"}>{sellerResource.loading ? "Đang tải thông tin gian hàng…" : "Tên gian hàng tạm thời chưa tải được. Bạn vẫn có thể xem các sản phẩm của gian hàng."}</p>
             {sellerResource.error && <button type="button" className="button button-secondary button-small" onClick={sellerResource.reload}>Thử lại</button>}
             <Link className="button button-secondary button-small product-detail-shop-link" href={ROUTES.catalog.shop(product.sellerId)}>Xem gian hàng</Link>
           </div>}
         </Card>
       </section>}
       {product.category?.categoryId && <section className="product-detail-section" aria-labelledby="related-products-title">
-        <SectionHeading id="related-products-title" title="Sản phẩm cùng danh mục" />
+        <SectionHeading id="related-products-title" title="Sản phẩm cùng danh mục" hint="Gợi ý từ các gian hàng trên Nexus" />
         {relatedResource.error && <p className="notice" role="alert">Không tải được sản phẩm cùng danh mục.</p>}
         {relatedProducts.length > 0 ? <div className="product-detail-related">
           {relatedProducts.map((item) => <Link className="product-detail-related-item" href={ROUTES.catalog.product(item.productId)} key={item.productId}>
