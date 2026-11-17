@@ -3,7 +3,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ROUTES } from "@/constants/routes";
 import { useSession } from "@/components/auth/SessionProvider";
 import { Icon } from "@/components/ui/Icon";
@@ -75,6 +75,76 @@ export function SellerProductsScreen() {
     `seller-products:${page}:${pageSize}:${keyword}`,
     (signal) => sellerCatalogService.list(page, keyword, signal, pageSize),
   );
+
+  // Live auto-search with debounce; clearing immediately resets list
+  useEffect(() => {
+    const trimmed = q.trim();
+    if (!trimmed) {
+      setKeyword("");
+      setPage(1);
+      return;
+    }
+    const timer = setTimeout(() => {
+      setKeyword(trimmed);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [q]);
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = q.trim();
+    setPage(1);
+    setKeyword(trimmed);
+    if (keyword === trimmed && page === 1) resource.reload();
+  };
+
+  const handleClear = () => {
+    setQ("");
+    setKeyword("");
+    setPage(1);
+  };
+
+  // Sort items prioritizing matches starting with keyword (prefix) then word prefix then contains
+  const sortedItems = useMemo(() => {
+    if (!resource.data?.items) return [];
+    const items = [...resource.data.items];
+    const kw = keyword.trim().toLowerCase();
+    if (!kw) return items;
+
+    const normalize = (str: string) =>
+      str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/Đ/g, "d");
+    const normKw = normalize(kw);
+
+    return items.sort((a, b) => {
+      const aName = (a.name || "").trim().toLowerCase();
+      const bName = (b.name || "").trim().toLowerCase();
+      const aNorm = normalize(aName);
+      const bNorm = normalize(bName);
+
+      // Ưu tiên 1: Tên sản phẩm bắt đầu bằng từ khóa (ví dụ "t" ở đầu tên)
+      const aStarts = aName.startsWith(kw) || aNorm.startsWith(normKw);
+      const bStarts = bName.startsWith(kw) || bNorm.startsWith(normKw);
+      if (aStarts && !bStarts) return -1;
+      if (!aStarts && bStarts) return 1;
+
+      // Ưu tiên 2: Có từ trong tên bắt đầu bằng từ khóa (ví dụ: "Áo Thun" có từ "Thun" bắt đầu bằng "t")
+      const aWordStarts = aNorm.split(/\s+/).some((w) => w.startsWith(normKw));
+      const bWordStarts = bNorm.split(/\s+/).some((w) => w.startsWith(normKw));
+      if (aWordStarts && !bWordStarts) return -1;
+      if (!aWordStarts && bWordStarts) return 1;
+
+      // Ưu tiên 3: Từ khóa xuất hiện càng sớm trong tên càng tốt
+      const aIdx = aNorm.indexOf(normKw);
+      const bIdx = bNorm.indexOf(normKw);
+      if (aIdx !== -1 && bIdx !== -1 && aIdx !== bIdx) {
+        return aIdx - bIdx;
+      }
+
+      return aName.localeCompare(bName, "vi");
+    });
+  }, [resource.data?.items, keyword]);
+
   return (
     <>
       <PageHeading
@@ -93,19 +163,40 @@ export function SellerProductsScreen() {
       <Card className="seller-products-list">
         <form
           className="toolbar seller-products-search"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setPage(1);
-            setKeyword(q.trim());
-            if (keyword === q.trim() && page === 1) resource.reload();
-          }}
+          onSubmit={handleSearchSubmit}
         >
-          <input
-            className="field"
-            placeholder="Tìm theo tên sản phẩm"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
+          <div style={{ position: "relative", flex: 1, display: "flex", alignItems: "center" }}>
+            <input
+              className="field"
+              placeholder="Tìm theo tên sản phẩm"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              style={{ width: "100%", paddingRight: q ? 32 : undefined }}
+            />
+            {q && (
+              <button
+                type="button"
+                onClick={handleClear}
+                style={{
+                  position: "absolute",
+                  right: 8,
+                  background: "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "var(--muted)",
+                  padding: "4px 8px",
+                  display: "flex",
+                  alignItems: "center",
+                  fontSize: 14,
+                  lineHeight: 1,
+                }}
+                title="Xóa tìm kiếm"
+                aria-label="Xóa tìm kiếm"
+              >
+                ✕
+              </button>
+            )}
+          </div>
           <button type="submit" className="button button-secondary">Tìm kiếm</button>
         </form>
         {resource.error && (
@@ -113,7 +204,7 @@ export function SellerProductsScreen() {
             {msg(resource.error)}
           </p>
         )}
-        {resource.data?.items.length ? (
+        {sortedItems.length ? (
           <div className="table-scroll">
             <table className="data-table seller-products-table">
               <thead>
@@ -127,7 +218,7 @@ export function SellerProductsScreen() {
                 </tr>
               </thead>
               <tbody>
-                {resource.data.items.map((p) => (
+                {sortedItems.map((p) => (
                   <tr key={p.productId}>
                     <td>
                       <Link href={ROUTES.seller.product(p.productId)}>
