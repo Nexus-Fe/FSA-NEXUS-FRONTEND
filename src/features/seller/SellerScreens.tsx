@@ -1469,7 +1469,7 @@ export function SellerInventoryScreen() {
                   return (
                     <tr
                       key={variant.variantId}
-                      style={isSelected ? { background: "#f0f9ff" } : undefined}
+                      style={isSelected ? { background: "var(--primary-soft)" } : undefined}
                     >
                       <td>
                         <strong>{product.name}</strong>

@@ -158,11 +158,11 @@ export function AdminNotificationsScreen() {
           style={{
             background: "none",
             border: "none",
-            borderBottom: activeTab === "notifications" ? "2px solid var(--primary, #0284c7)" : "2px solid transparent",
+            borderBottom: activeTab === "notifications" ? "2px solid var(--primary)" : "2px solid transparent",
             padding: "8px 4px 12px",
             fontSize: "14px",
             fontWeight: 600,
-            color: activeTab === "notifications" ? "var(--primary, #0284c7)" : "var(--muted, #64748b)",
+            color: activeTab === "notifications" ? "var(--primary)" : "var(--muted, #64748b)",
             cursor: "pointer",
             transition: "border-color 0.12s ease, color 0.12s ease",
           }}
@@ -177,11 +177,11 @@ export function AdminNotificationsScreen() {
           style={{
             background: "none",
             border: "none",
-            borderBottom: activeTab === "event-logs" ? "2px solid var(--primary, #0284c7)" : "2px solid transparent",
+            borderBottom: activeTab === "event-logs" ? "2px solid var(--primary)" : "2px solid transparent",
             padding: "8px 4px 12px",
             fontSize: "14px",
             fontWeight: 600,
-            color: activeTab === "event-logs" ? "var(--primary, #0284c7)" : "var(--muted, #64748b)",
+            color: activeTab === "event-logs" ? "var(--primary)" : "var(--muted, #64748b)",
             cursor: "pointer",
             transition: "border-color 0.12s ease, color 0.12s ease",
           }}

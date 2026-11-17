@@ -11,7 +11,6 @@ import { useSession } from "@/components/auth/SessionProvider";
 import { sellerService } from "@/features/seller";
 import { AuctionOrderSellerActions } from "./AuctionOrderSellerActions";
 import { AuctionBidLeaderboard } from "./AuctionBidLeaderboard";
-import { phaseLabel } from "./auction-outcome";
 import { auctionService } from "./services/auction.service";
 import { dateText, message, PaginationBar, StatusFilter, statusLabel, normalizeAuctionStatus, auctionStatusTone } from "./AuctionPages";
 import { isAuctionId } from "./validation";
@@ -228,7 +227,7 @@ export function OperationsDetailScreen({ role }: { role: Role }) {
                   <span style={{ fontSize: "12px", color: "var(--muted)", textTransform: "uppercase", fontWeight: 600 }}>
                     Giá hiện tại
                   </span>
-                  <div style={{ fontSize: "18px", fontWeight: 700, color: "var(--primary, #0284c7)", marginTop: "4px" }}>
+                  <div style={{ fontSize: "18px", fontWeight: 700, color: "var(--primary)", marginTop: "4px" }}>
                     {formatMoney(auction.currentPriceAmount ?? auction.startPriceAmount)}
                   </div>
                 </div>
@@ -428,7 +427,7 @@ export function OperationsDetailScreen({ role }: { role: Role }) {
   );
 }
 
-export function SellerAuctionResultScreen() { const id = String(useParams<{ id: string }>().id ?? ""); const resource = useApiResource(isAuctionId(id) ? `seller-result:${id}` : null, (signal) => auctionService.result(id, signal).then((response) => response.data)); const result = resource.data; return <div className="auction-surface"><PageHeading title="Kết quả phiên đấu giá" description={`Phiên ${id}`} />{resource.error && <p role="alert" className="notice">{message(resource.error)}</p>}{resource.loading ? <NoData title="Đang tải kết quả…" /> : result ? <><Card className="card-pad"><Badge tone={auctionStatusTone(result.status)}>{statusLabel(result.status)}</Badge><h2>{result.hasWinner ? "Đã xác định người thắng" : phaseLabel(result.phase)}</h2><div className="info-row"><span>Giai đoạn</span><strong>{phaseLabel(result.phase)}</strong></div><div className="info-row"><span>Người thắng</span><strong>{result.winnerDisplayName ?? result.winnerId ?? "—"}</strong></div><div className="info-row"><span>Giá cuối</span><strong>{formatMoney(result.finalPriceAmount)}</strong></div><div className="info-row"><span>Đơn hàng</span><strong>{result.orderId ?? "Chưa có"}</strong></div><div className="info-row"><span>Hạn thanh toán</span><strong>{dateText(result.paymentDeadlineAt)}</strong></div><ButtonLink href={ROUTES.seller.auction(id)} variant="secondary">Về chi tiết phiên</ButtonLink></Card>{result.orderId && <Card className="card-pad"><AuctionOrderSellerActions orderId={result.orderId} /></Card>}</> : <NoData title="Chưa có kết quả" />}</div>; }
+export function SellerAuctionResultScreen() { const id = String(useParams<{ id: string }>().id ?? ""); const resource = useApiResource(isAuctionId(id) ? `seller-result:${id}` : null, (signal) => auctionService.result(id, signal).then((response) => response.data)); const result = resource.data; return <div className="auction-surface"><PageHeading title="Kết quả phiên đấu giá" description={`Phiên ${id}`} />{resource.error && <p role="alert" className="notice">{message(resource.error)}</p>}{resource.loading ? <NoData title="Đang tải kết quả…" /> : result ? <><Card className="card-pad"><Badge tone={auctionStatusTone(result.status)}>{statusLabel(result.status)}</Badge><h2>{result.hasWinner ? "Đã xác định người thắng" : "Chưa có người thắng"}</h2><div className="info-row"><span>Người thắng</span><strong>{result.winnerDisplayName ?? result.winnerId ?? "—"}</strong></div><div className="info-row"><span>Giá cuối</span><strong>{formatMoney(result.finalPriceAmount)}</strong></div><div className="info-row"><span>Đơn hàng</span><strong>{result.orderId ?? "Chưa có"}</strong></div><div className="info-row"><span>Hạn thanh toán</span><strong>{dateText(result.paymentDeadlineAt)}</strong></div><ButtonLink href={ROUTES.seller.auction(id)} variant="secondary">Về chi tiết phiên</ButtonLink></Card>{result.orderId && <Card className="card-pad"><AuctionOrderSellerActions orderId={result.orderId} /></Card>}</> : <NoData title="Chưa có kết quả" />}</div>; }
 
 function SellerBidHistory({ id }: { id: string }) {
   const [page, setPage] = useState(1);
