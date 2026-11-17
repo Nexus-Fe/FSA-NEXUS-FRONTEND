@@ -19,6 +19,8 @@ export const ROUTES = {
     checkout: "/buyer/checkout",
     orders: "/buyer/orders",
     order: (id: string) => "/buyer/orders/" + encodeURIComponent(id),
+    /** Opens a regular order from the id of one of its sub-orders (the id a notification carries). */
+    orderBySubOrder: (id: string) => "/buyer/orders/by-sub/" + encodeURIComponent(id),
     orderReview: (id: string) => "/buyer/orders/" + encodeURIComponent(id) + "/review",
     notifications: "/buyer/notifications",
     wallet: "/buyer/wallet",

@@ -72,6 +72,10 @@ export const OrderDetailScreenClient = dynamic(
   () => import("@/features/commerce/BuyerCommerceScreens").then((module) => module.OrderDetailScreen),
   { ssr: false, loading: ScreenLoading },
 );
+export const OrderBySubOrderScreenClient = dynamic(
+  () => import("@/features/commerce/OrderBySubOrderScreen").then((module) => module.OrderBySubOrderScreen),
+  { ssr: false, loading: ScreenLoading },
+);
 export const BuyerReportsScreenClient = dynamic(() => import("@/features/commerce/CommerceScreens").then((module) => module.BuyerReportsScreen), { ssr: false, loading: ScreenLoading });
 export const BuyerOrderReviewScreenClient = dynamic(() => import("@/features/reviews/BuyerOrderReviewScreen").then((module) => module.BuyerOrderReviewScreen), { ssr: false, loading: ScreenLoading });
 

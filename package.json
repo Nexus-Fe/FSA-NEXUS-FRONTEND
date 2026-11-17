@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
-    "test:session": "node --experimental-transform-types --test tests/api-client-session.test.mjs"
+    "test:session": "node --experimental-transform-types --test tests/api-client-session.test.mjs",
+    "test:notification": "node --experimental-transform-types --loader ./tests/alias-loader.mjs --test tests/notification-target.test.mjs"
   },
   "dependencies": {
     "clsx": "^2.1.1",
