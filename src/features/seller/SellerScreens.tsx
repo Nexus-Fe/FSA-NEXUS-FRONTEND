@@ -78,16 +78,11 @@ export function SellerProductsScreen() {
 
   // Live auto-search with debounce; clearing immediately resets list
   useEffect(() => {
-    const trimmed = q.trim();
-    if (!trimmed) {
-      setKeyword("");
-      setPage(1);
-      return;
-    }
     const timer = setTimeout(() => {
+      const trimmed = q.trim();
       setKeyword(trimmed);
       setPage(1);
-    }, 300);
+    }, q.trim() ? 300 : 0);
     return () => clearTimeout(timer);
   }, [q]);
 
@@ -143,7 +138,7 @@ export function SellerProductsScreen() {
 
       return aName.localeCompare(bName, "vi");
     });
-  }, [resource.data?.items, keyword]);
+  }, [resource.data, keyword]);
 
   return (
     <>
