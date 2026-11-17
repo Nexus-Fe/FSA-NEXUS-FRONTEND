@@ -2,10 +2,9 @@
 /* Admin workflow responses are ungenerated Gateway JSON contracts. */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { ROUTES } from "@/constants/routes";
-import { Icon } from "@/components/ui/Icon";
 import { Badge, Card, NoData, PageHeading, SectionHeading } from "@/components/ui/Primitives";
 import {
   isSensitiveIdentityKey,
@@ -32,6 +31,7 @@ function statusTone(status?: string | null): "sky" | "green" | "amber" | "slate"
 }
 
 export function StaffSellersScreen() {
+  const router = useRouter();
   const [status, setStatus] = useState("PENDING");
   const queryStatus = status ? `&status=${encodeURIComponent(status)}` : "";
   const resource = useApiResource(
@@ -95,7 +95,12 @@ export function StaffSellersScreen() {
                     otpVerified: Boolean(x.otpVerified),
                   });
                   return (
-                    <tr key={regId}>
+                    <tr
+                      key={regId}
+                      className="clickable-row"
+                      onClick={() => router.push(ROUTES.staff.seller(regId))}
+                      title="Nhấn để xem chi tiết & duyệt hồ sơ"
+                    >
                       <td>{regId}</td>
                       <td>
                         <strong>{x.shopName ?? x.businessName ?? "—"}</strong>
@@ -113,6 +118,7 @@ export function StaffSellersScreen() {
                         <Link
                           className="button button-secondary button-small"
                           href={ROUTES.staff.seller(regId)}
+                          onClick={(e) => e.stopPropagation()}
                         >
                           Chi tiết & Duyệt
                         </Link>
@@ -217,11 +223,6 @@ export function StaffSellerDetailScreen() {
 
   return (
     <>
-      <div className="crumbs">
-        <Link href={ROUTES.staff.sellers}>Duyệt hồ sơ Seller</Link>
-        <Icon name="chevron" size={14} />
-        <span>Chi tiết</span>
-      </div>
       <PageHeading
         overline="Nghiệp vụ Staff · Handoff 4.1"
         title="Chi tiết & Phê duyệt hồ sơ Seller"
@@ -331,88 +332,7 @@ export function StaffSellerDetailScreen() {
   );
 }
 
-export function StaffReportsScreen() {
-  const [status, setStatus] = useState("");
-  const resource = useApiResource(
-    `/api/v1/admin/reports?page=1&limit=50&status=${status}`,
-    async () =>
-      rows(
-        unwrap(
-          await api.get<ApiResponse<any>>(
-            `/api/v1/admin/reports?page=1&limit=50&status=${status}`,
-          ),
-        ),
-      ),
-  );
-  const [selected, setSelected] = useState<Obj | null>(null);
-
-  return (
-    <>
-      <PageHeading
-        overline="Nghiệp vụ Staff"
-        title="Xử lý báo cáo & khiếu nại"
-        description="Báo cáo từ User API."
-      />
-      <label className="field-wrap">
-        Trạng thái
-        <select
-          className="select-field"
-          value={status}
-          onChange={(event) => setStatus(event.target.value)}
-        >
-          <option value="">Tất cả</option>
-          <option value="PENDING">Chờ xử lý</option>
-          <option value="RESOLVED">Đã xử lý</option>
-          <option value="DISMISSED">Đã bác bỏ</option>
-        </select>
-      </label>
-      {resource.error && (
-        <p role="alert" className="notice">
-          {msg(resource.error)}
-        </p>
-      )}
-      <div className="split">
-        <Card>
-          {resource.data?.length ? (
-            resource.data.map((report, index) => (
-              <button
-                className="info-row"
-                key={report.reportId ?? report.id ?? index}
-                onClick={() => setSelected(report)}
-              >
-                <span>{report.title ?? report.reason ?? report.reportId}</span>
-                <Badge>{report.status ?? ""}</Badge>
-              </button>
-            ))
-          ) : (
-            <NoData title={resource.loading ? "Đang tải báo cáo…" : "Không có báo cáo"} />
-          )}
-        </Card>
-        <Card className="card-pad">
-          <h2>Nội dung báo cáo</h2>
-          {selected ? (
-            Object.entries(selected)
-              .filter(([key]) => !isSensitiveIdentityKey(key))
-              .map(([key, value]) => (
-                <div className="info-row" key={key}>
-                  <span>{key}</span>
-                  <strong>
-                    {typeof value === "object" ? JSON.stringify(value) : String(value ?? "—")}
-                  </strong>
-                </div>
-              ))
-          ) : (
-            <NoData title="Chọn báo cáo để xem" />
-          )}
-        </Card>
-      </div>
-      <p role="status" className="notice">
-        Quyết định xử lý chưa khả dụng: UserService chưa công khai API REST cho báo cáo và Gateway
-        chưa xác định danh sách mã hành động được phép.
-      </p>
-    </>
-  );
-}
+export { StaffReportsScreen } from "./StaffReportsScreen";
 
 export function StaffQueueScreen({
   queue,
@@ -431,7 +351,7 @@ export function StaffQueueScreen({
         "Chưa có API hàng đợi báo cáo sản phẩm, chi tiết kiểm duyệt hoặc hợp đồng hành động Staff.",
     },
     discrepancies: {
-      title: "Sai lệch giao dịch",
+      title: "Đối soát giao dịch",
       description:
         "Chưa có endpoint đối chiếu ledger và ghi bút toán điều chỉnh riêng. Không sửa trực tiếp giao dịch cũ.",
     },

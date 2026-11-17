@@ -2,38 +2,78 @@
 /* Catalog and fulfillment responses are ungenerated Gateway JSON contracts. */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { ROUTES } from "@/constants/routes";
 import { useSession } from "@/components/auth/SessionProvider";
 import { Icon } from "@/components/ui/Icon";
 import { Badge, ButtonLink, Card, NoData, PageHeading, SectionHeading } from "@/components/ui/Primitives";
-import { api, type ApiResponse } from "@/lib/api/client";
+import { api, unwrap, type ApiResponse } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
-import { formatMoney } from "@/lib/presentation";
-import { isSensitiveIdentityKey, loadSafeRegistrationDraft } from "./services/seller.service";
+import { formatMoney, resolveImageUrl } from "@/lib/presentation";
+import { fulfillmentService } from "@/features/fulfillment";
+import { loadSafeRegistrationDraft, sellerService } from "./services/seller.service";
+import { SellerShopAddressFields } from "./components/SellerShopAddressFields";
+import { ghnPresets } from "./ghn-presets";
+import { isSellerWarehouse, sellerCatalogService, type InventoryBalance, type ProductVariant, type SellerProductDetail } from "./services/catalog.service";
+import { sellerOrdersService } from "./services/seller-orders.service";
+import { SellerBuyerReview } from "./SellerBuyerReview";
+import { MAX_INVENTORY_QUANTITY } from "./services/inventory-quantity";
+import { describeCategoryError, leafCategoryOptions } from "./services/category-options";
 
 export { BecomeSellerScreen } from "./BecomeSellerScreen";
 
 type Obj = Record<string, any>;
-const unwrap = <T,>(x: ApiResponse<T> | T): T =>
-  x && typeof x === "object" && "data" in x ? (x as ApiResponse<T>).data : (x as T);
-const rows = (x: any): Obj[] =>
-  Array.isArray(x) ? x : (x?.items ?? x?.data ?? x?.products ?? x?.auctions ?? x?.shipments ?? []);
 const msg = (e: Error | null) => e?.message ?? "";
+
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const SPEC_PRESETS = ["Chất liệu", "Xuất xứ", "Bảo hành", "Kích thước", "Trọng lượng", "Bộ sản phẩm"];
+
+type DraftImageItem = {
+  id: string;
+  file?: File;
+  previewUrl: string;
+  altText: string;
+  isPrimary: boolean;
+};
+
+type DraftVariantItem = {
+  id: string;
+  variantId?: string;
+  skuCode: string;
+  name: string;
+  price: string;
+  weightGrams: string;
+  currency: string;
+  isActive: boolean;
+  attributes: Array<{ attrName: string; attrValue: string }>;
+};
+
+function buildAutoSku(productName: string, variantName: string, index: number): string {
+  const clean = (text: string) =>
+    text
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/đ/gi, "d")
+      .replace(/[^a-zA-Z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .toUpperCase();
+
+  const pToken = clean(productName).split("-").slice(0, 3).join("-") || "NEX";
+  const vToken = clean(variantName).split("-").slice(0, 2).join("-") || `V${index + 1}`;
+  const suffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+  return `${pToken}-${vToken}-${suffix}`.slice(0, 48);
+}
 
 export function SellerProductsScreen() {
   const [q, setQ] = useState("");
+  const [keyword, setKeyword] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const resource = useApiResource(
-    `/api/v1/product/search?page=1&pageSize=50&keyword=${encodeURIComponent(q)}`,
-    async () =>
-      rows(
-        unwrap(
-          await api.get<ApiResponse<any>>(
-            `/api/v1/product/search?page=1&pageSize=50&keyword=${encodeURIComponent(q)}`,
-          ),
-        ),
-      ),
+    `seller-products:${page}:${pageSize}:${keyword}`,
+    (signal) => sellerCatalogService.list(page, keyword, signal, pageSize),
   );
   return (
     <>
@@ -41,19 +81,23 @@ export function SellerProductsScreen() {
         overline="Kênh người bán"
         title="Quản lý sản phẩm"
         description="Sản phẩm và trạng thái từ Catalog API."
+      />
+      <SectionHeading
+        title="Danh sách sản phẩm"
         action={
           <ButtonLink href={ROUTES.seller.newProduct}>
-            <Icon name="plus" size={17} /> Tạo sản phẩm
+            <Icon name="plus" size={17} /> Tạo sản phẩm mới
           </ButtonLink>
         }
       />
-      <SectionHeading title="Danh sách sản phẩm" />
-      <Card>
+      <Card className="seller-products-list">
         <form
-          className="toolbar"
+          className="toolbar seller-products-search"
           onSubmit={(e) => {
             e.preventDefault();
-            resource.reload();
+            setPage(1);
+            setKeyword(q.trim());
+            if (keyword === q.trim() && page === 1) resource.reload();
           }}
         >
           <input
@@ -62,32 +106,45 @@ export function SellerProductsScreen() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
-          <button className="button button-secondary">Tìm kiếm</button>
+          <button type="submit" className="button button-secondary">Tìm kiếm</button>
         </form>
         {resource.error && (
           <p role="alert" className="notice">
             {msg(resource.error)}
           </p>
         )}
-        {resource.data?.length ? (
+        {resource.data?.items.length ? (
           <div className="table-scroll">
-            <table className="data-table">
+            <table className="data-table seller-products-table">
               <thead>
                 <tr>
                   <th>Sản phẩm</th>
-                  <th>Giá</th>
-                  <th>Tồn kho</th>
+                  <th>Danh mục</th>
+                  <th className="seller-product-price">Giá bán</th>
+                  <th>Biến thể SKU</th>
                   <th>Trạng thái</th>
+                  <th>Thao tác</th>
                 </tr>
               </thead>
               <tbody>
-                {resource.data.map((p, i) => (
-                  <tr key={p.id ?? p.productId ?? i}>
-                    <td>{p.name ?? p.productName}</td>
-                    <td>{formatMoney(p.price ?? p.minPrice)}</td>
-                    <td>{p.stock ?? p.availableQuantity ?? "—"}</td>
+                {resource.data.items.map((p) => (
+                  <tr key={p.productId}>
+                    <td>
+                      <Link href={ROUTES.seller.product(p.productId)}>
+                        <strong>{p.name}</strong>
+                      </Link>
+                      {p.brand && <div style={{ fontSize: 12, color: "var(--muted)" }}>{p.brand}</div>}
+                    </td>
+                    <td>{p.categoryName || "—"}</td>
+                    <td className="seller-product-price">
+                      <strong>{formatMoney(p.minPrice ?? null)}</strong>
+                    </td>
+                    <td>{p.variantCount} SKU</td>
                     <td>
                       <Badge>{p.status ?? ""}</Badge>
+                    </td>
+                    <td>
+                      <ButtonLink href={ROUTES.seller.editProduct(p.productId)} variant="secondary">Điều chỉnh</ButtonLink>
                     </td>
                   </tr>
                 ))}
@@ -105,351 +162,1707 @@ export function SellerProductsScreen() {
             }
           />
         )}
+        {resource.data && <div className="seller-products-pagination">
+          <label className="seller-products-page-size">Hiển thị
+            <select className="select-field" value={pageSize} onChange={(event) => { setPageSize(Number(event.target.value)); setPage(1); }}>
+              <option value={10}>10</option>
+              <option value={30}>30</option>
+              <option value={50}>50</option>
+            </select>
+            sản phẩm/trang
+          </label>
+          <nav className="seller-products-page-controls" aria-label="Phân trang sản phẩm">
+            <button type="button" className="button button-secondary" disabled={page <= 1 || resource.loading} onClick={() => setPage((value) => value - 1)}>Trang trước</button>
+            <span>Trang {page}/{Math.max(1, resource.data.pagination.totalPages)}</span>
+            <button type="button" className="button button-secondary" disabled={!resource.data.pagination.hasNextPage || resource.loading} onClick={() => setPage((value) => value + 1)}>Trang sau</button>
+          </nav>
+        </div>}
       </Card>
     </>
   );
 }
 
-export function SellerProductEditorScreen() {
-  const [f, setF] = useState({
-    name: "",
-    description: "",
-    brand: "",
-    categoryId: "",
-    skuCode: "",
-    variantName: "Mặc định",
-    price: "",
-    currency: "VND",
-  });
+export function SellerProductEditScreen() {
+  const { id } = useParams<{ id: string }>();
+  const product = useApiResource(id ? `seller-product-edit:${id}` : null,
+    (signal) => sellerCatalogService.detail(id, signal));
+  if (product.error) return <p className="notice" role="alert">Không tải được sản phẩm: {msg(product.error)}</p>;
+  if (!product.data) return <NoData title="Đang tải sản phẩm để chỉnh sửa…" />;
+  return <SellerProductEditorScreen key={product.data.productId} initialProduct={product.data} />;
+}
+
+export function SellerProductEditorScreen({ initialProduct }: { initialProduct?: SellerProductDetail }) {
+  const { user } = useSession();
+  const router = useRouter();
+
+  const [name, setName] = useState(initialProduct?.name ?? "");
+  const [categoryId, setCategoryId] = useState(initialProduct?.categoryId ?? "");
+  const [brand, setBrand] = useState(initialProduct?.brand ?? "");
+  const [description, setDescription] = useState(initialProduct?.description ?? "");
+  const [weightGrams, setWeightGrams] = useState(String(initialProduct?.weightGrams ?? ""));
+
+  // Dynamic specifications (JSON object per R105_POST_PRODUCTS.md)
+  const [specs, setSpecs] = useState<Array<{ key: string; value: string }>>(() => initialProduct
+    ? (Array.isArray(initialProduct.specifications) ? initialProduct.specifications : []).map((spec) => ({ key: spec.name, value: spec.value }))
+    : [{ key: "Bảo hành", value: "12 tháng chính hãng" }, { key: "Xuất xứ", value: "Việt Nam" }]);
+
+  // Product images (1-5 images uploaded during creation)
+  const [images, setImages] = useState<DraftImageItem[]>(() => initialProduct?.images
+    .filter((image) => !image.variantId)
+    .map((image) => ({ id: image.id, previewUrl: resolveImageUrl(image.url) ?? image.url, altText: image.altText ?? "", isPrimary: image.isActive })) ?? []);
+  const [deletedImageIds, setDeletedImageIds] = useState<string[]>([]);
+  const [deletedVariantIds, setDeletedVariantIds] = useState<string[]>([]);
+
+  // Product variants (1-10 variants with custom attributes & initial stock)
+  const [variants, setVariants] = useState<DraftVariantItem[]>(() => initialProduct
+    ? initialProduct.variants.map((variant) => ({
+        id: variant.variantId,
+        variantId: variant.variantId,
+        skuCode: variant.skuCode,
+        name: variant.name,
+        price: String(variant.price ?? ""),
+        weightGrams: variant.weightGrams == null ? "" : String(variant.weightGrams),
+        currency: variant.currency || "VND",
+        isActive: variant.isActive,
+        attributes: variant.attributes ?? [],
+      }))
+    : [{
+        id: "var-1", skuCode: "", name: "Tiêu chuẩn", price: "", weightGrams: "",
+        currency: "VND", isActive: true,
+        attributes: [{ attrName: "Màu sắc", attrValue: "" }, { attrName: "Kích cỡ", attrValue: "" }],
+      }]);
+
   const [error, setError] = useState("");
+  const [progressNote, setProgressNote] = useState("");
   const [busy, setBusy] = useState(false);
-  const set = (k: keyof typeof f, v: string) => setF((s) => ({ ...s, [k]: v }));
-  const categories = useApiResource("/api/v1/categories", async () =>
-    rows(unwrap(await api.get<ApiResponse<any>>("/api/v1/categories"))),
-  );
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
+
+  const categories = useApiResource("seller-product-categories", sellerCatalogService.categories);
+  const categoryOptions = leafCategoryOptions(categories.data ?? []);
+  const selectedCategory = categoryOptions.find((c) => c.categoryId === categoryId)
+    ?? (initialProduct && categoryId === initialProduct.categoryId
+      ? { categoryId, label: initialProduct.categoryName ?? categoryId }
+      : undefined);
+
+  function handleSelectImages(fileList: FileList | null) {
+    if (!fileList || fileList.length === 0) return;
+    setError("");
+    const next: DraftImageItem[] = [...images];
+    for (const file of Array.from(fileList)) {
+      if (next.length >= 5) {
+        setError("Một sản phẩm hỗ trợ tối đa 5 ảnh đại diện chung.");
+        break;
+      }
+      if (!ALLOWED_IMAGE_TYPES.has(file.type) || file.size > MAX_IMAGE_BYTES) {
+        setError(`Ảnh "${file.name}" không hợp lệ. Chỉ nhận JPG, PNG, WEBP tối đa 5 MB.`);
+        continue;
+      }
+      const previewUrl = URL.createObjectURL(file);
+      next.push({
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        file,
+        previewUrl,
+        altText: name.trim() || file.name.replace(/\.[^.]+$/, ""),
+        isPrimary: next.length === 0,
+      });
+    }
+    setImages(next);
+  }
+
+  function setPrimaryDraftImage(targetId: string) {
+    setImages((prev) => prev.map((img) => ({ ...img, isPrimary: img.id === targetId })));
+  }
+
+  function removeDraftImage(targetId: string) {
+    if (initialProduct?.images.some((image) => image.id === targetId)) {
+      setDeletedImageIds((current) => [...current, targetId]);
+    }
+    setImages((prev) => {
+      const filtered = prev.filter((img) => img.id !== targetId);
+      if (filtered.length > 0 && !filtered.some((img) => img.isPrimary)) {
+        filtered[0] = { ...filtered[0], isPrimary: true };
+      }
+      return filtered;
+    });
+  }
+
+  function addSpecRow(presetKey = "") {
+    if (presetKey && specs.some((s) => s.key.toLowerCase() === presetKey.toLowerCase())) return;
+    setSpecs((prev) => [...prev, { key: presetKey, value: "" }]);
+  }
+
+  function updateSpecRow(index: number, field: "key" | "value", val: string) {
+    setSpecs((prev) => prev.map((item, idx) => (idx === index ? { ...item, [field]: val } : item)));
+  }
+
+  function removeSpecRow(index: number) {
+    setSpecs((prev) => prev.filter((_, idx) => idx !== index));
+  }
+
+  function addVariantCard() {
+    if (variants.length >= 10) return;
+    const nextIdx = variants.length + 1;
+    setVariants((prev) => [
+      ...prev,
+      {
+        id: `var-${Date.now()}-${nextIdx}`,
+        skuCode: buildAutoSku(name, `Phien-ban-${nextIdx}`, nextIdx - 1),
+        name: `Phiên bản #${nextIdx}`,
+        price: prev[0]?.price || "",
+        weightGrams: "",
+        currency: "VND",
+        isActive: false,
+        attributes: [{ attrName: "Màu sắc", attrValue: "" }],
+      },
+    ]);
+  }
+
+  function updateVariantField(index: number, field: keyof DraftVariantItem, value: any) {
+    setVariants((prev) =>
+      prev.map((v, idx) => {
+        if (field === "isActive") {
+          return { ...v, isActive: idx === index };
+        }
+        return idx === index ? { ...v, [field]: value } : v;
+      }),
+    );
+  }
+
+  function addVariantAttribute(variantIdx: number, presetName = "") {
+    setVariants((prev) =>
+      prev.map((v, idx) =>
+        idx === variantIdx
+          ? { ...v, attributes: [...v.attributes, { attrName: presetName, attrValue: "" }] }
+          : v,
+      ),
+    );
+  }
+
+  function updateVariantAttribute(
+    variantIdx: number,
+    attrIdx: number,
+    field: "attrName" | "attrValue",
+    value: string,
+  ) {
+    setVariants((prev) =>
+      prev.map((v, idx) =>
+        idx === variantIdx
+          ? {
+              ...v,
+              attributes: v.attributes.map((a, aIdx) => (aIdx === attrIdx ? { ...a, [field]: value } : a)),
+            }
+          : v,
+      ),
+    );
+  }
+
+  function removeVariantAttribute(variantIdx: number, attrIdx: number) {
+    setVariants((prev) =>
+      prev.map((v, idx) =>
+        idx === variantIdx
+          ? { ...v, attributes: v.attributes.filter((_, aIdx) => aIdx !== attrIdx) }
+          : v,
+      ),
+    );
+  }
+
+  function removeVariantCard(index: number) {
+    if (variants.length <= 1) return;
+    if (variants[index].variantId) setDeletedVariantIds((current) => [...current, variants[index].variantId!]);
+    setVariants((prev) => {
+      const next = prev.filter((_, idx) => idx !== index);
+      if (!next.some((v) => v.isActive) && next.length > 0) {
+        next[0] = { ...next[0], isActive: true };
+      }
+      return next;
+    });
+  }
+
+  async function submitProduct(publishImmediately: boolean) {
     setBusy(true);
     setError("");
+    setProgressNote("");
     try {
-      await api.post("/api/v1/products", {
-        categoryId: f.categoryId || null,
-        name: f.name,
-        description: f.description,
-        brand: f.brand,
-        specifications: {},
-        variants: [
-          {
-            skuCode: f.skuCode,
-            name: f.variantName,
-            price: Number(f.price),
-            currency: f.currency,
-            isActive: true,
-            attributes: [],
-          },
-        ],
+      if (!user?.id) throw new Error("Bạn cần đăng nhập tài khoản Seller để tạo sản phẩm.");
+      if (!name.trim()) throw new Error("Vui lòng nhập tên sản phẩm.");
+      if (!categoryId) throw new Error("Vui lòng chọn một danh mục ngành hàng lá.");
+      const shippingWeight = Number(weightGrams);
+      if (!Number.isSafeInteger(shippingWeight) || shippingWeight <= 0) throw new Error("Khối lượng vận chuyển phải là số nguyên lớn hơn 0 gram.");
+
+      if (publishImmediately && images.length === 0 && !(initialProduct?.images.some((image) => image.variantId && !deletedImageIds.includes(image.id)))) {
+        throw new Error(
+          "Để gửi sản phẩm cho staff duyệt, cần ít nhất 1 ảnh đại diện. Vui lòng chọn ảnh ở Mục 2 hoặc lưu bản nháp.",
+        );
+      }
+
+      const specifications = specs
+        .map((row) => ({ name: row.key.trim(), value: row.value.trim() }))
+        .filter((row) => row.name && row.value);
+      // Validate and normalize variants
+      const preparedVariants = variants.map((v, idx) => {
+        const sku = v.skuCode.trim() || buildAutoSku(name, v.name, idx);
+        const parsedPrice = Number(v.price);
+        if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) {
+          throw new Error(`Biến thể #${idx + 1} (${sku}): Giá bán phải lớn hơn 0 ₫.`);
+        }
+        const variantWeight = v.weightGrams.trim() ? Number(v.weightGrams) : null;
+        if (variantWeight !== null && (!Number.isSafeInteger(variantWeight) || variantWeight <= 0)) {
+          throw new Error(`Biến thể #${idx + 1} (${sku}): Khối lượng phải là số nguyên lớn hơn 0 gram.`);
+        }
+        const cleanAttrs = v.attributes
+          .map((a) => ({ attrName: a.attrName.trim(), attrValue: a.attrValue.trim() }))
+          .filter((a) => a.attrName && a.attrValue);
+
+        return {
+          variantId: v.variantId,
+          skuCode: sku,
+          name: v.name.trim() || name.trim(),
+          price: parsedPrice,
+          currency: v.currency || "VND",
+          isActive: v.isActive,
+          weightGrams: variantWeight,
+          attributes: cleanAttrs,
+        };
       });
-      window.location.assign(ROUTES.seller.products);
+
+      if (initialProduct) {
+        setProgressNote("Đang cập nhật thông tin và biến thể sản phẩm…");
+        await sellerCatalogService.update(initialProduct.productId, {
+          name: name.trim(), description: description.trim(), brand: brand.trim(), categoryId, specifications, weightGrams: shippingWeight,
+        });
+        let defaultVariantId = "";
+        for (const variant of preparedVariants) {
+          if (variant.variantId) {
+            await sellerCatalogService.updateVariant(variant.variantId, {
+              name: variant.name, price: variant.price, currency: variant.currency, attributes: variant.attributes, weightGrams: variant.weightGrams,
+            });
+            if (variant.isActive) defaultVariantId = variant.variantId;
+          } else {
+            const createdVariant = await sellerCatalogService.addVariant(initialProduct.productId, variant);
+            if (variant.isActive) defaultVariantId = createdVariant.variantId;
+          }
+        }
+        for (const variantId of deletedVariantIds) await sellerCatalogService.deleteVariant(variantId);
+        if (defaultVariantId && defaultVariantId !== initialProduct.variants.find((variant) => variant.isActive)?.variantId) {
+          await sellerCatalogService.setDefaultVariant(initialProduct.productId, defaultVariantId);
+        }
+        for (const imageId of deletedImageIds) await sellerCatalogService.deleteImage(initialProduct.productId, imageId);
+        const newImages = images.filter((image) => image.file);
+        for (let index = 0; index < newImages.length; index += 1) {
+          const image = newImages[index];
+          const uploaded = await sellerCatalogService.uploadImage(initialProduct.productId, image.file!, image.altText.trim() || name.trim(), index);
+          if (image.isPrimary && uploaded.id) await sellerCatalogService.setPrimaryImage(uploaded.id, image.altText.trim() || name.trim());
+        }
+        const selectedExistingImage = images.find((image) => image.isPrimary && !image.file);
+        if (selectedExistingImage) await sellerCatalogService.setPrimaryImage(selectedExistingImage.id, selectedExistingImage.altText.trim() || name.trim());
+        if (publishImmediately && initialProduct.status.toUpperCase() !== "ACTIVE") {
+          await sellerCatalogService.changeStatus(initialProduct.productId, "PENDING_APPROVAL");
+        }
+        router.push(ROUTES.seller.product(initialProduct.productId));
+        return;
+      }
+
+      setProgressNote("Bước 1/3: Đang tạo sản phẩm và SKU trong Catalog…");
+      const created = await sellerCatalogService.create({
+        sellerId: user.id,
+        categoryId,
+        name: name.trim(),
+        description: description.trim() || undefined,
+        brand: brand.trim() || undefined,
+        weightGrams: shippingWeight,
+        specifications,
+        variants: preparedVariants,
+      });
+
+      const productId = created.id || created.productId;
+      if (!productId) throw new Error("Catalog API chưa trả về mã sản phẩm.");
+
+      // Upload images sequentially so sortOrder and primary image are preserved
+      if (images.length > 0) {
+        // Put primary image first so it automatically becomes active cover image on upload
+        const orderedImages = [...images].sort((a, b) => (a.isPrimary === b.isPrimary ? 0 : a.isPrimary ? -1 : 1));
+        for (let i = 0; i < orderedImages.length; i++) {
+          const item = orderedImages[i];
+          setProgressNote(`Bước 2/3: Đang tải ảnh sản phẩm (${i + 1}/${orderedImages.length})…`);
+          const uploaded = await sellerCatalogService.uploadImage(
+            productId,
+            item.file!,
+            item.altText.trim() || name.trim(),
+            i,
+          );
+          if (item.isPrimary && i > 0 && uploaded?.id) {
+            await sellerCatalogService.setPrimaryImage(uploaded.id, item.altText.trim() || name.trim());
+          }
+        }
+      }
+
+      if (publishImmediately) {
+        setProgressNote("Bước 3/3: Đang gửi sản phẩm để staff duyệt…");
+        await sellerCatalogService.changeStatus(productId, "PENDING_APPROVAL");
+      }
+
+      router.push(ROUTES.seller.product(productId));
     } catch (ex) {
-      setError(msg(ex as Error));
+      setError(describeCategoryError(msg(ex as Error)));
       setBusy(false);
+      setProgressNote("");
     }
-  };
+  }
+
+  // Live preview metrics
+  const primaryPreviewImage = images.find((i) => i.isPrimary) ?? images[0];
+  const validPrices = variants.map((v) => Number(v.price)).filter((n) => Number.isFinite(n) && n > 0);
+  const minPreviewPrice = validPrices.length ? Math.min(...validPrices) : null;
+  const maxPreviewPrice = validPrices.length ? Math.max(...validPrices) : null;
+  const isBasicReady = Boolean(name.trim() && categoryId && Number.isSafeInteger(Number(weightGrams)) && Number(weightGrams) > 0);
+  const isVariantsReady =
+    variants.length > 0 &&
+    variants.every(
+      (v) =>
+        Number.isFinite(Number(v.price)) &&
+        Number(v.price) > 0 &&
+        (!v.weightGrams.trim() || (Number.isSafeInteger(Number(v.weightGrams)) && Number(v.weightGrams) > 0)),
+    );
+  const isImageReady = images.length > 0 || Boolean(initialProduct?.images.some((image) => image.variantId && !deletedImageIds.includes(image.id)));
+
   return (
     <>
-      <div className="crumbs">
-        <Link href={ROUTES.seller.products}>Quản lý sản phẩm</Link>
-        <Icon name="chevron" size={14} />
-        <span>Tạo sản phẩm</span>
-      </div>
-      <PageHeading title="Tạo sản phẩm" description="Thông tin sẽ được gửi đến Catalog API." />
-      <form onSubmit={(e) => void submit(e)}>
-        <Card className="card-pad">
-          <div className="form-grid">
-            <label className="field-wrap">
-              Tên sản phẩm
-              <input
-                className="field"
-                required
-                value={f.name}
-                onChange={(e) => set("name", e.target.value)}
-              />
-            </label>
-            <label className="field-wrap">
-              Danh mục
-              <select
-                className="select-field"
-                required
-                value={f.categoryId}
-                onChange={(e) => set("categoryId", e.target.value)}
-              >
-                <option value="">Chọn danh mục</option>
-                {(categories.data ?? []).map((c) => (
-                  <option key={c.id ?? c.categoryId} value={c.id ?? c.categoryId}>
-                    {c.name}
-                  </option>
+      <PageHeading
+        overline="Kênh người bán"
+        title={initialProduct ? "Chỉnh sửa sản phẩm" : "Tạo sản phẩm"}
+        description={initialProduct ? "Chỉnh sửa thông tin, ảnh và biến thể sản phẩm." : "Tạo sản phẩm và SKU trước, sau đó nhập hàng tại Quản lý kho."}
+      />
+
+      {error && (
+        <p role="alert" className="notice" style={{ marginBottom: 18 }}>
+          {error}
+        </p>
+      )}
+      {progressNote && (
+        <p role="status" className="form-success" style={{ marginBottom: 18 }}>
+          {progressNote}
+        </p>
+      )}
+
+      <div className="seller-studio-layout">
+        <div className="seller-studio-main">
+          {/* SECTION 1: BASIC INFO */}
+          <Card className="card-pad">
+            <div className="seller-section-head">
+              <div className="seller-section-title-group">
+                <span className="seller-section-step">1</span>
+                <div>
+                  <h2>Thông tin cơ bản & Ngành hàng</h2>
+                  <p>Tên sản phẩm rõ ràng, đúng danh mục giúp người mua dễ tìm kiếm và lọc trên sàn.</p>
+                </div>
+              </div>
+              <Badge>{isBasicReady ? "Đã hoàn tất" : "Bắt buộc"}</Badge>
+            </div>
+
+            <div className="auth-fields">
+              <label className="field-wrap">
+                <span>
+                  Tên sản phẩm <strong style={{ color: "#dc2626" }}>*</strong>
+                </span>
+                <input
+                  className="field"
+                  required
+                  maxLength={255}
+                  placeholder="Ví dụ: Đồng Hồ Cơ Orient Bambino Gen 4 Mặt Trắng Dây Da Nâu"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+              </label>
+
+              <div className="form-grid">
+                <label className="field-wrap"><span>Khối lượng vận chuyển (gram) *</span><input className="field" type="number" min="1" step="1" required value={weightGrams} onChange={(event) => setWeightGrams(event.target.value)} /></label>
+                <label className="field-wrap">
+                  <span>
+                    Danh mục ngành hàng <strong style={{ color: "#dc2626" }}>*</strong>
+                  </span>
+                  <select
+                    className="select-field"
+                    required
+                    value={categoryId}
+                    onChange={(e) => setCategoryId(e.target.value)}
+                  >
+                    <option value="">Chọn danh mục</option>
+                    {initialProduct && !categoryOptions.some((option) => option.categoryId === initialProduct.categoryId) && (
+                      <option value={initialProduct.categoryId}>{initialProduct.categoryName ?? "Danh mục hiện tại"}</option>
+                    )}
+                    {categoryOptions.map((option) => (
+                      <option key={option.categoryId} value={option.categoryId}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  {categories.error && <small role="alert">{msg(categories.error)}</small>}
+                </label>
+
+                <label className="field-wrap">
+                  <span>Thương hiệu (Brand)</span>
+                  <input
+                    className="field"
+                    maxLength={150}
+                    placeholder="Ví dụ: Orient, Seiko, Apple, Nexus Official…"
+                    value={brand}
+                    onChange={(e) => setBrand(e.target.value)}
+                  />
+                </label>
+              </div>
+
+              <label className="field-wrap">
+                <span>Mô tả chi tiết sản phẩm</span>
+                <textarea
+                  className="textarea-field"
+                  maxLength={4000}
+                  placeholder="Mô tả đặc điểm nổi bật, công dụng, chính sách bảo hành và hướng dẫn sử dụng…"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                />
+              </label>
+            </div>
+          </Card>
+
+          {/* SECTION 2: IMAGES */}
+          <Card className="card-pad">
+            <div className="seller-section-head">
+              <div className="seller-section-title-group">
+                <span className="seller-section-step">2</span>
+                <div>
+                  <h2>Hình ảnh sản phẩm ({images.length}/5 ảnh)</h2>
+                  <p>
+                    Tải lên từ 1–5 ảnh (.jpg, .png, .webp, tối đa 5 MB/ảnh). Cần ít nhất 1 ảnh bìa để kích hoạt mở bán
+                    ngay.
+                  </p>
+                </div>
+              </div>
+              <Badge>{isImageReady ? `Đã chọn ${images.length} ảnh` : "Cần khi gửi duyệt"}</Badge>
+            </div>
+
+            {images.length < 5 && (
+              <label className="seller-image-dropzone">
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  multiple
+                  style={{ display: "none" }}
+                  onChange={(e) => {
+                    handleSelectImages(e.target.files);
+                    e.currentTarget.value = "";
+                  }}
+                />
+                <Icon name="plus" size={24} />
+                <strong>Bấm để chọn ảnh sản phẩm (có thể chọn nhiều ảnh cùng lúc)</strong>
+                <small>Hỗ trợ định dạng JPG, PNG, WEBP · Dung lượng tối đa 5 MB / ảnh</small>
+              </label>
+            )}
+
+            {images.length > 0 && (
+              <div className="seller-image-preview-grid">
+                {images.map((img, index) => (
+                  <div
+                    key={img.id}
+                    className={`seller-image-preview-card${img.isPrimary ? " is-primary" : ""}`}
+                  >
+                    <div className="seller-image-preview-thumb">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={img.previewUrl} alt={img.altText || `Ảnh ${index + 1}`} />
+                      {img.isPrimary && <span className="seller-image-cover-pill">★ Ảnh bìa chính</span>}
+                    </div>
+                    <input
+                      className="field"
+                      style={{ minHeight: 34, fontSize: 12 }}
+                      placeholder="Mô tả ảnh (Alt text)"
+                      value={img.altText}
+                      onChange={(e) =>
+                        setImages((prev) =>
+                          prev.map((item) => (item.id === img.id ? { ...item, altText: e.target.value } : item)),
+                        )
+                      }
+                    />
+                    <div style={{ display: "flex", gap: 6 }}>
+                      {!img.isPrimary && (
+                        <button
+                          type="button"
+                          className="button button-secondary button-small"
+                          style={{ flex: 1 }}
+                          onClick={() => setPrimaryDraftImage(img.id)}
+                        >
+                          Đặt làm bìa
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="button button-secondary button-small"
+                        style={{ flex: img.isPrimary ? 1 : undefined }}
+                        onClick={() => removeDraftImage(img.id)}
+                      >
+                        Xóa
+                      </button>
+                    </div>
+                  </div>
                 ))}
-              </select>
-              {categories.error && <small role="alert">{msg(categories.error)}</small>}
-            </label>
-            <label className="field-wrap">
-              Thương hiệu
-              <input
-                className="field"
-                value={f.brand}
-                onChange={(e) => set("brand", e.target.value)}
-              />
-            </label>
-            <label className="field-wrap">
-              Mã SKU
-              <input
-                className="field"
-                required
-                value={f.skuCode}
-                onChange={(e) => set("skuCode", e.target.value)}
-              />
-            </label>
-            <label className="field-wrap">
-              Tên biến thể
-              <input
-                className="field"
-                required
-                value={f.variantName}
-                onChange={(e) => set("variantName", e.target.value)}
-              />
-            </label>
-            <label className="field-wrap">
-              Giá (VND)
-              <input
-                type="number"
-                min="1"
-                required
-                className="field"
-                value={f.price}
-                onChange={(e) => set("price", e.target.value)}
-              />
-            </label>
-            <label className="field-wrap">
-              Mô tả
-              <textarea
-                className="textarea-field"
-                value={f.description}
-                onChange={(e) => set("description", e.target.value)}
-              />
-            </label>
-          </div>
-          {error && (
-            <p role="alert" className="notice">
-              {error}
-            </p>
-          )}
-          <div className="action-row">
-            <button className="button button-primary" disabled={busy}>
-              {busy ? "Đang lưu…" : "Lưu sản phẩm"}
-            </button>
-            <ButtonLink href={ROUTES.seller.products} variant="secondary">
-              Hủy
-            </ButtonLink>
-          </div>
-        </Card>
-      </form>
+              </div>
+            )}
+          </Card>
+
+          {/* SECTION 3: SPECIFICATIONS JSON */}
+          <Card className="card-pad">
+            <div className="seller-section-head">
+              <div className="seller-section-title-group">
+                <span className="seller-section-step">3</span>
+                <div>
+                  <h2>Thông số kỹ thuật (Specifications)</h2>
+                  <p>Hiển thị tại bảng thông số chi tiết sản phẩm, tự động đóng gói chuẩn JSON Object.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="button button-secondary button-small"
+                onClick={() => addSpecRow("")}
+              >
+                <Icon name="plus" size={14} /> Thêm thông số
+              </button>
+            </div>
+
+            <div className="seller-preset-bar">
+              <span>Gợi ý nhanh:</span>
+              {SPEC_PRESETS.map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  className="seller-preset-chip"
+                  onClick={() => addSpecRow(preset)}
+                >
+                  + {preset}
+                </button>
+              ))}
+            </div>
+
+            <div className="seller-spec-list">
+              {specs.map((row, idx) => (
+                <div key={idx} className="seller-spec-row">
+                  <input
+                    className="field"
+                    placeholder="Tên thông số (VD: Chất liệu)"
+                    value={row.key}
+                    onChange={(e) => updateSpecRow(idx, "key", e.target.value)}
+                  />
+                  <input
+                    className="field"
+                    placeholder="Giá trị (VD: Thép không gỉ 316L)"
+                    value={row.value}
+                    onChange={(e) => updateSpecRow(idx, "value", e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="button button-secondary button-small"
+                    onClick={() => removeSpecRow(idx)}
+                  >
+                    Xóa
+                  </button>
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          {/* SECTION 4: WAREHOUSE & SKU VARIANTS */}
+          <Card className="card-pad">
+            <div className="seller-section-head">
+              <div className="seller-section-title-group">
+                <span className="seller-section-step">4</span>
+                <div>
+                  <h2>Biến thể SKU ({variants.length}/10)</h2>
+                  <p>Tạo SKU và giá bán. Số lượng được nhập riêng theo từng kho tại Quản lý kho.</p>
+                </div>
+              </div>
+              {variants.length < 10 && (
+                <button
+                  type="button"
+                  className="button button-secondary button-small"
+                  onClick={addVariantCard}
+                >
+                  <Icon name="plus" size={14} /> Thêm biến thể SKU
+                </button>
+              )}
+            </div>
+
+            {/* Variants List */}
+            <div className="seller-variant-stack">
+              {variants.map((variant, vIdx) => (
+                <div
+                  key={variant.id}
+                  className={`seller-variant-card${variant.isActive ? " is-default" : ""}`}
+                >
+                  <div className="seller-variant-card-header">
+                    <div className="seller-variant-card-title">
+                      <span>Biến thể #{vIdx + 1}</span>
+                      <label
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 6,
+                          fontSize: 12,
+                          fontWeight: 600,
+                          color: variant.isActive ? "var(--sky-dark)" : "var(--muted)",
+                          cursor: "pointer",
+                        }}
+                      >
+                        <input
+                          type="radio"
+                          name="defaultVariant"
+                          checked={variant.isActive}
+                          onChange={() => updateVariantField(vIdx, "isActive", true)}
+                        />
+                        {variant.isActive ? "★ Biến thể mặc định" : "Đặt làm mặc định"}
+                      </label>
+                    </div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      {variants.length > 1 && (
+                        <button
+                          type="button"
+                          className="button button-secondary button-small"
+                          onClick={() => removeVariantCard(vIdx)}
+                        >
+                          Xóa biến thể
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="form-grid">
+                    <label className="field-wrap">
+                      <span>
+                        Mã SKU <strong style={{ color: "#dc2626" }}>*</strong>
+                      </span>
+                      <div className="seller-sku-input-group">
+                        <input
+                          className="field"
+                          required
+                          placeholder="Để trống sẽ tự sinh mã SKU"
+                          value={variant.skuCode}
+                          disabled={Boolean(variant.variantId)}
+                          onChange={(e) => updateVariantField(vIdx, "skuCode", e.target.value)}
+                        />
+                        <button
+                          type="button"
+                          className="button button-secondary button-small seller-sku-generate"
+                          aria-label="Tự sinh mã SKU"
+                          disabled={Boolean(variant.variantId)}
+                          onClick={() => updateVariantField(vIdx, "skuCode", buildAutoSku(name, variant.name, vIdx))}
+                        >
+                          +
+                        </button>
+                      </div>
+                    </label>
+
+                    <label className="field-wrap">
+                      <span>
+                        Tên biến thể <strong style={{ color: "#dc2626" }}>*</strong>
+                      </span>
+                      <input
+                        className="field"
+                        required
+                        placeholder="VD: Dây da nâu - Mặt trắng 40mm"
+                        value={variant.name}
+                        onChange={(e) => updateVariantField(vIdx, "name", e.target.value)}
+                      />
+                    </label>
+
+                    <label className="field-wrap">
+                      <span>
+                        Giá bán (VND) <strong style={{ color: "#dc2626" }}>*</strong>
+                      </span>
+                      <input
+                        type="number"
+                        min="1"
+                        required
+                        className="field"
+                        placeholder="VD: 3400000"
+                        value={variant.price}
+                        onChange={(e) => updateVariantField(vIdx, "price", e.target.value)}
+                      />
+                    </label>
+
+                    <label className="field-wrap">
+                      <span>Khối lượng riêng (gram)</span>
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        className="field"
+                        placeholder={`Để trống dùng ${weightGrams || "khối lượng sản phẩm"} gram`}
+                        value={variant.weightGrams}
+                        onChange={(e) => updateVariantField(vIdx, "weightGrams", e.target.value)}
+                      />
+                    </label>
+
+                    <p className="status-note">Số lượng tồn được khai báo theo SKU và kho tại trang Quản lý kho sau khi tạo sản phẩm.</p>
+                  </div>
+
+                  {/* Variant Attributes */}
+                  <div className="seller-attr-list">
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        flexWrap: "wrap",
+                        gap: 8,
+                      }}
+                    >
+                      <span style={{ fontSize: 12, fontWeight: 700, color: "#475569" }}>
+                        Thuộc tính phân loại của biến thể (Màu sắc, Kích cỡ, Phiên bản…)
+                      </span>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                        {["Màu sắc", "Kích cỡ", "Dung lượng", "Chất liệu"].map((preset) => (
+                          <button
+                            key={preset}
+                            type="button"
+                            className="seller-preset-chip"
+                            onClick={() => addVariantAttribute(vIdx, preset)}
+                          >
+                            + {preset}
+                          </button>
+                        ))}
+                        <button
+                          type="button"
+                          className="seller-preset-chip"
+                          onClick={() => addVariantAttribute(vIdx)}
+                        >
+                          + Thuộc tính
+                        </button>
+                      </div>
+                    </div>
+
+                    {variant.attributes.map((attr, aIdx) => (
+                      <div key={aIdx} className="seller-attr-row">
+                        <input
+                          className="field"
+                          placeholder="Tên thuộc tính (VD: Màu sắc)"
+                          value={attr.attrName}
+                          onChange={(e) => updateVariantAttribute(vIdx, aIdx, "attrName", e.target.value)}
+                        />
+                        <input
+                          className="field"
+                          placeholder="Giá trị (VD: Xanh Navy)"
+                          value={attr.attrValue}
+                          onChange={(e) => updateVariantAttribute(vIdx, aIdx, "attrValue", e.target.value)}
+                        />
+                        <button
+                          type="button"
+                          className="button button-secondary button-small"
+                          onClick={() => removeVariantAttribute(vIdx, aIdx)}
+                        >
+                          Xóa
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+
+        {/* STICKY RIGHT RAIL: LIVE PREVIEW & READINESS CHECKLIST */}
+        <aside className="seller-studio-rail">
+          <Card className="card-pad">
+            <SectionHeading title="Xem trước" />
+            <div className="seller-preview-card">
+              <div className="seller-preview-media">
+                {primaryPreviewImage ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={primaryPreviewImage.previewUrl} alt={name || "Preview"} />
+                ) : (
+                  <span style={{ color: "var(--muted)", fontSize: 12 }}>Chưa chọn ảnh bìa</span>
+                )}
+              </div>
+              <div className="seller-preview-body">
+                <span className="seller-preview-brand">
+                  {brand.trim() || selectedCategory?.label || "NEXUS MERCHANT"}
+                </span>
+                <h3 className="seller-preview-title">{name.trim() || "Tên sản phẩm sẽ hiển thị tại đây"}</h3>
+                <div className="seller-preview-price">
+                  {minPreviewPrice !== null
+                    ? minPreviewPrice === maxPreviewPrice
+                      ? formatMoney(minPreviewPrice)
+                      : `${formatMoney(minPreviewPrice)} – ${formatMoney(maxPreviewPrice)}`
+                    : "Chưa nhập giá"}
+                </div>
+                <div className="seller-preview-meta">
+                  <span>{variants.length} biến thể SKU</span>
+                  <strong>Tồn kho xem và nhập tại Quản lý kho</strong>
+                </div>
+              </div>
+            </div>
+
+            <ul className="seller-checklist">
+              <li>
+                <span className={`seller-check-indicator${isBasicReady ? " is-ready" : ""}`}>
+                  {isBasicReady ? "✓" : "1"}
+                </span>
+                <span>
+                  <strong>Thông tin & Danh mục:</strong>{" "}
+                  {isBasicReady ? selectedCategory?.label : "Cần nhập tên & chọn danh mục"}
+                </span>
+              </li>
+              <li>
+                <span className={`seller-check-indicator${isVariantsReady ? " is-ready" : ""}`}>
+                  {isVariantsReady ? "✓" : "2"}
+                </span>
+                <span>
+                  <strong>Biến thể & Giá bán:</strong>{" "}
+                  {isVariantsReady
+                    ? `${variants.length} SKU hợp lệ`
+                    : "Nhập giá bán lớn hơn 0"}
+                </span>
+              </li>
+              <li>
+                <span className={`seller-check-indicator${isImageReady ? " is-ready" : ""}`}>
+                  {isImageReady ? "✓" : "!"}
+                </span>
+                <span>
+                  <strong>Ảnh đại diện mở bán:</strong>{" "}
+                  {isImageReady
+                    ? `Đã sẵn sàng ${images.length} ảnh sản phẩm`
+                    : "Cần ít nhất 1 ảnh nếu muốn gửi duyệt"}
+                </span>
+              </li>
+            </ul>
+
+            <div className="seller-studio-actions">
+              <button
+                type="button"
+                className="button button-primary"
+                disabled={busy || !isBasicReady || !isVariantsReady}
+                onClick={() => void submitProduct(true)}
+              >
+                {busy ? "Đang lưu…" : "Gửi sản phẩm để staff duyệt"}
+              </button>
+
+              <button
+                type="button"
+                className="button button-secondary"
+                disabled={busy || !isBasicReady || !isVariantsReady}
+                onClick={() => void submitProduct(false)}
+              >
+                {busy ? "Đang lưu…" : initialProduct ? "Lưu thay đổi" : "Lưu bản nháp"}
+              </button>
+
+              <ButtonLink href={ROUTES.seller.products} variant="secondary">
+                Quay lại danh sách
+              </ButtonLink>
+            </div>
+          </Card>
+        </aside>
+      </div>
     </>
   );
 }
 
 export function SellerInventoryScreen() {
-  const products = useApiResource("/api/v1/product/search?page=1&pageSize=100", async () =>
-    rows(unwrap(await api.get<ApiResponse<any>>("/api/v1/product/search?page=1&pageSize=100"))),
+  const { user } = useSession();
+  const sellerProfile = useApiResource(
+    user?.id ? `seller-inventory-profile:${user.id}` : null,
+    async (signal) => unwrap(await sellerService.getProfile(signal)),
   );
+  const sellerId = sellerProfile.data?.sellerId ?? sellerProfile.data?.shopId;
+  const shopName = sellerProfile.data?.shopName;
+  const rawPickupAddress = sellerProfile.data?.pickupAddress;
+  const pickupAddress =
+    typeof rawPickupAddress === "string"
+      ? rawPickupAddress
+      : rawPickupAddress?.streetAddress ?? sellerProfile.data?.streetAddress ?? "";
+  const warehouses = useApiResource(
+    user?.id && !sellerProfile.loading
+      ? `seller-inv-warehouses:${user.id}:${sellerId ?? ""}:${shopName ?? ""}`
+      : null,
+    (signal) =>
+      sellerCatalogService.listWarehouses(user?.id, signal, {
+        sellerId,
+        shopName,
+        pickupAddress,
+      }),
+  );
+  const personalWarehouse = warehouses.data?.[0] ?? null;
+  const activeWarehouseId = personalWarehouse?.id ?? "";
+
+  // Load ALL products and their SKU variants belonging to the seller
+  const allProductDetails = useApiResource(
+    user?.id && !sellerProfile.loading ? `seller-inventory-all-details:${user.id}:${sellerId ?? ""}` : null,
+    (signal) => sellerCatalogService.listAllProductDetails(signal),
+  );
+
+  const [productId, setProductId] = useState("");
+  const [searchKeyword, setSearchKeyword] = useState("");
+  const [stockFilter, setStockFilter] = useState<"ALL" | "IN_STOCK" | "OUT_OF_STOCK" | "UNDECLARED">("ALL");
   const [skuId, setSkuId] = useState("");
-  const [quantity, setQuantity] = useState("1");
-  const [error, setError] = useState("");
-  const [saved, setSaved] = useState("");
-  const [busy, setBusy] = useState(false);
-  const stockIn = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setBusy(true);
-    setError("");
-    setSaved("");
-    try {
-      await api.post("/api/v1/inventory/stock-in", {
-        items: [{ skuId, quantity: Number(quantity) }],
-      });
-      setSaved("Kho đã được cập nhật.");
-      products.reload();
-    } catch (ex) {
-      setError(msg(ex as Error));
-    } finally {
-      setBusy(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [intakeModalOpen, setIntakeModalOpen] = useState(false);
+  const [variantDrafts, setVariantDrafts] = useState<Record<string, { name: string; price: string; totalQuantity: string }>>({});
+  const [savingVariantId, setSavingVariantId] = useState<string | null>(null);
+  const [detailsMessage, setDetailsMessage] = useState("");
+  const [detailsError, setDetailsError] = useState("");
+  const [intakeQuantity, setIntakeQuantity] = useState("");
+  const [intakeNote, setIntakeNote] = useState("");
+  const [intakeBusy, setIntakeBusy] = useState(false);
+  const [intakeError, setIntakeError] = useState("");
+  const [intakeSuccess, setIntakeSuccess] = useState("");
+
+  const allVariantRows = (allProductDetails.data ?? []).flatMap((product) =>
+    (product.variants ?? []).map((variant) => ({
+      product,
+      variant,
+    })),
+  );
+
+  const allVariantIdsKey = allVariantRows.map((row) => row.variant.variantId).join(",");
+  const batchBalances = useApiResource(
+    allVariantIdsKey ? `seller-inventory-batch-all:${allVariantIdsKey}` : null,
+    (signal) => sellerCatalogService.inventoryBatch(allVariantRows.map((row) => row.variant.variantId), signal),
+  );
+
+  const balanceMap = new Map<string, InventoryBalance[]>();
+  for (const item of batchBalances.data ?? []) {
+    balanceMap.set(item.skuId, [...(balanceMap.get(item.skuId) ?? []), item]);
+  }
+
+  function resolveSellerWarehouseBalance(targetSkuId: string): InventoryBalance | undefined {
+    const items = balanceMap.get(targetSkuId) ?? [];
+    if (!items.length) return undefined;
+    if (activeWarehouseId) {
+      const exact = items.find((balance) => balance.warehouseId === activeWarehouseId);
+      if (exact) return exact;
     }
-  };
+    return items[0];
+  }
+
+  const filteredRows = allVariantRows.filter(({ product, variant }) => {
+    if (productId && product.productId !== productId) return false;
+    if (searchKeyword.trim()) {
+      const q = searchKeyword.trim().toLowerCase();
+      const matched =
+        product.name.toLowerCase().includes(q) ||
+        variant.skuCode.toLowerCase().includes(q) ||
+        variant.name.toLowerCase().includes(q);
+      if (!matched) return false;
+    }
+    const inv = resolveSellerWarehouseBalance(variant.variantId);
+    if (stockFilter === "IN_STOCK") return Boolean(inv && inv.availableQuantity > 0);
+    if (stockFilter === "OUT_OF_STOCK") return Boolean(inv && inv.availableQuantity <= 0);
+    if (stockFilter === "UNDECLARED") return !inv;
+    return true;
+  });
+
+  const activeSkuId = allVariantRows.some((row) => row.variant.variantId === skuId)
+    ? skuId
+    : (filteredRows[0]?.variant.variantId ?? allVariantRows[0]?.variant.variantId ?? "");
+  const activeRow = allVariantRows.find((row) => row.variant.variantId === activeSkuId) ?? null;
+  const selectedBalance = activeSkuId ? resolveSellerWarehouseBalance(activeSkuId) : undefined;
+  const isOwnWarehouse = Boolean(personalWarehouse?.id && isSellerWarehouse(personalWarehouse, user?.id));
+  const currentTotalQuantity = selectedBalance?.totalQuantity ?? 0;
+  const intakeQuantityNumber = Number(intakeQuantity);
+  const projectedTotal =
+    intakeQuantity.trim() &&
+    Number.isSafeInteger(intakeQuantityNumber) &&
+    intakeQuantityNumber > 0 &&
+    intakeQuantityNumber <= MAX_INVENTORY_QUANTITY - currentTotalQuantity
+      ? currentTotalQuantity + intakeQuantityNumber
+      : null;
+
+  const totalProductsCount = allProductDetails.data?.length ?? 0;
+  const totalSkusCount = allVariantRows.length;
+  const totalPhysicalStock = allVariantRows.reduce(
+    (sum, row) => sum + (resolveSellerWarehouseBalance(row.variant.variantId)?.totalQuantity ?? 0),
+    0,
+  );
+  const totalAvailableStock = allVariantRows.reduce(
+    (sum, row) => sum + (resolveSellerWarehouseBalance(row.variant.variantId)?.availableQuantity ?? 0),
+    0,
+  );
+  const totalReservedStock = allVariantRows.reduce(
+    (sum, row) => sum + (resolveSellerWarehouseBalance(row.variant.variantId)?.reservedQuantity ?? 0),
+    0,
+  );
+
+  const warehouseDisplayLabel = personalWarehouse
+    ? `[${personalWarehouse.code}] ${personalWarehouse.name}`
+    : "Kho riêng của Shop";
+
+  useEffect(() => {
+    if (!detailsOpen && !intakeModalOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setDetailsOpen(false);
+        setIntakeModalOpen(false);
+      }
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [detailsOpen, intakeModalOpen]);
+
+  function openIntakeModal(targetSkuId?: string) {
+    if (targetSkuId) {
+      setSkuId(targetSkuId);
+    } else if (!skuId && (filteredRows[0]?.variant.variantId || allVariantRows[0]?.variant.variantId)) {
+      setSkuId(filteredRows[0]?.variant.variantId ?? allVariantRows[0]?.variant.variantId ?? "");
+    }
+    setIntakeQuantity("");
+    setIntakeNote("");
+    setIntakeError("");
+    setIntakeSuccess("");
+    setIntakeModalOpen(true);
+  }
+
+  function openProductDetails(variant: ProductVariant) {
+    setSkuId(variant.variantId);
+    setDetailsError("");
+    setDetailsMessage("");
+    const inventory = resolveSellerWarehouseBalance(variant.variantId);
+    setVariantDrafts({
+      [variant.variantId]: {
+        name: variant.name,
+        price: String(variant.price ?? ""),
+        totalQuantity: String(inventory?.totalQuantity ?? ""),
+      },
+    });
+    setDetailsOpen(true);
+  }
+
+  async function saveVariantDetails(variant: ProductVariant) {
+    const draft = variantDrafts[variant.variantId];
+    const inventory = resolveSellerWarehouseBalance(variant.variantId);
+    if (!draft) {
+      setDetailsError("Không có thay đổi để lưu.");
+      return;
+    }
+
+    const nextPrice = Number(draft.price);
+    if (!draft.name.trim() || !Number.isFinite(nextPrice) || nextPrice <= 0) {
+      setDetailsError("Tên biến thể và giá bán phải hợp lệ; giá bán phải lớn hơn 0.");
+      return;
+    }
+
+    const variantChanged = draft.name.trim() !== variant.name || nextPrice !== Number(variant.price);
+    if (!variantChanged) {
+      setDetailsError("Chưa có thay đổi tên hoặc giá bán để lưu.");
+      return;
+    }
+    setSavingVariantId(variant.variantId);
+    setDetailsError("");
+    setDetailsMessage("");
+    try {
+      await sellerCatalogService.updateVariant(variant.variantId, {
+        name: draft.name.trim(),
+        price: nextPrice,
+        currency: variant.currency || "VND",
+        attributes: variant.attributes,
+      });
+      allProductDetails.reload();
+      batchBalances.reload();
+      setVariantDrafts((current) => ({
+        ...current,
+        [variant.variantId]: {
+          name: draft.name.trim(),
+          price: String(nextPrice),
+          totalQuantity: inventory ? String(inventory.totalQuantity) : "",
+        },
+      }));
+      setDetailsMessage("Đã lưu tên biến thể và giá bán.");
+    } catch (cause) {
+      allProductDetails.reload();
+      batchBalances.reload();
+      const failure = cause instanceof Error ? cause.message : "Không lưu được thay đổi.";
+      setDetailsError(failure);
+    } finally {
+      setSavingVariantId(null);
+    }
+  }
+
+  async function submitIntake() {
+    if (intakeBusy) return;
+    const quantity = Number(intakeQuantity);
+    setIntakeError("");
+    setIntakeSuccess("");
+    if (!isOwnWarehouse || !activeWarehouseId || !activeSkuId) {
+      setIntakeError("Vui lòng chọn biến thể SKU trong kho riêng của bạn để nhập hàng.");
+      return;
+    }
+    if (!Number.isSafeInteger(quantity) || quantity <= 0 || quantity > MAX_INVENTORY_QUANTITY) {
+      setIntakeError(`Nhập số nguyên từ 1 đến ${MAX_INVENTORY_QUANTITY.toLocaleString("vi-VN")}.`);
+      return;
+    }
+    if (quantity > MAX_INVENTORY_QUANTITY - currentTotalQuantity) {
+      setIntakeError("Tổng tồn sau nhập vượt giới hạn số lượng cho phép.");
+      return;
+    }
+    setIntakeBusy(true);
+    try {
+      const noteText = intakeNote.trim() || "Seller nhập thêm hàng vào kho riêng";
+      await sellerCatalogService.adjustInventory({
+        skuId: activeSkuId,
+        warehouseId: activeWarehouseId,
+        type: "Intake",
+        quantity,
+        note: noteText,
+      });
+      setIntakeSuccess(`Đã nhập thêm ${quantity.toLocaleString("vi-VN")} sản phẩm vào ${warehouseDisplayLabel}.`);
+      setIntakeQuantity("");
+      setIntakeNote("");
+      setIntakeModalOpen(false);
+      batchBalances.reload();
+    } catch (cause) {
+      setIntakeError(`${cause instanceof Error ? cause.message : "Không nhập thêm được hàng."} Hãy kiểm tra tồn kho trước khi gửi lại.`);
+      batchBalances.reload();
+    } finally {
+      setIntakeBusy(false);
+    }
+  }
+
   return (
     <>
-      <PageHeading
-        overline="Kênh người bán"
-        title="Quản lý kho"
-        description="Danh sách tồn kho chưa có API; nhập kho có thể gửi qua Catalog API."
-      />
-      <Card className="card-pad">
-        <form className="form-grid" onSubmit={(e) => void stockIn(e)}>
+      <div className="seller-inventory-top-header">
+        <div>
+          <h1>Quản lý kho</h1>
+          <div className="seller-inventory-warehouse-meta">
+            <span className="seller-inventory-warehouse-name">
+              {warehouses.loading || sellerProfile.loading ? "Đang tải thông tin kho…" : warehouseDisplayLabel}
+            </span>
+            {(personalWarehouse?.address || pickupAddress) && (
+              <span>Địa chỉ lấy hàng: {personalWarehouse?.address || pickupAddress}</span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {sellerProfile.error && (
+        <p className="notice" role="alert" style={{ marginBottom: 16 }}>
+          Không tải được hồ sơ Seller: {sellerProfile.error.message}
+        </p>
+      )}
+      {!warehouses.loading && !sellerProfile.loading && !sellerProfile.error && !personalWarehouse && (
+        <p className="notice" role="status" style={{ marginBottom: 16 }}>
+          Kho riêng chưa được đồng bộ sau khi duyệt hồ sơ. Vui lòng tải lại trang hoặc kiểm tra hồ sơ Shop.
+        </p>
+      )}
+      {intakeSuccess && !intakeModalOpen && (
+        <p className="form-success" role="status" style={{ marginBottom: 16 }}>
+          {intakeSuccess}
+        </p>
+      )}
+
+      {/* KPI Summary Cards */}
+      <div className="grid-4" style={{ marginBottom: 20 }}>
+        <Card className="card-pad">
+          <span style={{ fontSize: 12, color: "var(--muted)" }}>Sản phẩm trong kho</span>
+          <strong style={{ display: "block", fontSize: 22, marginTop: 4 }}>
+            {totalProductsCount.toLocaleString("vi-VN")}
+          </strong>
+        </Card>
+        <Card className="card-pad">
+          <span style={{ fontSize: 12, color: "var(--muted)" }}>Tổng biến thể (SKU)</span>
+          <strong style={{ display: "block", fontSize: 22, marginTop: 4 }}>
+            {totalSkusCount.toLocaleString("vi-VN")}
+          </strong>
+        </Card>
+        <Card className="card-pad">
+          <span style={{ fontSize: 12, color: "var(--muted)" }}>Tổng tồn vật lý (Total)</span>
+          <strong style={{ display: "block", fontSize: 22, marginTop: 4 }}>
+            {totalPhysicalStock.toLocaleString("vi-VN")}
+          </strong>
+        </Card>
+        <Card className="card-pad">
+          <span style={{ fontSize: 12, color: "var(--muted)" }}>Khả dụng / Đang giữ</span>
+          <strong style={{ display: "block", fontSize: 22, marginTop: 4, color: "#059669" }}>
+            {totalAvailableStock.toLocaleString("vi-VN")}{" "}
+            <span style={{ fontSize: 13, color: "#b45309", fontWeight: 600 }}>
+              (Giữ: {totalReservedStock.toLocaleString("vi-VN")})
+            </span>
+          </strong>
+        </Card>
+      </div>
+
+      {/* Full Warehouse Product & SKU Inventory Management */}
+      <Card className="card-pad seller-inventory-selector" style={{ marginBottom: 20 }}>
+        <SectionHeading
+          title={`Danh sách toàn bộ Sản phẩm & SKU trong kho (${filteredRows.length}/${totalSkusCount} SKU)`}
+        />
+
+        {/* Filter & Search Bar */}
+        <div className="seller-inventory-filter-grid">
           <label className="field-wrap">
-            SKU ID
+            Lọc theo sản phẩm
+            <select
+              className="select-field"
+              value={productId}
+              onChange={(event) => {
+                setProductId(event.target.value);
+                setIntakeError("");
+                setIntakeSuccess("");
+              }}
+            >
+              <option value="">Tất cả sản phẩm trong kho ({totalProductsCount})</option>
+              {(allProductDetails.data ?? []).map((item) => (
+                <option key={item.productId} value={item.productId}>
+                  {item.name} ({item.variants?.length ?? item.variantCount ?? 0} SKU · {item.status})
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="field-wrap">
+            Tìm kiếm tên sản phẩm / Mã SKU
             <input
               className="field"
-              required
-              value={skuId}
-              onChange={(e) => setSkuId(e.target.value)}
+              value={searchKeyword}
+              onChange={(event) => setSearchKeyword(event.target.value)}
+              placeholder="Nhập tên sản phẩm, mã SKU hoặc tên phân loại…"
             />
           </label>
+
           <label className="field-wrap">
-            Số lượng nhập
-            <input
-              className="field"
-              type="number"
-              min="1"
-              required
-              value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
-            />
+            Trạng thái tồn kho
+            <select
+              className="select-field"
+              value={stockFilter}
+              onChange={(event) => setStockFilter(event.target.value as typeof stockFilter)}
+            >
+              <option value="ALL">Tất cả biến thể SKU ({totalSkusCount})</option>
+              <option value="IN_STOCK">Còn hàng khả dụng (&gt; 0)</option>
+              <option value="OUT_OF_STOCK">Hết hàng khả dụng (0)</option>
+              <option value="UNDECLARED">Chưa đồng bộ bản ghi tồn</option>
+            </select>
           </label>
-          <button className="button button-primary" disabled={busy}>
-            Nhập kho
-          </button>
-        </form>
-        {error && (
-          <p role="alert" className="notice">
-            {error}
-          </p>
+        </div>
+
+        {allProductDetails.loading && <p className="status-note">Đang tải danh sách toàn bộ sản phẩm và biến thể trong kho…</p>}
+        {allProductDetails.error && <p className="notice" role="alert">Không tải được sản phẩm: {allProductDetails.error.message}</p>}
+        {!allProductDetails.loading && totalProductsCount === 0 && (
+          <p className="status-note">Kho của bạn chưa có sản phẩm nào. Hãy tạo sản phẩm mới để khai báo tồn kho.</p>
         )}
-        {saved && (
-          <p role="status" className="form-success">
-            {saved}
-          </p>
-        )}
-      </Card>
-      <SectionHeading
-        title="Sản phẩm của shop"
-        hint="Catalog product search không trả tồn kho; số lượng sẽ hiển thị khi API cung cấp trường stock."
-      />
-      <Card>
-        {products.error && (
-          <p role="alert" className="notice">
-            {msg(products.error)}
-          </p>
-        )}
-        {products.data?.length ? (
-          <div className="table-scroll">
-            <table className="data-table">
+
+        {/* Comprehensive Table of ALL Products & Variants in Seller's Personal Warehouse */}
+        {filteredRows.length > 0 ? (
+          <div className="table-scroll" style={{ marginTop: 18 }}>
+            <table className="data-table seller-inventory-table">
               <thead>
                 <tr>
                   <th>Sản phẩm</th>
-                  <th>SKU</th>
-                  <th>Tồn kho</th>
-                  <th>Trạng thái</th>
+                  <th>Mã SKU</th>
+                  <th>Phân loại biến thể</th>
+                  <th>Giá bán</th>
+                  <th>Tổng tồn</th>
+                  <th>Khả dụng</th>
+                  <th>Đang giữ</th>
+                  <th>Thao tác</th>
                 </tr>
               </thead>
               <tbody>
-                {products.data.flatMap((p, i) =>
-                  (p.variants ?? []).length ? (
-                    p.variants.map((v: Obj, j: number) => (
-                      <tr key={v.id ?? v.skuId ?? `${i}-${j}`}>
-                        <td>{p.name ?? p.productName}</td>
-                        <td>{v.skuCode ?? v.id}</td>
-                        <td>{v.stock ?? v.availableQuantity ?? "—"}</td>
-                        <td>{v.isActive ? "Đang bán" : ""}</td>
-                      </tr>
-                    ))
-                  ) : [
-                    <tr key={p.id ?? i}>
-                      <td>{p.name ?? p.productName}</td>
-                      <td>—</td>
-                      <td>{p.stock ?? "—"}</td>
-                      <td>{p.status ?? ""}</td>
-                    </tr>,
-                  ],
-                )}
+                {filteredRows.map(({ product, variant }) => {
+                  const inv = resolveSellerWarehouseBalance(variant.variantId);
+                  const isSelected = variant.variantId === activeSkuId;
+                  const attrSummary =
+                    variant.attributes?.length > 0
+                      ? variant.attributes.map((a) => `${a.attrName}: ${a.attrValue}`).join(" · ")
+                      : "";
+                  return (
+                    <tr
+                      key={variant.variantId}
+                      style={isSelected ? { background: "#f0f9ff" } : undefined}
+                    >
+                      <td>
+                        <strong>{product.name}</strong>
+                        <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>
+                          Trạng thái SP: {product.status}
+                        </div>
+                      </td>
+                      <td>
+                        <strong>{variant.skuCode}</strong>
+                      </td>
+                      <td>
+                        <div>{variant.name}</div>
+                        {attrSummary && (
+                          <small style={{ color: "var(--muted)", display: "block", marginTop: 2 }}>
+                            {attrSummary}
+                          </small>
+                        )}
+                      </td>
+                      <td style={{ fontWeight: 600 }}>{formatMoney(variant.price)}</td>
+                      <td>
+                        <strong>{inv ? inv.totalQuantity.toLocaleString("vi-VN") : "0"}</strong>
+                      </td>
+                      <td style={{ color: "#059669", fontWeight: 700 }}>
+                        {inv ? inv.availableQuantity.toLocaleString("vi-VN") : "0"}
+                      </td>
+                      <td style={{ color: "#b45309", fontWeight: 700 }}>
+                        {inv ? inv.reservedQuantity.toLocaleString("vi-VN") : "0"}
+                      </td>
+                      <td>
+                        <div className="seller-inventory-row-actions">
+                          <button
+                            type="button"
+                            className="button button-small button-primary"
+                            disabled={!isOwnWarehouse || batchBalances.loading}
+                            onClick={() => openIntakeModal(variant.variantId)}
+                          >
+                            + Nhập hàng
+                          </button>
+                          <button
+                            type="button"
+                            className="button button-small button-secondary"
+                            disabled={batchBalances.loading}
+                            onClick={() => openProductDetails(variant)}
+                          >
+                            Sửa / Chi tiết
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         ) : (
-          <NoData
-            title={
-              products.loading
-                ? "Đang tải sản phẩm…"
-                : products.error
-                  ? "Không tải được sản phẩm"
-                  : "Chưa có sản phẩm"
-            }
-          />
+          !allProductDetails.loading &&
+          totalSkusCount > 0 && (
+            <p className="status-note" style={{ marginTop: 16 }}>
+              Không tìm thấy biến thể SKU nào khớp với bộ lọc hiện tại.
+            </p>
+          )
         )}
       </Card>
+
+      {/* Stock Intake Modal */}
+      {intakeModalOpen && (
+        <div
+          className="seller-inventory-modal-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setIntakeModalOpen(false);
+          }}
+        >
+          <section
+            className="seller-inventory-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="seller-inventory-intake-modal-title"
+            style={{ maxWidth: 620 }}
+          >
+            <header className="seller-inventory-modal-header">
+              <div>
+                <h2 id="seller-inventory-intake-modal-title">Nhập thêm hàng vào Kho riêng</h2>
+                <p>{personalWarehouse ? warehouseDisplayLabel : "Kho riêng của Shop"}</p>
+              </div>
+              <button
+                type="button"
+                className="seller-inventory-modal-close"
+                aria-label="Đóng hộp thoại nhập hàng"
+                onClick={() => setIntakeModalOpen(false)}
+              >
+                ×
+              </button>
+            </header>
+
+            <div className="auth-fields" style={{ marginTop: 12 }}>
+              <label className="field-wrap">
+                <span>Chọn biến thể SKU cần nhập hàng</span>
+                <select
+                  className="select-field"
+                  value={activeSkuId}
+                  onChange={(event) => {
+                    setSkuId(event.target.value);
+                    setIntakeQuantity("");
+                    setIntakeError("");
+                    setIntakeSuccess("");
+                  }}
+                  disabled={allVariantRows.length === 0 || intakeBusy}
+                >
+                  <option value="">Chọn biến thể SKU</option>
+                  {allVariantRows.map(({ product, variant }) => (
+                    <option key={variant.variantId} value={variant.variantId}>
+                      [{variant.skuCode}] {product.name} — {variant.name} ({formatMoney(variant.price)})
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              {activeRow && (
+                <div
+                  className="mini-item"
+                  style={{
+                    background: "#f8fafc",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                    gap: 12,
+                  }}
+                >
+                  <div>
+                    <strong>
+                      [{activeRow.variant.skuCode}] {activeRow.product.name} ({activeRow.variant.name})
+                    </strong>
+                    <p style={{ margin: "4px 0 0", fontSize: 13 }}>
+                      Tồn hiện tại: <strong>{currentTotalQuantity.toLocaleString("vi-VN")}</strong>
+                      {projectedTotal !== null && (
+                        <>
+                          {" "}
+                          · Dự kiến sau khi nhập:{" "}
+                          <strong style={{ color: "#059669" }}>
+                            {projectedTotal.toLocaleString("vi-VN")}
+                          </strong>
+                        </>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <label className="field-wrap">
+                <span>Số lượng nhập thêm</span>
+                <input
+                  className="field"
+                  type="number"
+                  min="1"
+                  max={Math.max(1, MAX_INVENTORY_QUANTITY - currentTotalQuantity)}
+                  step="1"
+                  value={intakeQuantity}
+                  placeholder="Nhập số lượng cần cộng thêm vào kho"
+                  disabled={!isOwnWarehouse || !activeSkuId || intakeBusy}
+                  onChange={(event) => {
+                    setIntakeQuantity(event.target.value);
+                    setIntakeError("");
+                    setIntakeSuccess("");
+                  }}
+                />
+              </label>
+
+              <label className="field-wrap">
+                <span>Ghi chú phiếu nhập</span>
+                <input
+                  className="field"
+                  value={intakeNote}
+                  placeholder="Ví dụ: Nhập bổ sung hàng đợt mới vào kho riêng"
+                  disabled={!isOwnWarehouse || !activeSkuId || intakeBusy}
+                  onChange={(event) => {
+                    setIntakeNote(event.target.value);
+                    setIntakeError("");
+                    setIntakeSuccess("");
+                  }}
+                />
+              </label>
+
+              {intakeError && (
+                <p className="notice" role="alert">
+                  {intakeError}
+                </p>
+              )}
+              {intakeSuccess && (
+                <p className="form-success" role="status">
+                  {intakeSuccess}
+                </p>
+              )}
+            </div>
+
+            <footer className="seller-inventory-modal-footer" style={{ gap: 10 }}>
+              <button
+                type="button"
+                className="button button-secondary"
+                disabled={intakeBusy}
+                onClick={() => setIntakeModalOpen(false)}
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                className="button button-primary"
+                disabled={!isOwnWarehouse || !activeSkuId || intakeBusy}
+                onClick={() => void submitIntake()}
+              >
+                {intakeBusy ? "Đang nhập…" : "+ Xác nhận nhập kho"}
+              </button>
+            </footer>
+          </section>
+        </div>
+      )}
+
+      {detailsOpen && activeRow && (
+        <div
+          className="seller-inventory-modal-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setDetailsOpen(false);
+          }}
+        >
+          <section
+            className="seller-inventory-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="seller-inventory-modal-title"
+          >
+            <header className="seller-inventory-modal-header">
+              <div>
+                <h2 id="seller-inventory-modal-title">Chi tiết biến thể & tồn kho</h2>
+                <p>
+                  {activeRow.product.name} · Mã SKU: {activeRow.variant.skuCode}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="seller-inventory-modal-close"
+                aria-label="Đóng chi tiết"
+                onClick={() => setDetailsOpen(false)}
+              >
+                ×
+              </button>
+            </header>
+
+            <p className="seller-inventory-modal-help">
+              Bạn có thể sửa tên biến thể và giá bán tại đây. Để cộng thêm số lượng hàng mới, hãy dùng nút &quot;+ Nhập hàng&quot;.
+            </p>
+
+            {detailsError && <p className="notice" role="alert">{detailsError}</p>}
+            {detailsMessage && <p className="form-success" role="status">{detailsMessage}</p>}
+
+            <div className="table-scroll seller-inventory-modal-table-scroll">
+              <table className="data-table seller-inventory-modal-table">
+                <thead>
+                  <tr>
+                    <th>Tên biến thể</th>
+                    <th>Kho riêng</th>
+                    <th>Giá bán</th>
+                    <th>Tổng tồn (Total)</th>
+                    <th>Khả dụng (Available)</th>
+                    <th>Đang giữ (Reserved)</th>
+                    <th>Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[activeRow.variant].map((variant) => {
+                    const draft = variantDrafts[variant.variantId];
+                    const inv = resolveSellerWarehouseBalance(variant.variantId);
+                    const hasChanges = Boolean(
+                      draft &&
+                        (draft.name.trim() !== variant.name ||
+                          Number(draft.price) !== Number(variant.price)),
+                    );
+                    return (
+                      <tr key={variant.variantId} className="is-selected">
+                        <td>
+                          <label className="seller-inventory-modal-name">
+                            <span>{variant.skuCode}</span>
+                            <input
+                              className="field"
+                              value={draft?.name ?? variant.name}
+                              aria-label={`Tên biến thể ${variant.skuCode}`}
+                              onChange={(event) =>
+                                setVariantDrafts((current) => ({
+                                  ...current,
+                                  [variant.variantId]: {
+                                    ...current[variant.variantId],
+                                    name: event.target.value,
+                                  },
+                                }))
+                              }
+                            />
+                          </label>
+                        </td>
+                        <td>{warehouseDisplayLabel}</td>
+                        <td>
+                          <input
+                            className="field seller-inventory-modal-number"
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={draft?.price ?? String(variant.price ?? "")}
+                            aria-label={`Giá bán ${variant.skuCode}`}
+                            onChange={(event) =>
+                              setVariantDrafts((current) => ({
+                                ...current,
+                                [variant.variantId]: {
+                                  ...current[variant.variantId],
+                                  price: event.target.value,
+                                },
+                              }))
+                            }
+                          />
+                        </td>
+                        <td className="seller-inventory-modal-readonly">
+                          {inv ? inv.totalQuantity.toLocaleString("vi-VN") : "0"}
+                        </td>
+                        <td className="seller-inventory-modal-readonly">
+                          {inv ? inv.availableQuantity.toLocaleString("vi-VN") : "0"}
+                        </td>
+                        <td className="seller-inventory-modal-readonly">
+                          {inv ? inv.reservedQuantity.toLocaleString("vi-VN") : "0"}
+                        </td>
+                        <td>
+                          <button
+                            type="button"
+                            className="button button-primary button-small"
+                            disabled={savingVariantId === variant.variantId || !hasChanges}
+                            onClick={() => void saveVariantDetails(variant)}
+                          >
+                            {savingVariantId === variant.variantId ? "Đang lưu…" : "Lưu"}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <footer className="seller-inventory-modal-footer">
+              <button type="button" className="button button-secondary" onClick={() => setDetailsOpen(false)}>
+                Đóng
+              </button>
+            </footer>
+          </section>
+        </div>
+      )}
     </>
   );
 }
 
 export function SellerShipmentsScreen() {
-  const resource = useApiResource("/api/v1/seller/shipment?page=1&pageSize=50", async () =>
-    rows(unwrap(await api.get<ApiResponse<any>>("/api/v1/seller/shipment?page=1&pageSize=50"))),
-  );
+  const [orderId, setOrderId] = useState("");
   return (
     <>
       <PageHeading
         overline="Kênh người bán"
         title="Vận đơn & giao nhận"
-        description="Theo dõi các lô hàng đã tạo qua Fulfillment API."
+        description="Tra cứu vận đơn theo mã đơn hàng qua Fulfillment API."
       />
-      <Card>
-        {resource.error && (
-          <p role="alert" className="notice">
-            {msg(resource.error)}
-          </p>
-        )}
-        {resource.data?.length ? (
-          <div className="table-scroll">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Mã vận đơn</th>
-                  <th>Mã đơn</th>
-                  <th>Trạng thái</th>
-                  <th>Ngày tạo</th>
-                </tr>
-              </thead>
-              <tbody>
-                {resource.data.map((x, i) => (
-                  <tr key={x.id ?? x.shipmentId ?? i}>
-                    <td>
-                      <Link href={ROUTES.seller.shipment(String(x.id ?? x.shipmentId))}>
-                        {x.trackingNumber ?? x.shipmentId}
-                      </Link>
-                    </td>
-                    <td>{x.orderId ?? "—"}</td>
-                    <td>
-                      <Badge>{x.status ?? ""}</Badge>
-                    </td>
-                    <td>{x.createdAt ?? ""}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <NoData
-            title={
-              resource.loading
-                ? "Đang tải vận đơn…"
-                : resource.error
-                  ? "Không tải được vận đơn"
-                  : "Chưa có vận đơn"
-            }
-          />
-        )}
+      <Card className="card-pad">
+        <form
+          className="toolbar"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (orderId.trim()) window.location.assign(ROUTES.seller.shipment(orderId.trim()));
+          }}
+        >
+          <label className="field-wrap">
+            Mã đơn hàng
+            <input
+              className="field"
+              required
+              value={orderId}
+              onChange={(event) => setOrderId(event.target.value)}
+              placeholder="UUID đơn hàng"
+            />
+          </label>
+          <button className="button button-secondary">Tra cứu vận đơn</button>
+        </form>
+        <p className="status-note">
+          Fulfillment chưa có API danh sách vận đơn theo Seller. Bạn có thể tra cứu bằng mã đơn hàng đã biết.
+        </p>
       </Card>
       <Card className="card-pad">
         <h2>Tạo vận đơn GHN</h2>
-        <p>
-          Đơn hàng có thể tạo vận đơn sau khi Seller chấp nhận. Gateway hiện chưa có endpoint tạo vận đơn hoạt động.
-        </p>
+        <p>Đơn hàng có thể tạo vận đơn sau khi Seller chấp nhận. Tạo vận đơn tạm chưa mở trong bản demo này.</p>
         <button className="button button-disabled" disabled>
           Tạo vận đơn
         </button>
@@ -458,37 +1871,264 @@ export function SellerShipmentsScreen() {
   );
 }
 
+type SellerSubOrderItem = {
+  orderItemId?: string;
+  itemId?: string;
+  productId: string;
+  skuId: string;
+  productName: string;
+  skuCode?: string | null;
+  quantity: number;
+  unitPrice: number;
+  lineTotal: number;
+};
+
+type SellerSubOrder = {
+  subOrderId: string;
+  subOrderNo: string;
+  orderId: string;
+  buyerId: string;
+  sellerId: string;
+  shopName: string;
+  status: string;
+  paymentMethod: string;
+  shippingAddress: {
+    receiverName: string;
+    receiverPhone: string;
+    street: string;
+    ward: string;
+    district: string;
+    province: string;
+    fullAddress?: string | null;
+  };
+  contactPhone: string;
+  itemsAmount: number;
+  shippingFeeAmount: number;
+  totalAmount: number;
+  createdAt: string;
+  items: SellerSubOrderItem[];
+};
+
+type SellerSubOrderSummary = Pick<
+  SellerSubOrder,
+  "subOrderId" | "subOrderNo" | "orderId" | "buyerId" | "sellerId" | "status" | "paymentMethod" |
+  "itemsAmount" | "shippingFeeAmount" | "totalAmount" | "createdAt"
+> & { itemCount: number };
+
+type SellerPaged<T> = {
+  items: T[];
+  pagination: { pageIndex: number; pageSize: number; totalCount: number; totalPages: number; hasNextPage: boolean };
+};
+
+function describeSellerOrderStatus(status: string): string {
+  const key = status.replace(/[^a-z]/gi, "").toUpperCase();
+  return (
+    (
+      {
+        PENDINGPAYMENT: "Chờ thanh toán",
+        PAID: "Đã thanh toán · Chờ bạn xác nhận",
+        PENDINGCONFIRMATION: "Chờ bạn xác nhận",
+        PROCESSING: "Đang chuẩn bị hàng",
+        CONFIRMED: "Đã xác nhận · Đã khởi tạo đơn hàng",
+        SELLERACCEPTED: "Đã xác nhận · Đã khởi tạo đơn hàng",
+        SHIPPING: "Đang giao hàng",
+        SHIPPED: "Đang giao hàng",
+        DELIVERED: "Đã giao · Chờ người mua xác nhận",
+        COMPLETED: "Hoàn tất · Đã cộng tiền vào ví",
+        SELLERREJECTED: "Đã từ chối · Đã hoàn tiền cho người mua",
+        CANCELLED: "Đã hủy",
+      } as Record<string, string>
+    )[key] ?? status
+  );
+}
+
+function sellerOrderStatusTone(status: string): "sky" | "amber" | "green" | "red" {
+  const key = status.replace(/[^a-z]/gi, "").toUpperCase();
+  if (key === "CONFIRMED" || key === "SELLERACCEPTED" || key === "PROCESSING") return "amber";
+  if (key === "COMPLETED") return "green";
+  if (key === "CANCELLED" || key === "SELLERREJECTED") return "red";
+  return "sky";
+}
+
 export function SellerOrdersScreen() {
-  const [id, setId] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [statusFilter, setStatusFilter] = useState("");
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState("");
+  const [actionError, setActionError] = useState("");
+  const resource = useApiResource(
+    `seller-sub-orders:${page}:${pageSize}:${statusFilter}`,
+    (signal) =>
+      sellerOrdersService.list<SellerPaged<SellerSubOrderSummary>>(page, signal, pageSize, statusFilter || undefined),
+  );
+
+  async function acceptOrder(sub: SellerSubOrderSummary) {
+    setBusyId(sub.subOrderId);
+    setFeedback("");
+    setActionError("");
+    try {
+      await sellerOrdersService.accept(sub.orderId, sub.subOrderId);
+      setFeedback(
+        `Đã chấp nhận đơn ${sub.subOrderNo}. Thông tin vận đơn sẽ cập nhật khi có dữ liệu từ hệ thống giao nhận.`,
+      );
+      resource.reload();
+    } catch (reason) {
+      setActionError(msg(reason as Error));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   return (
     <>
       <PageHeading
         overline="Kênh người bán"
         title="Đơn cần xử lý"
-        description="Tìm một đơn bán theo mã. Gateway chưa cung cấp API danh sách đơn của Seller."
+        description="Các đơn hàng người mua đã thanh toán bằng Ví Nexus và chuyển tới gian hàng của bạn."
       />
-      <Card className="card-pad">
-        <form
-          className="toolbar"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (id.trim()) window.location.assign(ROUTES.seller.order(id.trim()));
-          }}
-        >
-          <label className="field-wrap">
-            Mã đơn hàng
-            <input
-              className="field"
-              required
-              value={id}
-              onChange={(event) => setId(event.target.value)}
-              placeholder="UUID đơn hàng"
-            />
-          </label>
-          <button className="button button-secondary">Mở đơn</button>
-        </form>
-        <NoData title="Danh sách đơn bán chưa có API" />
-        <p>Đơn chỉ hiện khi Commerce cung cấp endpoint danh sách theo Seller.</p>
+      {(resource.error || actionError) && (
+        <p role="alert" className="notice">
+          {actionError || (/404/.test(msg(resource.error))
+            ? "Danh sách đơn bán hiện chưa sẵn sàng. Vui lòng thử lại sau."
+            : msg(resource.error))}
+        </p>
+      )}
+      {feedback && (
+        <p role="status" className="form-success">
+          {feedback}
+        </p>
+      )}
+      <div className="seller-orders-filter">
+        <label className="field-wrap">
+          Trạng thái đơn
+          <select className="select-field" value={statusFilter} onChange={(event) => { setPage(1); setStatusFilter(event.target.value); }}>
+            <option value="">Tất cả trạng thái</option>
+            <option value="PendingConfirmation">Chờ xác nhận</option>
+            <option value="Processing">Đang chuẩn bị hàng</option>
+            <option value="Shipped">Đang giao hàng</option>
+            <option value="Delivered">Đã giao</option>
+            <option value="Completed">Hoàn tất</option>
+            <option value="Cancelled">Đã hủy</option>
+          </select>
+        </label>
+      </div>
+      <Card className="card-pad seller-orders-card">
+        {resource.data?.items.length ? (
+          <div className="table-scroll seller-orders-table-scroll">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Mã đơn gian hàng</th>
+                  <th>Mã người mua</th>
+                  <th>Mặt hàng</th>
+                  <th>Tổng tiền</th>
+                  <th>Trạng thái</th>
+                  <th>Thao tác</th>
+                </tr>
+              </thead>
+              <tbody>
+                {resource.data.items.map((sub) => {
+                  const normalizedStatus = sub.status.replace(/[^a-z]/gi, "").toUpperCase();
+                  const canAccept = ["PAID", "PENDINGCONFIRMATION"].includes(normalizedStatus);
+                  return (
+                    <tr key={sub.subOrderId}>
+                      <td>
+                        <Link href={ROUTES.seller.order(sub.subOrderId)}>
+                          <strong>{sub.subOrderNo}</strong>
+                        </Link>
+                        <div style={{ fontSize: 12, color: "var(--muted)" }}>
+                          {new Date(sub.createdAt).toLocaleString("vi-VN")}
+                        </div>
+                      </td>
+                      <td>
+                        <strong>{sub.buyerId}</strong>
+                      </td>
+                      <td>{sub.itemCount} mặt hàng</td>
+                      <td>
+                        <strong>{formatMoney(sub.totalAmount)}</strong>
+                        <div style={{ fontSize: 11, color: "var(--muted)" }}>
+                          Ship: {formatMoney(sub.shippingFeeAmount)}
+                        </div>
+                      </td>
+                      <td>
+                        <Badge tone={sellerOrderStatusTone(sub.status)}>
+                          {describeSellerOrderStatus(sub.status)}
+                        </Badge>
+                      </td>
+                      <td>
+                        <div className="action-row seller-orders-actions">
+                          {canAccept && (
+                            <button
+                              type="button"
+                              className="button button-primary"
+                              disabled={busyId === sub.subOrderId}
+                              onClick={() => void acceptOrder(sub)}
+                            >
+                              {busyId === sub.subOrderId ? "Đang xác nhận…" : "Chấp nhận đơn"}
+                            </button>
+                          )}
+                          <ButtonLink href={ROUTES.seller.order(sub.subOrderId)} variant="secondary">
+                            Chi tiết
+                          </ButtonLink>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <NoData
+            title={
+              resource.loading
+                ? "Đang tải danh sách đơn bán…"
+                : resource.error
+                  ? "Không tải được danh sách đơn bán"
+                  : statusFilter ? "Không có đơn ở trạng thái đã chọn" : "Chưa có đơn hàng nào được chuyển đến shop"
+            }
+          />
+        )}
+        {resource.data && (
+          <div className="seller-products-pagination seller-orders-pagination">
+            <label className="seller-products-page-size">
+              <span>Hiển thị</span>
+              <select
+                className="field"
+                aria-label="Số đơn mỗi trang"
+                value={pageSize}
+                onChange={(event) => {
+                  setPage(1);
+                  setPageSize(Number(event.target.value));
+                }}
+              >
+                {[10, 30, 50].map((size) => (
+                  <option key={size} value={size}>{size}</option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              className="button button-secondary"
+              disabled={page <= 1 || resource.loading}
+              onClick={() => setPage((value) => value - 1)}
+            >
+              Trang trước
+            </button>
+            <span>
+              Trang {page}/{resource.data.pagination.totalPages}
+            </span>
+            <button
+              type="button"
+              className="button button-secondary"
+              disabled={!resource.data.pagination.hasNextPage || resource.loading}
+              onClick={() => setPage((value) => value + 1)}
+            >
+              Trang sau
+            </button>
+          </div>
+        )}
       </Card>
     </>
   );
@@ -496,75 +2136,213 @@ export function SellerOrdersScreen() {
 
 export function SellerOrderDetailScreen() {
   const params = useParams<{ id: string }>();
-  const id = String(params.id ?? "");
-  const order = useApiResource(
-    id ? `/api/v1/order/${encodeURIComponent(id)}` : null,
-    async () => unwrap(await api.get<ApiResponse<Obj>>(`/api/v1/order/${encodeURIComponent(id)}`)),
+  const subOrderId = String(params.id ?? "");
+  const [busy, setBusy] = useState(false);
+  const [feedback, setFeedback] = useState("");
+  const [actionError, setActionError] = useState("");
+  const resource = useApiResource(
+    subOrderId ? `seller-sub-order-detail:${subOrderId}` : null,
+    (signal) =>
+      sellerOrdersService.detail<SellerSubOrder>(subOrderId, signal),
   );
+
+  const sub = resource.data;
+  const canAccept = Boolean(sub && ["PAID", "PENDINGCONFIRMATION"].includes(sub.status.replace(/[^a-z]/gi, "").toUpperCase()));
+
+  async function handleAccept() {
+    if (!sub) return;
+    setBusy(true);
+    setFeedback("");
+    setActionError("");
+    try {
+      await sellerOrdersService.accept(sub.orderId, sub.subOrderId);
+      setFeedback(
+        "Đã chấp nhận đơn hàng. Vận đơn sẽ cập nhật khi hệ thống giao nhận tạo thành công.",
+      );
+      resource.reload();
+    } catch (reason) {
+      setActionError(msg(reason as Error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleReject() {
+    if (!sub) return;
+    setBusy(true);
+    setFeedback("");
+    setActionError("");
+    try {
+      await sellerOrdersService.reject(sub.orderId, sub.subOrderId, "Gian hàng tạm hết tồn kho cho đơn hàng này.");
+      setFeedback(
+        "Đã từ chối đơn hàng. Vui lòng kiểm tra trạng thái hoàn tiền trên ví của người mua.",
+      );
+      resource.reload();
+    } catch (reason) {
+      setActionError(msg(reason as Error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <>
-      <div className="crumbs">
-        <Link href={ROUTES.seller.orders}>Đơn cần xử lý</Link>
-        <Icon name="chevron" size={14} />
-        <span>{id}</span>
-      </div>
       <PageHeading
-        title="Chi tiết đơn bán"
-        description="Chấp nhận hoặc từ chối trong hạn xử lý theo quy tắc đơn hàng."
+        overline="Kênh người bán"
+        title={sub ? `Chi tiết đơn bán ${sub.subOrderNo}` : "Chi tiết đơn bán"}
+        description="Xác nhận đơn hàng để khởi tạo vận đơn và thông báo cho người mua."
       />
-      {order.error && (
+      {(resource.error || actionError) && (
         <p role="alert" className="notice">
-          {msg(order.error)}
+          {actionError || msg(resource.error)}
         </p>
       )}
-      <Card className="card-pad">
-        {order.data ? (
-          Object.entries(order.data)
-            .filter(([key, value]) => !isSensitiveIdentityKey(key) && (value === null || typeof value !== "object"))
-            .map(([key, value]) => (
-              <div className="info-row" key={key}>
-                <span>{key}</span>
-                <strong>{String(value ?? "—")}</strong>
-              </div>
-            ))
-        ) : (
-          <NoData title={order.loading ? "Đang tải đơn hàng…" : "Không có dữ liệu đơn hàng"} />
-        )}
-        <p className="status-note">
-          Thao tác chấp nhận/từ chối chưa bật: Commerce service chưa có REST endpoint thực thi trong môi trường hiện tại.
+      {feedback && (
+        <p role="status" className="form-success">
+          {feedback}
         </p>
-        <div className="action-row">
-          <button className="button button-primary" disabled>
-            Chấp nhận đơn
-          </button>
-          <button className="button button-secondary" disabled>
-            Từ chối đơn
-          </button>
-        </div>
+      )}
+      <Card className="card-pad seller-order-detail-card">
+        {sub ? (
+          <>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                flexWrap: "wrap",
+                gap: 10,
+                marginBottom: 14,
+              }}
+            >
+              <h2 style={{ margin: 0 }}>Đơn hàng {sub.subOrderNo}</h2>
+              <Badge tone={sellerOrderStatusTone(sub.status)}>{describeSellerOrderStatus(sub.status)}</Badge>
+            </div>
+            <div className="seller-order-detail-columns">
+              <div className="seller-order-detail-main">
+            <div className="seller-order-detail-facts">
+            <div className="info-row">
+              <span>Phương thức thanh toán</span>
+              <strong>Ví Nexus ({sub.paymentMethod})</strong>
+            </div>
+            <div className="info-row">
+              <span>Người nhận</span>
+              <strong>
+                {sub.shippingAddress?.receiverName} · {sub.contactPhone}
+              </strong>
+            </div>
+            <div className="info-row">
+              <span>Địa chỉ giao hàng</span>
+              <strong>
+                {sub.shippingAddress?.fullAddress ||
+                  `${sub.shippingAddress?.street}, ${sub.shippingAddress?.ward}, ${sub.shippingAddress?.province}`}
+              </strong>
+            </div>
+            </div>
+            <div className="table-scroll seller-order-detail-items">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Sản phẩm</th>
+                    <th>Số lượng</th>
+                    <th>Đơn giá</th>
+                    <th>Thành tiền</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sub.items.map((item, index) => (
+                    <tr key={item.orderItemId ?? item.itemId ?? `${item.skuId}-${index}`}>
+                      <td>
+                        <strong>{item.productName}</strong>
+                        {item.skuCode && (
+                          <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>
+                            SKU: {item.skuCode}
+                          </div>
+                        )}
+                      </td>
+                      <td>{item.quantity}</td>
+                      <td>{formatMoney(item.unitPrice)}</td>
+                      <td>
+                        <strong>{formatMoney(item.lineTotal)}</strong>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+              </div>
+              <aside className="seller-order-detail-side">
+            <h3>Tổng kết đơn hàng</h3>
+            <div className="info-row">
+              <span>Tiền hàng</span>
+              <strong>{formatMoney(sub.itemsAmount)}</strong>
+            </div>
+            <div className="info-row">
+              <span>Phí giao hàng</span>
+              <strong>{formatMoney(sub.shippingFeeAmount)}</strong>
+            </div>
+            <div className="info-row">
+              <span>Tổng tiền đơn hàng</span>
+              <strong style={{ color: "var(--sky-dark)" }}>{formatMoney(sub.totalAmount)}</strong>
+            </div>
+            <div className="action-row" style={{ marginTop: 18 }}>
+              {canAccept && (
+                <>
+                  <button
+                    type="button"
+                    className="button button-primary"
+                    disabled={busy}
+                    onClick={() => void handleAccept()}
+                  >
+                    {busy ? "Đang xử lý…" : "Chấp nhận đơn"}
+                  </button>
+                  <button
+                    type="button"
+                    className="button button-secondary"
+                    disabled={busy}
+                    onClick={() => void handleReject()}
+                  >
+                    Từ chối đơn
+                  </button>
+                </>
+              )}
+              <ButtonLink href={ROUTES.seller.orders} variant="secondary">
+                Quay lại đơn hàng
+              </ButtonLink>
+            </div>
+              </aside>
+            </div>
+          </>
+        ) : (
+          <NoData
+            title={
+              resource.loading
+                ? "Đang tải chi tiết đơn bán…"
+                : resource.error
+                  ? "Không tải được chi tiết đơn bán"
+                  : "Không tìm thấy đơn bán"
+            }
+          />
+        )}
       </Card>
+      {sub && sub.status.replace(/[^a-z]/gi, "").toUpperCase() === "COMPLETED" && <SellerBuyerReview buyerId={sub.buyerId} subOrderId={sub.subOrderId} />}
     </>
   );
 }
 
 export function SellerShipmentDetailScreen() {
   const params = useParams<{ id: string }>();
-  const id = String(params.id ?? "");
+  const orderId = String(params.id ?? "");
   const resource = useApiResource(
-    id ? `/api/v1/seller/shipment/${encodeURIComponent(id)}` : null,
-    async () =>
-      unwrap(await api.get<ApiResponse<Obj>>(`/api/v1/seller/shipment/${encodeURIComponent(id)}`)),
+    orderId ? `seller-shipment-order:${orderId}` : null,
+    (signal) => fulfillmentService.getShipmentByOrderId(orderId, signal),
   );
   return (
     <>
-      <div className="crumbs">
-        <Link href={ROUTES.seller.shipments}>Vận chuyển</Link>
-        <Icon name="chevron" size={14} />
-        <span>{id}</span>
-      </div>
       <PageHeading
         overline="Kênh người bán"
         title="Theo dõi vận đơn"
-        description="Trạng thái giao nhận từ Fulfillment API."
+        description="Trạng thái giao nhận của đơn hàng từ Fulfillment API."
       />
       {resource.error && (
         <p className="notice" role="alert">
@@ -573,20 +2351,32 @@ export function SellerShipmentDetailScreen() {
       )}
       <Card className="card-pad">
         {resource.data ? (
-          Object.entries(resource.data)
-            .filter(([key]) => !isSensitiveIdentityKey(key))
-            .map(([key, value]) => (
-              <div className="info-row" key={key}>
-                <span>{key}</span>
-                <strong>
-                  {value === null
-                    ? "—"
-                    : typeof value === "object"
-                      ? JSON.stringify(value)
-                      : String(value)}
-                </strong>
-              </div>
-            ))
+          <>
+            <div className="info-row">
+              <span>Mã đơn hàng</span>
+              <strong className="seller-wrap-value">{resource.data.orderId}</strong>
+            </div>
+            <div className="info-row">
+              <span>Mã vận đơn</span>
+              <strong>{resource.data.trackingNumber ?? "Chưa cấp"}</strong>
+            </div>
+            <div className="info-row">
+              <span>Trạng thái</span>
+              <Badge>{resource.data.status}</Badge>
+            </div>
+            <div className="info-row">
+              <span>Người nhận</span>
+              <strong>{resource.data.receiverName}</strong>
+            </div>
+            <div className="info-row">
+              <span>Số điện thoại</span>
+              <strong>{resource.data.receiverPhone}</strong>
+            </div>
+            <div className="info-row">
+              <span>Địa chỉ</span>
+              <strong className="seller-wrap-value">{resource.data.receiverAddress}</strong>
+            </div>
+          </>
         ) : (
           <NoData
             title={
@@ -600,7 +2390,7 @@ export function SellerShipmentDetailScreen() {
         )}
       </Card>
       <p className="status-note">
-        Tạo vận đơn chưa khả dụng cho đến khi Gateway cung cấp endpoint GHN đã xác nhận.
+        Xác nhận hàng hoàn và cộng lại tồn đang tạm khóa. Fulfillment cần chặn xác nhận lặp và kiểm tra quyền với đơn ở kho chung trước khi thao tác này được mở.
       </p>
     </>
   );
@@ -608,12 +2398,18 @@ export function SellerShipmentDetailScreen() {
 
 export function SellerShopScreen() {
   const { user } = useSession();
-  const shop = useApiResource("/api/v1/seller/profile", async () =>
-    unwrap(await api.get<ApiResponse<Obj>>("/api/v1/seller/profile")),
+  const shop = useApiResource("/api/v1/sellers/profile", async () =>
+    unwrap(await api.get<ApiResponse<Obj>>("/api/v1/sellers/profile")),
   );
   const [error, setError] = useState("");
   const [saved, setSaved] = useState("");
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!saved) return;
+    const timeout = window.setTimeout(() => setSaved(""), 4000);
+    return () => window.clearTimeout(timeout);
+  }, [saved]);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -622,16 +2418,14 @@ export function SellerShopScreen() {
     setSaved("");
     setBusy(true);
     try {
-      await api.patch("/api/v1/seller/profile", {
+      await api.patch("/api/v1/sellers/profile", {
         shopName: String(values.get("shopName") ?? ""),
         hotline: String(values.get("hotline") ?? ""),
         description: String(values.get("description") ?? ""),
-        pickupAddress: {
-          provinceId: Number(values.get("provinceId")),
-          districtId: Number(values.get("districtId")),
-          wardCode: String(values.get("wardCode") ?? ""),
-          streetAddress: String(values.get("streetAddress") ?? ""),
-        },
+        pickupAddress: String(values.get("streetAddress") ?? ""),
+        provinceId: Number(values.get("provinceId")),
+        districtId: Number(values.get("districtId")),
+        wardCode: String(values.get("wardCode") ?? ""),
       });
       setSaved("Đã cập nhật hồ sơ gian hàng.");
       shop.reload();
@@ -653,23 +2447,24 @@ export function SellerShopScreen() {
 
   const resolvedShopName = String(data.shopName ?? draft?.shopName ?? "");
   const resolvedHotline = String(data.hotline ?? draft?.hotline ?? "");
-  const resolvedGhnShopId = String(data.ghnShopId ?? "Đồng bộ theo hồ sơ Seller");
   const resolvedProvinceId = String(address.provinceId ?? data.provinceId ?? draft?.warehouseAddress.provinceId ?? "");
   const resolvedDistrictId = String(address.districtId ?? data.districtId ?? draft?.warehouseAddress.districtId ?? "");
   const resolvedWardCode = String(address.wardCode ?? data.wardCode ?? draft?.warehouseAddress.wardCode ?? "");
+
   const resolvedStreetAddress = String(
     address.streetAddress ??
-    (typeof data.pickupAddress === "string" ? data.pickupAddress : "") ??
-    draft?.warehouseAddress.streetAddress ??
-    "",
+      (typeof data.pickupAddress === "string" ? data.pickupAddress : "") ??
+      draft?.warehouseAddress.streetAddress ??
+      "",
   );
+  const selectedArea = ghnPresets.find((place) => place.provinceId === resolvedProvinceId &&
+    place.districtId === resolvedDistrictId && place.wardCode === resolvedWardCode);
 
   return (
     <>
       <PageHeading
         overline="Kênh người bán"
-        title="Hồ sơ gian hàng & Kho GHN"
-        description="Xem thông tin kho đã đồng bộ sau khi duyệt và cập nhật tên shop, hotline, địa chỉ lấy hàng."
+        title="Hồ sơ gian hàng"
       />
       {shop.error && (
         <p role="alert" className="notice">
@@ -677,59 +2472,31 @@ export function SellerShopScreen() {
         </p>
       )}
 
-      {/* Synchronized Warehouse Summary Card */}
-      <Card className="card-pad" style={{ marginBottom: 22 }}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            flexWrap: "wrap",
-            gap: 10,
-            marginBottom: 14,
-          }}
-        >
-          <h2 style={{ margin: 0, fontSize: 18 }}>Thông tin kho lấy hàng GHN đã đồng bộ</h2>
-          <Badge tone="green">APPROVED · Đã đồng bộ kho</Badge>
-        </div>
-        <div className="grid-2">
-          <div>
-            <div className="info-row">
-              <span>Mã gian hàng (Shop ID)</span>
-              <strong>{String(data.shopId ?? data.sellerId ?? draft?.registrationId ?? "—")}</strong>
-            </div>
-            <div className="info-row">
-              <span>Mã kho GHN (ghnShopId)</span>
-              <strong>{resolvedGhnShopId}</strong>
-            </div>
-            <div className="info-row">
-              <span>Tên gian hàng</span>
-              <strong>{resolvedShopName || "—"}</strong>
-            </div>
-          </div>
-          <div>
-            <div className="info-row">
-              <span>Hotline kho</span>
-              <strong>{resolvedHotline || "—"}</strong>
-            </div>
-            <div className="info-row">
-              <span>Địa chỉ kho lấy hàng</span>
-              <strong>{resolvedStreetAddress || "—"}</strong>
-            </div>
-            <div className="info-row">
-              <span>Mã vùng GHN</span>
-              <strong>
-                Tỉnh: {resolvedProvinceId || "—"} · Quận: {resolvedDistrictId || "—"} · Phường: {resolvedWardCode || "—"}
-              </strong>
-            </div>
-          </div>
-        </div>
-      </Card>
+      <div className="seller-shop-columns">
+        <Card className="card-pad seller-shop-summary">
+          <h2>Thông tin đã lưu</h2>
+          <Badge>{String(data.status ?? "Chưa xác nhận")}</Badge>
+          <dl className="seller-shop-facts">
+            <div><dt>Tên gian hàng</dt><dd>{resolvedShopName || "—"}</dd></div>
+            <div><dt>Hotline</dt><dd>{resolvedHotline || "—"}</dd></div>
+            <div><dt>Địa chỉ lấy hàng</dt><dd>{resolvedStreetAddress || "—"}</dd></div>
+            <div><dt>Khu vực lấy hàng</dt><dd>{selectedArea ? `${selectedArea.city} · ${selectedArea.district} · ${selectedArea.ward}` : resolvedProvinceId ? "Địa chỉ đã lưu" : "Chưa khai báo"}</dd></div>
+          </dl>
+          <p className="status-note">Trạng thái hồ sơ UserService không chứng minh kho đã được tạo ở Fulfillment. Chỉ xác nhận đồng bộ khi backend cung cấp mã kho hoặc truy vấn kho theo Seller.</p>
+        </Card>
 
-      <Card className="card-pad">
+        <Card className="card-pad seller-shop-editor">
+        <h2>Chỉnh sửa gian hàng</h2>
         <form
           className="auth-fields"
-          key={JSON.stringify([resolvedShopName, resolvedHotline, resolvedProvinceId, resolvedDistrictId, resolvedWardCode, resolvedStreetAddress])}
+          key={JSON.stringify([
+            resolvedShopName,
+            resolvedHotline,
+            resolvedProvinceId,
+            resolvedDistrictId,
+            resolvedWardCode,
+            resolvedStreetAddress,
+          ])}
           onSubmit={(e) => void submit(e)}
         >
           <label className="field-wrap">
@@ -742,63 +2509,28 @@ export function SellerShopScreen() {
           </label>
           <label className="field-wrap">
             Mô tả
-            <textarea
-              className="textarea-field"
-              name="description"
-              defaultValue={String(data.description ?? "")}
-            />
+            <textarea className="textarea-field" name="description" defaultValue={String(data.description ?? "")} />
           </label>
-          <h3>Địa chỉ lấy hàng (Mã GHN)</h3>
-          <div className="form-grid">
-            <label className="field-wrap">
-              Mã tỉnh (provinceId)
-              <input
-                className="field"
-                name="provinceId"
-                type="number"
-                required
-                defaultValue={resolvedProvinceId}
-              />
-            </label>
-            <label className="field-wrap">
-              Mã quận/huyện (districtId)
-              <input
-                className="field"
-                name="districtId"
-                type="number"
-                required
-                defaultValue={resolvedDistrictId}
-              />
-            </label>
-            <label className="field-wrap">
-              Mã phường (wardCode)
-              <input className="field" name="wardCode" required defaultValue={resolvedWardCode} />
-            </label>
-            <label className="field-wrap">
-              Địa chỉ cụ thể (streetAddress)
-              <input
-                className="field"
-                name="streetAddress"
-                required
-                defaultValue={resolvedStreetAddress}
-              />
-            </label>
-          </div>
+          <SellerShopAddressFields provinceId={resolvedProvinceId} districtId={resolvedDistrictId}
+            wardCode={resolvedWardCode} streetAddress={resolvedStreetAddress} />
           {error && (
             <p role="alert" className="notice">
               {error}
-            </p>
-          )}
-          {saved && (
-            <p role="status" className="form-success">
-              {saved}
             </p>
           )}
           <button className="button button-primary" disabled={busy || shop.loading}>
             {busy ? "Đang lưu…" : "Lưu hồ sơ shop"}
           </button>
         </form>
-      </Card>
+        </Card>
+      </div>
+      {saved && (
+        <div className="app-notification" role="status" aria-live="polite" aria-atomic="true">
+          <span className="app-notification-mark" aria-hidden="true">✓</span>
+          <span className="app-notification-message">{saved}</span>
+          <button type="button" className="app-notification-close" aria-label="Đóng thông báo" onClick={() => setSaved("")}>×</button>
+        </div>
+      )}
     </>
   );
 }

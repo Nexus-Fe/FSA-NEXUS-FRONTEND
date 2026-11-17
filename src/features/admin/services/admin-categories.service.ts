@@ -1,17 +1,19 @@
-import { api, type ApiResponse } from "@/lib/api/client";
-import { staffAdminDemoEnabled } from "@/lib/demo/staff-admin-demo";
+import { api, unwrap, type ApiResponse } from "@/lib/api/client";
 
 export type AdminCategory = {
   categoryId: string;
+  id?: string;
   name: string;
   description?: string | null;
   parentId?: string | null;
   sortOrder?: number;
+  level?: number;
   isActive?: boolean;
+  isDisabled?: boolean;
   children?: AdminCategory[];
 };
 
-type CategoryList = AdminCategory[] | { items?: AdminCategory[]; categories?: AdminCategory[] };
+type CategoryList = { items: AdminCategory[]; pagination: { hasNextPage: boolean } };
 
 export type CategoryInput = {
   name: string;
@@ -21,30 +23,56 @@ export type CategoryInput = {
 };
 
 function flatten(categories: AdminCategory[], parentId: string | null = null): AdminCategory[] {
-  return categories.flatMap((category) => [
-    { ...category, parentId: category.parentId ?? parentId },
-    ...flatten(category.children ?? [], category.categoryId),
-  ]);
+  return categories.flatMap((category) => {
+    const resolvedId = category.categoryId ?? category.id ?? "";
+    const resolvedActive =
+      category.isDisabled !== undefined
+        ? !category.isDisabled
+        : (category.isActive ?? true);
+    return [
+      {
+        ...category,
+        categoryId: resolvedId,
+        parentId: category.parentId ?? parentId,
+        isActive: resolvedActive,
+      },
+      ...flatten(category.children ?? [], resolvedId),
+    ];
+  });
 }
 
 export const adminCategoriesService = {
   async list(signal?: AbortSignal): Promise<AdminCategory[]> {
-    if (staffAdminDemoEnabled) return (await import("../demo/admin-categories-demo")).adminCategoriesDemo.list();
-    const response = await api.get<ApiResponse<CategoryList>>("/api/v1/categories?tree=true", { signal });
-    const payload = response.data;
-    const categories = Array.isArray(payload) ? payload : payload.items ?? payload.categories ?? [];
+    const categories: AdminCategory[] = [];
+    let page = 1;
+    while (true) {
+      const response = await api.get<ApiResponse<CategoryList> | CategoryList>(
+        `/api/v1/categories/admin?tree=true&includeDisabled=true&page=${page}&pageSize=100`,
+        { signal },
+      );
+      const payload = unwrap(response);
+      categories.push(...(payload.items ?? []));
+      if (!payload.pagination?.hasNextPage) break;
+      page += 1;
+    }
     return flatten(categories);
   },
   async create(input: CategoryInput): Promise<void> {
-    if (staffAdminDemoEnabled) return (await import("../demo/admin-categories-demo")).adminCategoriesDemo.create(input);
-    await api.post<ApiResponse<AdminCategory>>("/api/v1/categories", input);
+    await api.post<AdminCategory>("/api/v1/categories", input);
   },
-  async update(id: string, input: CategoryInput & { isActive: boolean }): Promise<void> {
-    if (staffAdminDemoEnabled) return (await import("../demo/admin-categories-demo")).adminCategoriesDemo.update(id, input);
-    await api.put<ApiResponse<AdminCategory>>(`/api/v1/categories/${encodeURIComponent(id)}`, input);
+  async update(
+    id: string,
+    input: {
+      name: string;
+      description: string;
+      level: number;
+      sortOrder: number;
+      isDisabled: boolean;
+    },
+  ): Promise<void> {
+    await api.put<AdminCategory>(`/api/v1/categories/${encodeURIComponent(id)}`, input);
   },
   async remove(id: string): Promise<void> {
-    if (staffAdminDemoEnabled) return (await import("../demo/admin-categories-demo")).adminCategoriesDemo.remove(id);
     await api.delete<void>(`/api/v1/categories/${encodeURIComponent(id)}`);
   },
 };

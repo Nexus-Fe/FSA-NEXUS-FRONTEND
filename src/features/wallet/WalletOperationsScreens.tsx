@@ -1,28 +1,75 @@
 "use client";
 
 import Link from "next/link";
-import { Card, NoData, PageHeading, SectionHeading } from "@/components/ui/Primitives";
+import { Badge, Card, NoData, PageHeading, SectionHeading } from "@/components/ui/Primitives";
 import { ROUTES } from "@/constants/routes";
+import { useApiResource } from "@/lib/api/use-api-resource";
+import { formatMoney } from "@/lib/presentation";
+import { walletService } from "./services/wallet.service";
+import { WalletTopUpForm } from "./WalletTopUpFlow";
+import { SellerWithdrawalForm } from "./SellerWithdrawalForm";
+
+
+function sellerTransactionType(type: string): string {
+  return ({ ESCROWRELEASE: "Doanh thu đơn hàng", WITHDRAWAL: "Rút tiền", WITHDRAWALDEBIT: "Rút tiền",
+    REFUND: "Hoàn tiền", REFUNDCREDIT: "Hoàn tiền", TOPUPSTRIPE: "Nạp tiền" } as Record<string, string>)[type.toUpperCase()] ?? type;
+}
+
+function sellerTransactionStatus(status: string): string {
+  return ({ PENDING: "Đang xử lý", SUCCESS: "Thành công", COMPLETED: "Hoàn tất", FAILED: "Thất bại",
+    CANCELLED: "Đã hủy" } as Record<string, string>)[status.toUpperCase()] ?? status;
+}
+
+function sellerTransactionDirection(type: string, status: string, amount: number): "credit" | "debit" | null {
+  if (!Number.isFinite(amount) || amount === 0 || !["SUCCESS", "COMPLETED"].includes(status.toUpperCase())) return null;
+  const normalizedType = type.toUpperCase();
+  if (["ESCROWRELEASE", "REFUNDCREDIT", "WITHDRAWALREVERSAL", "TRANSFERIN", "ADJUSTMENTCREDIT", "TOPUPVNPAY", "TOPUPSTRIPE"].includes(normalizedType)) return "credit";
+  if (["WITHDRAWALDEBIT", "PURCHASEDEBIT", "DIRECTGATEWAYPAYMENT", "TRANSFEROUT", "ADJUSTMENTDEBIT"].includes(normalizedType)) return "debit";
+  return null;
+}
+
+function SellerTransactionAmount({ type, status, amount }: { type: string; status: string; amount: number }) {
+  const direction = sellerTransactionDirection(type, status, amount);
+  return <span className={`seller-money-amount${direction ? ` seller-money-${direction}` : ""}`}>
+    {direction === "credit" ? "+" : direction === "debit" ? "−" : ""}{formatMoney(Math.abs(amount))}
+  </span>;
+}
+
+function sellerTransactionDate(value: string): string {
+  const date = new Date(value);
+  return Number.isFinite(date.getTime())
+    ? new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium", timeStyle: "short" }).format(date)
+    : "Chưa có dữ liệu";
+}
+
 
 export function BuyerTopUpScreen() {
-  return <><div className="crumbs"><Link href={ROUTES.buyer.wallet}>Ví của tôi</Link><span>/</span><span>Nạp tiền</span></div>
-    <PageHeading overline="Ví Buyer" title="Nạp tiền vào ví" description="Nạp tiền qua VNPay khi dịch vụ được kích hoạt." />
-    <div className="split"><Card className="card-pad"><SectionHeading title="Thông tin nạp tiền" /><label className="field-wrap">Số tiền<input className="field" type="number" min="10000" max="5000000" step="1000" placeholder="Từ 10.000 ₫" disabled /></label><label className="field-wrap">Phương thức<select className="select-field" disabled><option>VNPay</option></select></label><button className="button button-disabled" disabled>Nạp tiền</button><p className="status-note">Tạm khóa thao tác: hệ thống chưa xử lý yêu cầu nạp tiền qua VNPay. Không tạo giao dịch mẫu.</p></Card>
-      <Card className="card-pad"><h2>Trạng thái giao dịch</h2><NoData title="Chưa có yêu cầu nạp tiền" /><p>Kết quả chỉ xuất hiện sau khi Gateway xác nhận giao dịch.</p></Card></div>
-  </>;
+  return <WalletTopUpForm />;
 }
 
 export function SellerWalletScreen() {
-  return <><PageHeading overline="Kênh người bán" title="Doanh thu & ví" description="Theo dõi số dư khả dụng, tiền đang giữ và lịch sử nhận tiền sau khi đơn hoàn tất." />
-    <div className="grid-3"><Card className="card-pad"><h2>Có thể rút</h2><NoData title="Chưa có dữ liệu" /></Card><Card className="card-pad"><h2>Đang giữ</h2><NoData title="Chưa có dữ liệu" /></Card><Card className="card-pad"><h2>Phí nền tảng</h2><NoData title="Chưa có dữ liệu" /></Card></div>
-    <SectionHeading title="Lịch sử doanh thu" /><Card><NoData title="Chưa nối dữ liệu doanh thu Seller" /></Card><p className="status-note">Phần ví doanh thu Seller thuộc đợt tiếp theo. <Link href={ROUTES.seller.withdrawals}>Xem yêu cầu rút tiền</Link></p>
+  const balance = useApiResource("seller-wallet-balance", (signal) => walletService.getBalance(signal));
+  const transactions = useApiResource("seller-wallet-transactions", (signal) =>
+
+    walletService.getTransactions(signal).then((response) => response.items));
+  return <><PageHeading overline="Kênh người bán" title="Doanh thu & ví" description="Theo dõi số dư khả dụng, tiền đang giữ và doanh thu sau khi người mua xác nhận nhận hàng." />
+    {balance.error && <p className="notice" role="alert">Không tải được số dư ví: {balance.error.message}</p>}
+    <div className="grid-3 seller-wallet-balances">
+      <Card className="card-pad"><h2>Có thể rút</h2>{balance.data ? <strong>{formatMoney(balance.data.availableBalance)}</strong> : <NoData title={balance.loading ? "Đang tải số dư…" : "Chưa có dữ liệu"} />}</Card>
+      <Card className="card-pad"><h2>Đang giữ</h2>{balance.data ? <strong>{formatMoney(balance.data.lockedBalance)}</strong> : <NoData title={balance.loading ? "Đang tải số dư…" : "Chưa có dữ liệu"} />}</Card>
+      <Card className="card-pad"><h2>Tổng số dư</h2>{balance.data ? <strong>{formatMoney(balance.data.balance)}</strong> : <NoData title={balance.loading ? "Đang tải số dư…" : "Chưa có dữ liệu"} />}</Card>
+    </div>
+    {balance.data && <p className="status-note">Trạng thái ví: <Badge>{balance.data.status?.toUpperCase() === "ACTIVE" ? "Đang hoạt động" : balance.data.status}</Badge></p>}
+    <SectionHeading title="Lịch sử doanh thu & giao dịch ví" />
+    {transactions.error && <p className="notice" role="alert">Không tải được giao dịch: {transactions.error.message}</p>}
+    {transactions.data?.length ? <Card><div className="table-scroll"><table className="data-table seller-money-table"><thead><tr><th scope="col">Thời gian</th><th scope="col">Loại</th><th scope="col">Nội dung</th><th scope="col" className="seller-money-cell">Số tiền</th><th scope="col">Trạng thái</th></tr></thead><tbody>{transactions.data.map((item) =>
+      <tr key={item.id}><td>{sellerTransactionDate(item.createdAt)}</td><td>{sellerTransactionType(item.type)}</td><td>{item.note || "—"}</td><td className="seller-money-cell"><SellerTransactionAmount type={item.type} status={item.status} amount={item.amount} /></td><td>{sellerTransactionStatus(item.status)}</td></tr>)}</tbody></table></div></Card>
+      : !transactions.error && <Card><NoData title={transactions.loading ? "Đang tải giao dịch…" : "Chưa có giao dịch"} /></Card>}
+    <p className="status-note">Khi người mua xác nhận đã nhận hàng, tiền đơn hàng được giải ngân vào ví Seller. <Link href={ROUTES.seller.withdrawals}>Xem yêu cầu rút tiền</Link></p>
   </>;
+
 }
 
 export function SellerWithdrawalsScreen() {
-  return <><div className="crumbs"><Link href={ROUTES.seller.wallet}>Doanh thu & ví</Link><span>/</span><span>Yêu cầu rút tiền</span></div>
-    <PageHeading overline="Kênh người bán" title="Yêu cầu rút tiền" description="Khoản rút tối thiểu 50.000 ₫. Yêu cầu cần được xác minh Seller và duyệt trước khi chuyển khoản." />
-    <div className="split"><Card className="card-pad"><SectionHeading title="Tài khoản nhận tiền" /><div className="form-grid"><label className="field-wrap">Số tiền<input className="field" type="number" min="50000" step="1000" placeholder="Tối thiểu 50.000 ₫" disabled /></label><label className="field-wrap">Ngân hàng<input className="field" placeholder="Mã ngân hàng" disabled /></label><label className="field-wrap">Số tài khoản<input className="field" inputMode="numeric" disabled /></label><label className="field-wrap">Tên chủ tài khoản<input className="field" disabled /></label></div><button className="button button-disabled" disabled>Gửi yêu cầu rút</button><p className="status-note">Luồng rút tiền Seller chưa được kiểm chứng và thuộc đợt tiếp theo.</p></Card>
-      <Card className="card-pad"><h2>Lịch sử yêu cầu</h2><NoData title="Chưa có dữ liệu yêu cầu rút" /></Card></div>
-  </>;
+  return <SellerWithdrawalForm />;
 }

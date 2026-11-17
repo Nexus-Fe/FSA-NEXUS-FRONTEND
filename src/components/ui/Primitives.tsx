@@ -1,9 +1,31 @@
 import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
-import { Icon } from "./Icon";
 
-export function ButtonLink({ href, children, variant = "primary", small = false }: { href: string; children: ReactNode; variant?: "primary" | "secondary" | "light"; small?: boolean }) {
-  return <Link className={"button button-" + variant + (small ? " button-small" : "")} href={href}>{children}</Link>;
+export function ButtonLink({
+  href,
+  children,
+  variant = "primary",
+  small = false,
+  onClick,
+  style,
+}: {
+  href: string;
+  children: ReactNode;
+  variant?: "primary" | "secondary" | "light";
+  small?: boolean;
+  onClick?: (event: React.MouseEvent<HTMLAnchorElement>) => void;
+  style?: CSSProperties;
+}) {
+  return (
+    <Link
+      className={"button button-" + variant + (small ? " button-small" : "")}
+      href={href}
+      onClick={onClick}
+      style={style}
+    >
+      {children}
+    </Link>
+  );
 }
 
 export function DisabledAction({ children, small = false }: { children: ReactNode; small?: boolean }) {
@@ -14,7 +36,9 @@ export function Card({ children, className = "", style }: { children: ReactNode;
   return <section className={"card " + className} style={style}>{children}</section>;
 }
 
-export function Badge({ children, tone = "sky" }: { children: ReactNode; tone?: "sky" | "green" | "amber" | "slate" | "red" | "indigo" }) {
+export type BadgeTone = "sky" | "green" | "amber" | "slate" | "red" | "indigo";
+
+export function Badge({ children, tone = "sky" }: { children: ReactNode; tone?: BadgeTone }) {
   return <span className={"badge badge-" + tone}>{children}</span>;
 }
 
@@ -27,9 +51,12 @@ export function SectionHeading({ title, hint, action, id }: { title: string; hin
 }
 
 export function NoData({ className = "", title = "Chưa có dữ liệu" }: { className?: string; title?: string }) {
-  return <div className={"no-data " + className} role="status"><span className="no-data-icon"><Icon name="grid" size={22} /></span><strong>{title}</strong></div>;
+  return <div className={"no-data " + className} role="status"><strong>{title}</strong></div>;
 }
 
 export function EmptyTable({ columns }: { columns: string[] }) {
   return <div className="table-scroll"><table className="data-table"><thead><tr>{columns.map((column) => <th key={column}>{column}</th>)}</tr></thead><tbody><tr className="table-empty"><td colSpan={columns.length}><NoData /></td></tr></tbody></table></div>;
 }
+
+export { AdminPagination } from "./AdminPagination";
+export type { AdminPaginationProps } from "./AdminPagination";
