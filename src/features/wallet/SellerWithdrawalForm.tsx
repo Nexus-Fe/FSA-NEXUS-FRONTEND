@@ -8,6 +8,7 @@ import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatMoney } from "@/lib/presentation";
 import { walletService } from "./services/wallet.service";
 import { Modal } from "@/components/ui/Modal";
+import { BankAccountsPanel } from "./BankAccountsPanel";
 import { describeError, formatError } from "@/lib/errors/error-messages";
 import { canCancelWithdrawal, withdrawalService, withdrawalStatus } from "./services/withdrawal.service";
 import type { WithdrawalResponse } from "./types";
@@ -90,6 +91,7 @@ export function SellerWithdrawalForm() {
   }
 
   return <>
+    <BankAccountsPanel onPick={(account) => { setBankCode(account.bankName); setAccountNumber(account.accountNumber); setAccountHolderName(account.accountHolderName); setError(""); }} />
     <PageHeading title="Yêu cầu rút tiền" description="Staff sẽ duyệt yêu cầu và chuyển khoản thủ công. Đã duyệt chưa có nghĩa là đã chuyển tiền." />
     <div className="split"><Card className="card-pad"><h2>Tài khoản nhận tiền</h2>
       <form className="auth-fields" onSubmit={(event) => void submit(event)}>

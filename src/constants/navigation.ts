@@ -44,6 +44,7 @@ export const adminNavigation: NavigationItem[] = [
   { label: "Xử phạt vi phạm", href: ROUTES.admin.penalties, icon: "gavel" },
   { label: "Điều chỉnh số dư ví", href: ROUTES.admin.ledger, icon: "wallet" },
   { label: "Mã giảm giá", href: ROUTES.admin.coupons, icon: "orders", feature: "vouchers" },
+  { label: "Công cụ ví", href: ROUTES.admin.walletTools, icon: "wallet" },
   { label: "Phí nền tảng", href: ROUTES.admin.platformFee, icon: "wallet" },
   { label: "Ngân sách trợ giá", href: ROUTES.admin.subsidyBudgets, icon: "wallet" },
   { label: "Cài đặt đấu giá", href: ROUTES.admin.auctionConfigs, icon: "gavel" },

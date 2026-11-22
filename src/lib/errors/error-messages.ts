@@ -62,6 +62,8 @@ export const ERROR_DICTIONARY: Record<string, Entry> = {
   INSUFFICIENT_AVAILABLE_BALANCE: { message: "Số dư khả dụng trong ví không đủ.", hint: TOP_UP },
   INSUFFICIENT_BALANCE: { message: "Số dư khả dụng trong ví không đủ.", hint: TOP_UP },
   INSUFFICIENT_WALLET_BALANCE: { message: "Số dư khả dụng trong ví không đủ.", hint: TOP_UP },
+  WALLET_NOT_FOUND: { message: "Người nhận chưa có ví Nexus hoặc mã người nhận không đúng." },
+  BUSINESS_RULE_VIOLATION: { message: "Thao tác không hợp lệ theo quy định (ví dụ chuyển tiền cho chính mình)." },
   WITHDRAWAL_NOT_FOUND: { message: "Không tìm thấy yêu cầu rút tiền." },
   WITHDRAWAL_INVALID_TRANSITION: { message: "Yêu cầu rút tiền không còn ở trạng thái cho phép thao tác này.", hint: RELOAD },
 

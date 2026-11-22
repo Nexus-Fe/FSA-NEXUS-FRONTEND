@@ -84,6 +84,7 @@ export const WalletScreenClient = dynamic(
   () => import("@/features/wallet/WalletScreen").then((module) => module.WalletScreen),
   { ssr: false, loading: ScreenLoading },
 );
+export const TransferScreenClient = dynamic(() => import("@/features/wallet/TransferScreen").then((module) => module.TransferScreen), { ssr: false, loading: ScreenLoading });
 export const BuyerTopUpScreenClient = dynamic(() => import("@/features/wallet/WalletOperationsScreens").then((module) => module.BuyerTopUpScreen), { ssr: false, loading: ScreenLoading });
 export const SellerWalletScreenClient = dynamic(() => import("@/features/wallet/WalletOperationsScreens").then((module) => module.SellerWalletScreen), { ssr: false, loading: ScreenLoading });
 export const SellerWithdrawalsScreenClient = dynamic(() => import("@/features/wallet/WalletOperationsScreens").then((module) => module.SellerWithdrawalsScreen), { ssr: false, loading: ScreenLoading });
@@ -165,6 +166,7 @@ export const AdminRolesScreenClient = dynamic(
 );
 export const AdminOverviewScreenClient = dynamic(() => import("@/features/admin").then((module) => module.AdminOverviewScreen), { ssr: false, loading: ScreenLoading });
 export const AdminContractScreenClient = dynamic(() => import("@/features/admin").then((module) => module.AdminContractScreen), { ssr: false, loading: ScreenLoading });
+export const WalletToolsScreenClient = dynamic(() => import("@/features/admin/finance/WalletToolsScreen").then((module) => module.WalletToolsScreen), { ssr: false, loading: ScreenLoading });
 export const PlatformFeeScreenClient = dynamic(() => import("@/features/admin/finance/PlatformFeeScreen").then((module) => module.PlatformFeeScreen), { ssr: false, loading: ScreenLoading });
 export const SubsidyBudgetsScreenClient = dynamic(() => import("@/features/admin/finance/SubsidyBudgetsScreen").then((module) => module.SubsidyBudgetsScreen), { ssr: false, loading: ScreenLoading });
 export const AdminCategoriesScreenClient = dynamic(() => import("@/features/admin").then((module) => module.AdminCategoriesScreen), { ssr: false, loading: ScreenLoading });
