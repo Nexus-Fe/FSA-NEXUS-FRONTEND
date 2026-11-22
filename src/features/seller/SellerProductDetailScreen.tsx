@@ -604,7 +604,7 @@ export function SellerProductDetailScreen() {
                               <span><strong>{inv.reservedQuantity}</strong><small>Đang giữ</small></span>
                             </div>
                           ) : variant.inventoryInitState === "NeedsAttention" ? (
-                            <span className="seller-inventory-init seller-inventory-init-error" role="status">Chưa tạo được kho. Liên hệ hỗ trợ.</span>
+                            <span className="seller-inventory-init seller-inventory-init-error" role="status">Chưa tạo được kho cho SKU này. Mở Quản lý kho để kiểm tra kho của bạn; nếu gian hàng chưa có kho, nhân viên cần khôi phục kho.</span>
                           ) : variant.inventoryInitState === "Pending" ? (
                             <span className="seller-inventory-init" role="status">Đang khởi tạo kho…</span>
                           ) : (

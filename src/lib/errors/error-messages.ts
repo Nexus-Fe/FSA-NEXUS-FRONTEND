@@ -64,6 +64,11 @@ export const ERROR_DICTIONARY: Record<string, Entry> = {
   INSUFFICIENT_WALLET_BALANCE: { message: "Số dư khả dụng trong ví không đủ.", hint: TOP_UP },
   WALLET_NOT_FOUND: { message: "Người nhận chưa có ví Nexus hoặc mã người nhận không đúng." },
   BUSINESS_RULE_VIOLATION: { message: "Thao tác không hợp lệ theo quy định (ví dụ chuyển tiền cho chính mình)." },
+  SHIPMENT_NOT_FOUND: { message: "Không tìm thấy vận đơn của đơn này." },
+  SHIPMENT_NOT_RETURNING: { message: "Vận đơn này chưa ở trạng thái hoàn hàng nên chưa xác nhận hoàn được.", hint: RELOAD },
+  SHIPMENT_ALREADY_EXISTS: { message: "Đơn này đã có vận đơn.", hint: "Tải lại trang để xem mã vận đơn." },
+  FULFILLMENT_SERVICE_UNAVAILABLE: { message: "Hệ thống vận chuyển chưa phản hồi.", hint: "Thử lại sau ít phút.", kind: "unavailable" },
+  WAREHOUSE_NOT_FOUND: { message: "Không tìm thấy kho." },
   WITHDRAWAL_NOT_FOUND: { message: "Không tìm thấy yêu cầu rút tiền." },
   WITHDRAWAL_INVALID_TRANSITION: { message: "Yêu cầu rút tiền không còn ở trạng thái cho phép thao tác này.", hint: RELOAD },
 

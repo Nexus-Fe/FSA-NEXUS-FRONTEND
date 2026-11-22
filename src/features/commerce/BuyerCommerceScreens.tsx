@@ -10,7 +10,7 @@ import { ROUTES } from "@/constants/routes";
 import { ApiError, api, unwrap, type ApiResponse } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatMoney, resolveImageUrl } from "@/lib/presentation";
-import { fulfillmentService } from "@/features/fulfillment";
+import { OrderShipmentsCard } from "@/features/fulfillment/components/OrderShipmentsCard";
 import { walletService } from "@/features/wallet";
 import { CheckoutVoucherPanel } from "@/features/coupons/CheckoutVoucherPanel";
 import { describeRejectedVoucher } from "@/features/coupons/voucher-outcome";
@@ -851,7 +851,7 @@ export function OrderDetailScreen() {
   const { id } = useParams<{ id: string }>();
   const orderId = String(id ?? "");
   const order = useApiResource(orderId ? `buyer-order:${orderId}` : null, (signal) => api.get<ApiResponse<Order> | Order>(`/api/v1/orders/${encodeURIComponent(orderId)}`, { signal }).then(unwrap));
-  const shipment = useApiResource(orderId ? `buyer-shipment:${orderId}` : null, (signal) => fulfillmentService.getShipmentByOrderId(orderId, signal));
+  const [shipmentRefresh, setShipmentRefresh] = useState(0);
   const [confirmingSubOrderId, setConfirmingSubOrderId] = useState<string | null>(null);
   const [cancellingOrder, setCancellingOrder] = useState(false);
   const [confirmMessage, setConfirmMessage] = useState("");
@@ -862,7 +862,7 @@ export function OrderDetailScreen() {
     setConfirmError("");
     setConfirmMessage(message);
     order.reload();
-    shipment.reload();
+    setShipmentRefresh((value) => value + 1);
   }
 
   async function confirmDelivery(subOrderId: string) {
@@ -897,7 +897,7 @@ export function OrderDetailScreen() {
       }
       setConfirmMessage("Đã hủy đơn hàng thành công! Tồn kho tạm giữ (Reserved) đã được nhả lại vào khả dụng (Available) và tiền đơn hàng (nếu đã thanh toán qua Ví) đã được hoàn trả.");
       order.reload();
-      shipment.reload();
+      setShipmentRefresh((value) => value + 1);
     } catch (reason) {
       setConfirmError(describeCartFailure(reason));
     } finally {
@@ -1053,20 +1053,7 @@ export function OrderDetailScreen() {
             <NoData title={order.loading ? "Đang tải đơn hàng…" : "Không có dữ liệu đơn hàng"} />
           )}
         </Card>
-        <Card className="card-pad">
-          <h2>Giao nhận</h2>
-          {shipment.error && <p className="notice" role="alert">{shipment.error.message}</p>}
-          {shipment.data ? (
-            <>
-              <div className="info-row"><span>Mã vận đơn</span><strong>{shipment.data.trackingNumber ?? "Đang khởi tạo"}</strong></div>
-              <div className="info-row"><span>Trạng thái</span><strong>{shipment.data.status}</strong></div>
-              <div className="info-row"><span>Người nhận</span><strong>{shipment.data.receiverName}</strong></div>
-              <div className="info-row"><span>Địa chỉ</span><strong>{shipment.data.receiverAddress}</strong></div>
-            </>
-          ) : (
-            <NoData title={shipment.loading ? "Đang tải vận đơn…" : "Vận đơn sẽ hiển thị khi người bán chấp nhận đơn"} />
-          )}
-        </Card>
+        <OrderShipmentsCard key={shipmentRefresh} orderId={orderId} />
       </div>
     </div>
   </>;
