@@ -11,6 +11,7 @@ import { useSession } from "@/components/auth/SessionProvider";
 import { authService } from "@/features/auth";
 import { NotificationBell } from "@/features/notification";
 import { NexusBrandHeader } from "@/components/ui/NexusLogo";
+import { useEnabledNavigation } from "@/lib/features/use-enabled-navigation";
 import { NavLinks } from "./NavLinks";
 import { Breadcrumbs } from "./Breadcrumbs";
 
@@ -353,7 +354,8 @@ export function BuyerShell({ children }: { children: ReactNode }) {
   const homeLabel = getRoleHomeLabel(user);
   const isSeller = getNormalizedRoles(user).includes("seller");
 
-  const dynamicBuyerNav = buyerNavigation.filter((item) => {
+  const enabledBuyerNav = useEnabledNavigation(buyerNavigation);
+  const dynamicBuyerNav = enabledBuyerNav.filter((item) => {
     // Nếu người dùng đã là người bán, họ đã có nút "Kênh người bán" ở góc phải header-actions.
     // Ẩn tab đăng ký bán hàng khỏi thanh nav mua sắm để tránh trùng lặp.
     if (item.href === ROUTES.buyer.becomeSeller && isSeller) {

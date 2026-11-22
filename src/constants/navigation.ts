@@ -1,7 +1,9 @@
 import { ROUTES } from "./routes";
 import type { IconName } from "@/components/ui/Icon";
+import type { FeatureKey } from "@/lib/features/feature-flags";
 
-export type NavigationItem = { label: string; href: string; icon: IconName };
+/** `feature`: the entry is shown only while that flag is on, so a menu never points at a screen that is not switched on. */
+export type NavigationItem = { label: string; href: string; icon: IconName; feature?: FeatureKey };
 
 export const buyerNavigation: NavigationItem[] = [
   { label: "Trang chủ", href: ROUTES.home, icon: "home" },
