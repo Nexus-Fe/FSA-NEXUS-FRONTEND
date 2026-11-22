@@ -21,6 +21,8 @@ import { AuctionBuyNowPanel } from "./AuctionBuyNowPanel";
 import { AuctionWatchButton } from "./AuctionWatchButton";
 import { canOfferBuyNow } from "./buy-now-outcome";
 import { canWatchAuction } from "./watch";
+import { useAuctionRealtime } from "./use-auction-realtime";
+import { isOutbid, outbidText, refreshIntervalMs } from "./realtime-rules";
 import { describeOutcome } from "./auction-outcome";
 import { auctionService } from "./services/auction.service";
 import { normalizeAuctionStatus, statusLabel, auctionStatusTone } from "./contract";
@@ -91,8 +93,14 @@ export function AuctionRoomScreen() {
   const bids = useApiResource(isAuctionId(id) ? `bids:${id}:${bidPage}` : null, (signal) => auctionService.bids(id, bidPage, signal).then((response) => response.data));
   const recentBids = useApiResource(isAuctionId(id) && bidPage > 1 ? `recent-bids:${id}` : null, (signal) => auctionService.bids(id, 1, signal).then((response) => response.data));
   const reloadDetail = detail.reload; const reloadBids = bids.reload; const reloadRecentBids = recentBids.reload;
-  useEffect(() => { if (!isAuctionId(id)) return; const timer = window.setInterval(() => { if (document.visibilityState === "visible") { reloadDetail(); reloadBids(); if (bidPage > 1) reloadRecentBids(); } }, 5000); return () => window.clearInterval(timer); }, [id, bidPage, reloadDetail, reloadBids, reloadRecentBids]);
-  const [amount, setAmount] = useState(""); const [selectedImage, setSelectedImage] = useState(0); const [busy, setBusy] = useState(false); const [error, setError] = useState(""); const [success, setSuccess] = useState(""); const [latestBid, setLatestBid] = useState<PlaceBidResponse | null>(null);
+  const [amount, setAmount] = useState(""); const [selectedImage, setSelectedImage] = useState(0); const [busy, setBusy] = useState(false); const [error, setError] = useState(""); const [success, setSuccess] = useState(""); const [latestBid, setLatestBid] = useState<PlaceBidResponse | null>(null); const [outbidNotice, setOutbidNotice] = useState("");
+  const realtime = useAuctionRealtime(isAuctionId(id) ? id : null, {
+    onBid: (event) => { reloadDetail(); reloadBids(); if (bidPage > 1) reloadRecentBids(); if (isOutbid(event, latestBid ? { bidId: latestBid.bidId, amount: latestBid.amount } : null)) setOutbidNotice(outbidText(event.amount)); },
+    onStatusChanged: () => { reloadDetail(); reloadBids(); },
+    onCancelled: () => { reloadDetail(); },
+  });
+  const liveConnected = realtime === "connected";
+  useEffect(() => { if (!isAuctionId(id)) return; const timer = window.setInterval(() => { if (document.visibilityState === "visible") { reloadDetail(); reloadBids(); if (bidPage > 1) reloadRecentBids(); } }, refreshIntervalMs(liveConnected)); return () => window.clearInterval(timer); }, [id, bidPage, liveConnected, reloadDetail, reloadBids, reloadRecentBids]);
   const auction = detail.data?.auction; const currentStatus = normalizeAuctionStatus(auction?.status ?? ""); const useLatestBid = Boolean(latestBid && latestBid.auctionId === id && latestBid.rowVersion >= (auction?.rowVersion ?? 0)); const scheduledEndAt = useLatestBid ? latestBid!.scheduledEndAt : auction?.scheduledEndAt ?? ""; const active = Boolean(now && currentStatus === "RUNNING" && new Date(scheduledEndAt).getTime() > now); const scheduled = currentStatus === "SCHEDULED";
   const currentPrice = useLatestBid ? latestBid!.currentPriceAmount : auction?.currentPriceAmount ?? auction?.startPriceAmount ?? 0; const minimumBid = (useLatestBid || auction?.currentPriceAmount != null) ? currentPrice + (auction?.bidStepAmount ?? 0) : auction?.startPriceAmount ?? 0; const amountValue = Number(amount); const validAmount = /^\d+$/.test(amount) && Number.isSafeInteger(amountValue) && amountValue >= minimumBid;
   const images = auction ? [...(auction.images ?? []).map((image) => image.url), auction.primaryImageUrl].filter((url, index, all): url is string => Boolean(url) && all.indexOf(url) === index) : [];
@@ -105,7 +113,7 @@ export function AuctionRoomScreen() {
   return <div className="auction-surface auction-room">
     <PageHeading title={auction?.productName ?? "Phòng đấu giá"} description={auction ? `Mã phiên ${auction.auctionId}` : "Đang tải thông tin phiên đấu giá"} action={<div className="action-row">{auction && canWatchAuction({ userId: user?.id, sellerId: auction.sellerId, canBid }) && user && <AuctionWatchButton auctionId={id} userId={user.id} />}<ButtonLink href={ROUTES.auction.index} variant="secondary" small>Quay lại danh sách</ButtonLink></div>} />
     {detail.error && <div className="notice" role="alert"><p>{message(detail.error)}</p><button className="button button-secondary button-small" type="button" onClick={refreshAuction}>Tải lại phiên</button></div>}
-    {error && <p className="notice" role="alert">{error}</p>}{success && <p className="form-success" role="status">{success}</p>}
+    {error && <p className="notice" role="alert">{error}</p>}{success && <p className="form-success" role="status">{success}</p>}{outbidNotice && <p className="notice" role="status">{outbidNotice} <button type="button" className="button button-secondary button-small" onClick={() => setOutbidNotice("")}>Đã hiểu</button></p>}{realtime === "reconnecting" && <p className="auction-action-note" role="status">Mất kết nối cập nhật trực tiếp, đang nối lại. Giá vẫn được làm mới định kỳ.</p>}
     {detail.loading && !auction ? <NoData title="Đang tải phiên đấu giá…" /> : auction ? <>
       {active && canBid && user && auction.sellerId !== user.id && <AuctionDepositPanel auctionId={id} userId={user.id} requirement={requirement.data ?? null} deposit={deposit.data ?? null} loading={requirement.loading || deposit.loading} error={requirement.error ?? deposit.error} reload={() => { requirement.reload(); deposit.reload(); }} />}
       <div className="auction-room-grid">
