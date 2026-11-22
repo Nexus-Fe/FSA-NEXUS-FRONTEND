@@ -13,48 +13,12 @@ import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatMoney, resolveImageUrl } from "@/lib/presentation";
 import { AuctionTile, auctionService } from "@/features/auction";
 import { CatalogPromoBanner } from "./CatalogPromoBanner";
+import { categoryGroups, loadCategories, type Category } from "./categories";
 
 type Product = { id: string; productId?: string; name: string; description?: string; price: number; minPrice?: number | null; maxPrice?: number | null; primaryImageUrl?: string | null; imageUrl?: string; brand?: string; status?: string; categoryId?: string; categoryName?: string; variantCount?: number; variants?: Array<{ id: string; skuId?: string; name?: string; sku?: string; price?: number | null; status?: string; stock?: number }> };
-type Category = { id: string; categoryId?: string; name: string; parentId?: string | null; children?: Category[] | null };
-type List<T> = T[] | { items?: T[]; data?: T[]; results?: T[]; categories?: T[]; pagination?: { hasNextPage?: boolean } };
 type ProductPage = { items: Product[]; pagination: { pageIndex: number; pageSize: number; totalCount: number; totalPages: number; hasPreviousPage: boolean; hasNextPage: boolean } };
-const rows = <T,>(value: List<T> | null): T[] => Array.isArray(value) ? value : value?.items ?? value?.data ?? value?.results ?? value?.categories ?? [];
 const problem = (error: Error | null) => error?.message ?? "";
 const pageSizes = [10, 30, 50] as const;
-
-function normalizeCategories(list: Category[], parentId: string | null = null): Category[] {
-  return list.flatMap((category) => {
-    const id = category.id ?? category.categoryId ?? "";
-    return [
-      { ...category, id, parentId: category.parentId ?? parentId },
-      ...normalizeCategories(category.children ?? [], id),
-    ];
-  }).filter((category) => Boolean(category.id));
-}
-
-async function loadCategories(signal?: AbortSignal): Promise<Category[]> {
-  const all: Category[] = [];
-  for (let page = 1; page <= 20; page += 1) {
-    const result = unwrap(await api.get<ApiResponse<List<Category>>>(`/api/v1/categories?page=${page}&pageSize=100`, { signal }));
-    all.push(...rows(result));
-    if (Array.isArray(result) || !result.pagination?.hasNextPage) break;
-  }
-  return [...new Map(normalizeCategories(all).map((category) => [category.id, category])).values()];
-}
-
-function categoryGroups(categories: Category[]) {
-  const ids = new Set(categories.map((category) => category.id));
-  const roots = categories.filter((category) => !category.parentId || !ids.has(category.parentId));
-  const descendants = (id: string, seen = new Set<string>()): Category[] => {
-    if (seen.has(id)) return [];
-    const visited = new Set([...seen, id]);
-    return categories.filter((category) => category.parentId === id).flatMap((child) => [
-      child,
-      ...descendants(child.id, visited),
-    ]);
-  };
-  return roots.map((parent) => ({ parent, children: descendants(parent.id) }));
-}
 
 type CatalogFilterValues = { keyword: string; categoryId: string; sortBy: string; minPrice: string; maxPrice: string; brand: string; minRating: string };
 const emptyCatalogFilters: CatalogFilterValues = { keyword: "", categoryId: "", sortBy: "", minPrice: "", maxPrice: "", brand: "", minRating: "" };
@@ -134,7 +98,7 @@ export function HomeScreen() {
   const products = useProducts();
   const auctions = useApiResource("/api/v1/auctions?page=1&pageSize=3", async (signal) => (await auctionService.list(1, 3, undefined, signal)).data.items);
   const categories = useApiResource("/api/v1/categories", loadCategories);
-  return <>
+  return <div className="buyer-home-glass">
     <div className="hero">
       <div className="hero-copy">
         <p className="overline">Nexus Marketplace</p>
@@ -164,7 +128,7 @@ export function HomeScreen() {
       <SectionHeading id="home-categories-title" title="Danh mục khám phá" hint="Tìm nhanh theo danh mục sản phẩm." action={<Link href={ROUTES.catalog.index}>Mở danh mục <Icon name="arrow" size={15}/></Link>} />
       {categories.error ? <p role="alert" className="notice">{problem(categories.error)}</p> : categories.data?.length ? <div className="category-rail">{categoryGroups(categories.data).map(({ parent, children }) => <div className="category-tile" key={parent.id}><span className="category-tile-mark"><Icon name="grid" size={20}/></span>{children.length ? <><strong>{parent.name}</strong><div className="category-tile-children">{children.map((child) => <Link key={child.id} href={`${ROUTES.catalog.index}?categoryId=${encodeURIComponent(child.id)}`}>{child.name}</Link>)}</div></> : <Link href={`${ROUTES.catalog.index}?categoryId=${encodeURIComponent(parent.id)}`}><strong>{parent.name}</strong></Link>}</div>)}</div> : <NoData className="empty-grid" title={categories.loading ? "Đang tải danh mục…" : "Chưa có danh mục"} />}
     </section>
-  </>;
+  </div>;
 }
 
 function CatalogFilters({ initialFilters, pageSize, categories, categoriesError, basePath }: {

@@ -6,6 +6,8 @@ import { ROUTES } from "@/constants/routes";
 import { auctionOrderService } from "./services/auction-order.service";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatMoney } from "@/lib/presentation";
+import { PartnerReviewCard } from "@/features/reviews/PartnerReviewCard";
+import { ProductReviewCard } from "@/features/reviews/ProductReviewCard";
 
 type AddressForm = { fullName: string; phoneNumber: string; addressLine: string; provinceName: string; districtName: string; wardName: string; ghnDistrictId: string; ghnWardCode: string };
 const initialAddress: AddressForm = { fullName: "", phoneNumber: "", addressLine: "", provinceName: "", districtName: "", wardName: "", ghnDistrictId: "", ghnWardCode: "" };
@@ -40,7 +42,7 @@ export function AuctionOrderPayment({ orderId, deadlinePassed }: { orderId: stri
   }
 
   async function pay() {
-    if (busy || !payable || !order.data?.totalAmount) return;
+    if (busy || !payable || order.data?.totalAmount === null || order.data?.totalAmount === undefined) return;
     setBusy(true); setError(""); setSuccess("");
     try {
       const result = await auctionOrderService.pay(orderId);
@@ -66,18 +68,21 @@ export function AuctionOrderPayment({ orderId, deadlinePassed }: { orderId: stri
     {order.data && <>
       <div className="info-row"><span>Mã đơn</span><strong>{order.data.orderNo}</strong></div>
       <div className="info-row"><span>Giá trúng</span><strong>{formatMoney(order.data.winningAmount)}</strong></div>
+      <div className="info-row"><span>Cọc áp dụng</span><strong>−{formatMoney(order.data.depositAmount)}</strong></div>
       <div className="info-row"><span>Phí giao hàng</span><strong>{formatMoney(order.data.shippingFeeAmount)}</strong></div>
-      <div className="info-row"><span>Tổng thanh toán</span><strong>{formatMoney(order.data.totalAmount)}</strong></div>
+      <div className="info-row"><span>Còn phải trả</span><strong>{formatMoney(order.data.totalAmount)}</strong></div>
       <div className="info-row"><span>Trạng thái</span><strong>{order.data.status}</strong></div>
-      {payable && !order.data.totalAmount && <form className="auction-shipping-form" onSubmit={(event) => void saveShipping(event)}>
+      {payable && order.data.totalAmount === null && <form className="auction-shipping-form" onSubmit={(event) => void saveShipping(event)}>
         <h3>Địa chỉ nhận hàng</h3>
         {addressFields.map(([key, label]) => <label key={key} className="field-wrap">{label}<input className="field" required type={key === "ghnDistrictId" ? "number" : "text"} min={key === "ghnDistrictId" ? 1 : undefined} value={shipping[key]} onChange={(event) => setShipping((value) => ({ ...value, [key]: event.target.value }))} /></label>)}
         <button className="button button-secondary" disabled={busy}>{busy ? "Đang lưu…" : "Lưu địa chỉ và tính phí"}</button>
       </form>}
-      {payable && Boolean(order.data.totalAmount) && <><button type="button" className="button button-primary" disabled={busy} onClick={() => void pay()}>{busy ? "Đang xử lý…" : "Thanh toán bằng Ví Nexus"}</button><ButtonLink href={ROUTES.buyer.topUp} variant="secondary">Nạp tiền</ButtonLink></>}
-      {status === "PAID" && <p role="status">Đã thanh toán, đang chờ người bán phản hồi{order.data.sellerRespondDeadlineAt ? ` trước ${new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(order.data.sellerRespondDeadlineAt))}` : ""}.</p>}
+      {payable && order.data.totalAmount !== null && <><button type="button" className="button button-primary" disabled={busy} onClick={() => void pay()}>{busy ? "Đang xử lý…" : order.data.totalAmount === 0 ? "Xác nhận thanh toán" : "Thanh toán bằng Ví Nexus"}</button>{order.data.totalAmount > 0 && <ButtonLink href={ROUTES.buyer.topUp} variant="secondary">Nạp tiền</ButtonLink>}</>}
+      {status === "PAID" && <p role="status">Đã thanh toán phần còn lại. Tiền cọc đang được đối soát trước khi người bán tiếp nhận{order.data.sellerRespondDeadlineAt ? ` trước ${new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(order.data.sellerRespondDeadlineAt))}` : ""}.</p>}
       {["SHIPPED", "DELIVERED"].includes(status ?? "") && <div className="auction-receipt"><p>Chỉ xác nhận sau khi bạn thực sự nhận hàng.</p>{confirmReceipt && <p role="alert">Xác nhận sẽ hoàn tất đơn và bắt đầu giải ngân cho người bán.</p>}<button type="button" className="button button-primary" disabled={busy} onClick={() => confirmReceipt ? void receive() : setConfirmReceipt(true)}>{confirmReceipt ? "Xác nhận đã nhận hàng" : "Tôi đã nhận hàng"}</button>{confirmReceipt && <button type="button" className="button button-secondary" onClick={() => setConfirmReceipt(false)}>Quay lại</button>}</div>}
       {deadlinePassed && status === "PENDINGPAYMENT" && <p role="status">Đã quá hạn thanh toán.</p>}
+      {status === "COMPLETED" && <PartnerReviewCard referenceType="Auction" referenceId={orderId} title="Đánh giá người bán" counterpart="người bán" />}
+      {status === "COMPLETED" && order.data.productId && <ProductReviewCard productId={order.data.productId} productName={order.data.productName} subOrderId={orderId} />}
     </>}
     {error && <p role="alert" className="notice">{error}</p>}{success && <p role="status" className="form-success">{success}</p>}
   </section>;

@@ -227,7 +227,7 @@ export function OperationsDetailScreen({ role }: { role: Role }) {
                   <span style={{ fontSize: "12px", color: "var(--muted)", textTransform: "uppercase", fontWeight: 600 }}>
                     Giá hiện tại
                   </span>
-                  <div style={{ fontSize: "18px", fontWeight: 700, color: "var(--primary, #0284c7)", marginTop: "4px" }}>
+                  <div style={{ fontSize: "18px", fontWeight: 700, color: "var(--primary)", marginTop: "4px" }}>
                     {formatMoney(auction.currentPriceAmount ?? auction.startPriceAmount)}
                   </div>
                 </div>

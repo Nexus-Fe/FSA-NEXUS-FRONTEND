@@ -8,11 +8,12 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
-    "test:session": "node --experimental-transform-types --test tests/api-client-session.test.mjs"
+    "test:session": "node --experimental-transform-types --test tests/api-client-session.test.mjs",
+    "test:notification": "node --experimental-transform-types --loader ./tests/alias-loader.mjs --test tests/notification-target.test.mjs"
   },
   "dependencies": {
     "clsx": "^2.1.1",
-    "next": "16.4.2",
+    "next": "16.4.6",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "tailwind-merge": "^3.7.0"
@@ -23,7 +24,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.4.2",
+    "eslint-config-next": "16.4.6",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

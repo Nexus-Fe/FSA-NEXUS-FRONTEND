@@ -8,6 +8,7 @@ export const buyerNavigation: NavigationItem[] = [
   { label: "Sản phẩm", href: ROUTES.catalog.index, icon: "grid" },
   { label: "Đấu giá trực tiếp", href: ROUTES.auction.index, icon: "gavel" },
   { label: "Đấu giá của tôi", href: ROUTES.buyer.auctions, icon: "gavel" },
+  { label: "Uy tín của tôi", href: ROUTES.buyer.reputation, icon: "users" },
   { label: "Đăng ký bán hàng", href: ROUTES.buyer.becomeSeller, icon: "warehouse" },
 ];
 
@@ -20,6 +21,8 @@ export const sellerNavigation: NavigationItem[] = [
   { label: "Phiên đấu giá", href: ROUTES.seller.auctions, icon: "gavel" },
   { label: "Đơn đấu giá", href: ROUTES.seller.auctionOrders, icon: "gavel" },
   { label: "Doanh thu & ví", href: ROUTES.seller.wallet, icon: "wallet" },
+  { label: "Mã giảm giá", href: ROUTES.seller.coupons, icon: "orders" },
+  { label: "Đánh giá & uy tín", href: ROUTES.seller.reviews, icon: "users" },
 ];
 
 export const staffNavigation: NavigationItem[] = [

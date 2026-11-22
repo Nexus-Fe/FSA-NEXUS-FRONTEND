@@ -4,10 +4,13 @@ import { useState } from "react";
 import { useSession } from "@/components/auth/SessionProvider";
 import { Card, NoData, PageHeading } from "@/components/ui/Primitives";
 import { useApiResource } from "@/lib/api/use-api-resource";
-import { notificationService } from "./services/notification.service";
+import { usePathname } from "next/navigation";
+import { NotificationAction } from "./NotificationAction";
+import { notificationService, notificationsChangedEvent } from "./services/notification.service";
 
 export function NotificationsScreen() {
   const { user } = useSession();
+  const viewer = usePathname()?.startsWith("/seller") ? "seller" : "buyer";
   const [page, setPage] = useState(1);
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -21,6 +24,7 @@ export function NotificationsScreen() {
     try {
       await notificationService.markAsRead(id);
       resource.reload();
+      window.dispatchEvent(new Event(notificationsChangedEvent));
     } catch (error) {
       setActionError(error instanceof Error ? error.message : "Không đánh dấu được thông báo.");
     } finally {
@@ -46,6 +50,7 @@ export function NotificationsScreen() {
             <time dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleString("vi-VN")}</time>
           </div>
           <p>{item.body || "Bạn có thông báo mới."}</p>
+          <NotificationAction item={item} viewer={viewer} onRead={resource.reload} />
           {!item.isRead && <button type="button" className="button button-secondary button-small"
             disabled={busyId === item.id} onClick={() => void markRead(item.id)}>
             {busyId === item.id ? "Đang cập nhật…" : "Đánh dấu đã đọc"}

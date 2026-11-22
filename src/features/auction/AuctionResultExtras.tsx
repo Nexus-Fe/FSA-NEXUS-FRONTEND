@@ -1,11 +1,27 @@
 import { formatMoney } from "@/lib/presentation";
+import { myDepositLabel, offerStatusLabel, phaseLabel } from "./auction-outcome";
 import type { AuctionResult } from "./types";
 
-export function AuctionResultExtras({ result }: { result: AuctionResult }) {
+const SETTLEMENT_LABELS: Record<string, string> = {
+  PENDING: "Đang tạo đơn",
+  PENDINGPAYMENT: "Chờ thanh toán",
+  PAID: "Đã thanh toán",
+  EXPIRED: "Quá hạn thanh toán",
+  FAILED: "Thanh toán thất bại",
+  CANCELLED: "Đã hủy",
+  COMPLETED: "Hoàn tất",
+};
+const settlementLabel = (status: string) => SETTLEMENT_LABELS[status.replace(/[^a-z]/gi, "").toUpperCase()] ?? status;
+
+export function AuctionResultExtras({ result, showPrivate = false, won = false }: { result: AuctionResult; showPrivate?: boolean; won?: boolean }) {
   return <>
-    <div className="info-row"><span>Giai đoạn</span><strong>{result.phase}</strong></div>
-    {result.myDeposit && <div className="info-row"><span>Cọc của bạn</span><strong>{formatMoney(result.myDeposit.amount)} · {result.myDeposit.status}</strong></div>}
-    {result.settlement && <><div className="info-row"><span>Đã đặt cọc</span><strong>{formatMoney(result.settlement.depositAmount)}</strong></div><div className="info-row"><span>Còn cần thanh toán</span><strong>{formatMoney(result.settlement.remainingAmount)}</strong></div><div className="info-row"><span>Trạng thái đơn</span><strong>{result.settlement.settlementStatus}</strong></div></>}
-    {result.secondChance && <div className="info-row"><span>Lời mời người về nhì</span><strong>{result.secondChance.status}{result.secondChance.respondBy ? ` · ${new Date(result.secondChance.respondBy).toLocaleString("vi-VN")}` : ""}</strong></div>}
+    <div className="info-row"><span>Giai đoạn</span><strong>{phaseLabel(result.phase)}</strong></div>
+    {result.myDeposit && <div className="info-row"><span>Cọc của bạn</span><strong className="tabular-nums">{formatMoney(result.myDeposit.amount)} · {myDepositLabel(result.myDeposit.status, won)}</strong></div>}
+    {showPrivate && result.settlement && <>
+      <div className="info-row"><span>Cọc được trừ vào đơn</span><strong className="tabular-nums">{formatMoney(result.settlement.depositAmount)}</strong></div>
+      <div className="info-row"><span>Còn cần thanh toán (chưa gồm phí giao hàng)</span><strong className="tabular-nums">{formatMoney(result.settlement.remainingAmount)}</strong></div>
+      <div className="info-row"><span>Trạng thái đơn</span><strong>{settlementLabel(result.settlement.settlementStatus)}</strong></div>
+    </>}
+    {showPrivate && result.secondChance && <div className="info-row"><span>Lời mời người về nhì</span><strong>{offerStatusLabel(result.secondChance.status)}{result.secondChance.respondBy ? ` · hạn ${new Date(result.secondChance.respondBy).toLocaleString("vi-VN")}` : ""}</strong></div>}
   </>;
 }

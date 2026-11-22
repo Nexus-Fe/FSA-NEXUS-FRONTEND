@@ -12,6 +12,7 @@ import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatMoney, resolveImageUrl } from "@/lib/presentation";
 import { fulfillmentService } from "@/features/fulfillment";
 import { walletService } from "@/features/wallet";
+import { CheckoutVoucherPreview } from "@/features/coupons/CheckoutVoucherPreview";
 import administrativeUnits from "@/data/vietnam-administrative-units.json";
 
 
@@ -673,6 +674,7 @@ export function CheckoutScreen() {
     })}</div> : <NoData title={cart.loading ? "Đang tải giỏ hàng…" : "Chưa có sản phẩm được chọn"} />}
       <div className="checkout-summary-line"><span>Tiền hàng</span><strong>{items.length ? formatMoney(activeQuote ? quotedItemsAmount : subtotal) : "—"}</strong></div>
       <div className="checkout-summary-line"><span>Phí giao hàng</span><strong>{activeQuote ? formatMoney(quotedShippingFee) : items.length ? "Theo báo giá" : "—"}</strong></div>
+      {items.length > 0 && <CheckoutVoucherPreview itemsAmount={activeQuote ? quotedItemsAmount : subtotal} shippingFee={activeQuote ? quotedShippingFee : null} />}
       {activeQuote && quotedDiscount > 0 && <div className="checkout-summary-line"><span>Giảm giá</span><strong>−{formatMoney(quotedDiscount)}</strong></div>}
       <div className="checkout-summary-total"><span>{activeQuote ? "Tổng thanh toán" : "Tạm tính tiền hàng"}</span><strong>{items.length ? formatMoney(activeQuote?.grandTotal ?? subtotal) : "—"}</strong></div>
       {quoteReady && activeQuote ? <><p>Báo giá có hiệu lực đến {new Date(activeQuote.expiredAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}. Số dư ví theo thời điểm báo giá: {formatMoney(activeQuote.walletBalance)}.</p><button className="button checkout-place-order" type="button" disabled={submitting || activeQuote.walletBalance < activeQuote.grandTotal} onClick={() => void handlePlaceOrder()}>{submitting ? "Đang đặt hàng…" : `Đặt hàng bằng Ví Nexus · ${formatMoney(activeQuote.grandTotal)}`}</button>{activeQuote.walletBalance < activeQuote.grandTotal && <p className="checkout-field-error">Số dư Ví Nexus không đủ. Vui lòng nạp thêm trước khi đặt hàng.</p>}</> : quoteExpired ? <p>Báo giá đã hết hạn. Vui lòng lấy báo giá mới.</p> : null}

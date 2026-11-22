@@ -19,6 +19,8 @@ export const ROUTES = {
     checkout: "/buyer/checkout",
     orders: "/buyer/orders",
     order: (id: string) => "/buyer/orders/" + encodeURIComponent(id),
+    /** Opens a regular order from the id of one of its sub-orders (the id a notification carries). */
+    orderBySubOrder: (id: string) => "/buyer/orders/by-sub/" + encodeURIComponent(id),
     orderReview: (id: string) => "/buyer/orders/" + encodeURIComponent(id) + "/review",
     notifications: "/buyer/notifications",
     wallet: "/buyer/wallet",
@@ -27,6 +29,7 @@ export const ROUTES = {
     topUps: "/buyer/wallet/top-ups",
     topUpDetail: (id: string) => "/buyer/wallet/top-ups/" + encodeURIComponent(id),
     reports: "/buyer/reports",
+    reputation: "/buyer/reputation",
   },
   seller: {
     auction: (id: string) => "/seller/auctions/" + encodeURIComponent(id),
@@ -45,6 +48,8 @@ export const ROUTES = {
     order: (id: string) => "/seller/orders/" + encodeURIComponent(id),
     wallet: "/seller/wallet",
     withdrawals: "/seller/withdrawals",
+    reviews: "/seller/reviews",
+    coupons: "/seller/coupons",
     shipments: "/seller/shipments",
     shipment: (id: string) => "/seller/shipments/" + encodeURIComponent(id),
     auctions: "/seller/auctions",

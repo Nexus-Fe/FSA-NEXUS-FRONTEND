@@ -5,9 +5,12 @@ import { useState } from "react";
 import { Icon } from "@/components/ui/Icon";
 import { useSession } from "@/components/auth/SessionProvider";
 import { useApiResource } from "@/lib/api/use-api-resource";
+import { NotificationAction } from "./NotificationAction";
 import { notificationService } from "./services/notification.service";
 
 export function NotificationBell({ href, portal = false }: { href: string; portal?: boolean }) {
+  // The seller portal links to the seller's pages; every other bell is the buyer's.
+  const viewer = href.startsWith("/seller") ? "seller" : "buyer";
   const { user } = useSession();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState("");
@@ -53,6 +56,7 @@ export function NotificationBell({ href, portal = false }: { href: string; porta
           {resource.data.latest.map((item) => <li key={item.id} className={item.isRead ? "" : "notification-unread"}>
             <strong>{item.title || "Thông báo Nexus"}</strong>
             <p>{item.body || "Bạn có thông báo mới."}</p>
+            <NotificationAction item={item} viewer={viewer} onRead={resource.reload} />
             {!item.isRead && <button type="button" disabled={busyId === item.id}
               onClick={() => void markRead(item.id)}>Đánh dấu đã đọc</button>}
           </li>)}

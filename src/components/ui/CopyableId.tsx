@@ -34,14 +34,14 @@ export function CopyableId({
       style={{
         display: "inline-flex",
         alignItems: "center",
-        background: copied ? "#f0fdf4" : "rgba(2, 132, 199, 0.06)",
-        border: `1px solid ${copied ? "#bbf7d0" : "rgba(2, 132, 199, 0.18)"}`,
+        background: copied ? "#f0fdf4" : "rgba(var(--primary-rgb, 25, 40, 65), 0.06)",
+        border: `1px solid ${copied ? "#bbf7d0" : "rgba(var(--primary-rgb, 25, 40, 65), 0.18)"}`,
         padding: "2px 8px",
         borderRadius: "4px",
         cursor: "pointer",
         fontFamily: "var(--font-mono, monospace)",
         fontSize: "12px",
-        color: copied ? "#15803d" : "var(--primary, #0284c7)",
+        color: copied ? "#15803d" : "var(--primary)",
         transition: "all 0.15s ease",
       }}
     >

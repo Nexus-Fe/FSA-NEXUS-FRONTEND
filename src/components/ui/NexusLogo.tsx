@@ -29,7 +29,7 @@ export function NexusBrandHeader({
           style={{ objectFit: "contain", flexShrink: 0 }}
         />
         <span style={{ fontWeight: 800, letterSpacing: "-0.04em", fontSize: 18 }}>
-          NEXUS<span className="brand-mark brand-mark-sky" style={{ color: "#38bdf8", fontSize: 10 }}>●</span>
+          NEXUS<span className="brand-mark brand-mark-sky" style={{ color: "var(--primary)", fontSize: 10 }}>●</span>
         </span>
       </span>
     );

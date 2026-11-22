@@ -4,12 +4,19 @@ import { useState } from "react";
 import { Card, SectionHeading } from "@/components/ui/Primitives";
 import { api, unwrap, type ApiResponse } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
+import { useSession } from "@/components/auth/SessionProvider";
+import { ProductReviewCard } from "@/features/reviews/ProductReviewCard";
+import { reviewService } from "@/features/reviews/services/review.service";
 
 type Review = { id: string; rating: number; comment: string | null; createdAt: string };
 type ReviewPage = { items: Review[]; pagination: { hasNextPage: boolean } };
 type Rating = { avgRating: number | null; reviewCount: number };
 
 export function ProductFeedback({ productId, canReport }: { productId: string; canReport: boolean }) {
+  // The buyer's own reviews of this product, with the sub-order each belongs to, so they can be edited or deleted from here.
+  const { user } = useSession();
+  const isBuyer = (user?.roles ?? [user?.role]).some((role) => String(role ?? "").toLowerCase() === "buyer");
+  const mine = useApiResource(isBuyer ? `my-product-reviews:${productId}` : null, (signal) => reviewService.myProductReviews(productId, signal));
   const [page, setPage] = useState(1);
   const [reason, setReason] = useState("");
   const [description, setDescription] = useState("");
@@ -45,6 +52,9 @@ export function ProductFeedback({ productId, canReport }: { productId: string; c
         <div className="action-row"><button type="button" className="button button-secondary button-small" disabled={page <= 1} onClick={() => setPage(page - 1)}>Trang trước</button><span>Trang {page}</span><button type="button" className="button button-secondary button-small" disabled={!reviews.data?.pagination.hasNextPage} onClick={() => setPage(page + 1)}>Trang sau</button></div>
       </Card>
     </section>
+    {mine.data?.length ? <section className="product-detail-section" aria-label="Đánh giá của bạn"><SectionHeading title="Đánh giá của bạn" />
+      {mine.data.map((review) => <ProductReviewCard key={review.reviewId} productId={productId} productName="Đánh giá của bạn cho sản phẩm này" subOrderId={review.orderId} />)}
+    </section> : null}
     {canReport && <section className="product-detail-section"><SectionHeading title="Báo cáo sản phẩm" /><Card className="card-pad">
       {sent ? <p className="form-success" role="status">Đã gửi báo cáo để kiểm duyệt.</p> : <form className="auth-fields" onSubmit={(event) => void report(event)}>
         <label className="field-wrap">Lý do<select className="select-field" required value={reason} onChange={(event) => setReason(event.target.value)}><option value="">Chọn lý do</option><option value="Counterfeit">Hàng giả</option><option value="ProhibitedItem">Hàng cấm</option><option value="IncorrectDescription">Mô tả sai</option><option value="OffensiveContent">Nội dung không phù hợp</option><option value="Other">Khác</option></select></label>

@@ -425,11 +425,11 @@ export function AdminUsersScreen() {
           style={{
             background: "none",
             border: "none",
-            borderBottom: activeTab === "users" ? "2px solid var(--primary, #0284c7)" : "2px solid transparent",
+            borderBottom: activeTab === "users" ? "2px solid var(--primary)" : "2px solid transparent",
             padding: "8px 4px 12px",
             fontSize: "14px",
             fontWeight: 600,
-            color: activeTab === "users" ? "var(--primary, #0284c7)" : "var(--muted, #64748b)",
+            color: activeTab === "users" ? "var(--primary)" : "var(--muted, #64748b)",
             cursor: "pointer",
             transition: "border-color 0.12s ease, color 0.12s ease",
           }}
@@ -444,11 +444,11 @@ export function AdminUsersScreen() {
           style={{
             background: "none",
             border: "none",
-            borderBottom: activeTab === "roles" ? "2px solid var(--primary, #0284c7)" : "2px solid transparent",
+            borderBottom: activeTab === "roles" ? "2px solid var(--primary)" : "2px solid transparent",
             padding: "8px 4px 12px",
             fontSize: "14px",
             fontWeight: 600,
-            color: activeTab === "roles" ? "var(--primary, #0284c7)" : "var(--muted, #64748b)",
+            color: activeTab === "roles" ? "var(--primary)" : "var(--muted, #64748b)",
             cursor: "pointer",
             transition: "border-color 0.12s ease, color 0.12s ease",
           }}
@@ -1040,8 +1040,8 @@ export function AdminUsersScreen() {
                             setAction("unban");
                           }}
                           style={{
-                            backgroundColor: action === "unban" ? "#0369a1" : "#0284c7",
-                            borderColor: "#0284c7",
+                            backgroundColor: action === "unban" ? "var(--primary-hover)" : "var(--primary)",
+                            borderColor: "var(--primary)",
                             color: "#fff",
                           }}
                         >
