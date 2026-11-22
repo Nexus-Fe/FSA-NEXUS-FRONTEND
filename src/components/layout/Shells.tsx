@@ -234,7 +234,23 @@ function AccountNavigation() {
                 <Icon name="warehouse" size={16} />
                 <span>Sổ địa chỉ</span>
               </Link>
-              <Link href={ROUTES.auth.changePassword}>
+              <Link href={ROUTES.auth.sessions}>
+                <Icon name="shield" size={16} />
+                <span>Phiên đăng nhập</span>
+              </Link>
+              <Link href={ROUTES.auth.notificationPreferences}>
+                <Icon name="flag" size={16} />
+                <span>Tuỳ chọn thông báo</span>
+              </Link>
+              <Link href={ROUTES.auth.sessions}>
+              <Icon name="shield" size={16} />
+              <span>Phiên đăng nhập</span>
+            </Link>
+            <Link href={ROUTES.auth.notificationPreferences}>
+              <Icon name="flag" size={16} />
+              <span>Tuỳ chọn thông báo</span>
+            </Link>
+            <Link href={ROUTES.auth.changePassword}>
                 <Icon name="shield" size={16} />
                 <span>Đổi mật khẩu</span>
               </Link>

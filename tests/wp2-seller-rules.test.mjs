@@ -51,3 +51,33 @@ test("asRefundPage tolerates an envelope and junk", () => {
   assert.equal(asRefundPage({ data: { items: [{ id: "1" }], pagination: { totalPages: 3 } } }).pagination.totalPages, 3);
   assert.equal(asRefundPage(null).items.length, 0);
 });
+
+import { canToggle, changedPreferences, otherSessionCount, signedPoints, sortSessions, validateKycFile } from "@/features/account/account-rules.ts";
+
+test("sessions: current first, then newest", () => {
+  const list = sortSessions([{ sessionId: "a", lastActiveAt: "2026-01-01", isCurrent: false }, { sessionId: "b", lastActiveAt: "2026-02-01", isCurrent: false }, { sessionId: "c", lastActiveAt: "2025-01-01", isCurrent: true }]);
+  assert.deepEqual(list.map((s) => s.sessionId), ["c", "b", "a"]);
+  assert.equal(otherSessionCount(list), 2);
+});
+
+test("preferences: mandatory or disabled channel cannot toggle; only real changes are sent", () => {
+  const rows = [
+    { notificationType: "Otp", channelCode: "Email", isDisabled: false, isMandatory: true, isChannelDisabled: false },
+    { notificationType: "AuctionStart", channelCode: "Push", isDisabled: false, isMandatory: false, isChannelDisabled: false },
+    { notificationType: "AuctionStart", channelCode: "Email", isDisabled: true, isMandatory: false, isChannelDisabled: true },
+  ];
+  assert.equal(canToggle(rows[0]), false);
+  assert.equal(canToggle(rows[2]), false);
+  const edited = new Map([["Otp:Email", true], ["AuctionStart:Push", true], ["AuctionStart:Email", false]]);
+  assert.deepEqual(changedPreferences(rows, edited), [{ notificationType: "AuctionStart", channelCode: "Push", isDisabled: true }]);
+});
+
+test("kyc file rules", () => {
+  assert.equal(validateKycFile({ name: "a.JPG", size: 1000 }, true), null);
+  assert.ok(validateKycFile(null, true));
+  assert.equal(validateKycFile(null, false), null);
+  assert.ok(validateKycFile({ name: "a.gif", size: 10 }, true));
+  assert.ok(validateKycFile({ name: "a.pdf", size: 6 * 1024 * 1024 }, true));
+  assert.equal(signedPoints(5), "+5");
+  assert.equal(signedPoints(-3), "-3");
+});

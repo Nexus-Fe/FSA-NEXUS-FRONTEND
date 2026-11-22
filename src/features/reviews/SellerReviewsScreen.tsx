@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useSession } from "@/components/auth/SessionProvider";
+import { ReputationHistoryBlock, ReputationPolicyBlock } from "@/features/account/ReputationDetails";
 import { Badge, Card, NoData, PageHeading } from "@/components/ui/Primitives";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { reviewService } from "./services/review.service";
@@ -28,6 +29,8 @@ export function SellerReviewsScreen() {
       <p>{reputation.data.sellerPositiveReviews} đánh giá tích cực · {reputation.data.sellerNegativeReviews} tiêu cực · {reputation.data.sellerPenaltyCount} lần bị phạt</p>
     </Card>}
     {reputation.error && <p className="notice" role="alert">{reputation.error.message}</p>}
+    <ReputationPolicyBlock />
+    <ReputationHistoryBlock />
     <div className="action-row"><label className="field-wrap">Lọc theo số sao
       <select className="select-field" value={rating} onChange={(event) => { setRating(event.target.value); setPage(1); }}>
         <option value="">Tất cả</option>{[5, 4, 3, 2, 1].map((value) => <option key={value} value={value}>{value} sao</option>)}

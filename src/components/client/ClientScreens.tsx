@@ -32,6 +32,9 @@ export const LedgerTransactionsScreenClient = dynamic(() => import("@/features/a
 export const LedgerBalancesScreenClient = dynamic(() => import("@/features/admin/ledger/LedgerScreens").then((module) => module.LedgerBalancesScreen), { ssr: false, loading: ScreenLoading });
 export const ReconciliationScreenClient = dynamic(() => import("@/features/admin/ledger/LedgerScreens").then((module) => module.ReconciliationScreen), { ssr: false, loading: ScreenLoading });
 export const JournalScreenClient = dynamic(() => import("@/features/admin/ledger/LedgerScreens").then((module) => module.JournalScreen), { ssr: false, loading: ScreenLoading });
+export const SessionsScreenClient = dynamic(() => import("@/features/account/AccountScreens").then((module) => module.SessionsScreen), { ssr: false, loading: ScreenLoading });
+export const NotificationPreferencesScreenClient = dynamic(() => import("@/features/account/AccountScreens").then((module) => module.NotificationPreferencesScreen), { ssr: false, loading: ScreenLoading });
+export const SellerDocumentsScreenClient = dynamic(() => import("@/features/account/AccountScreens").then((module) => module.SellerDocumentsScreen), { ssr: false, loading: ScreenLoading });
 export const MyWatchlistScreenClient = dynamic(() => import("@/features/auction/MyWatchlistScreen").then((module) => module.MyWatchlistScreen), { ssr: false, loading: ScreenLoading });
 export const AddressBookScreenClient = dynamic(() => import("@/features/profile/AddressBookScreen").then((module) => module.AddressBookScreen), { ssr: false, loading: ScreenLoading });
 export const AccountProfileScreenClient = dynamic(() => import("@/features/auth/AuthScreens").then((module) => module.AccountProfileScreen), { ssr: false, loading: ScreenLoading });

@@ -24,7 +24,7 @@ const labels: Record<string, string> = {
   "/admin/categories": "Danh mục sản phẩm", "/admin/ledger": "Điều chỉnh số dư ví",
   "/admin/configs": "Cài đặt hệ thống", "/admin/coupons": "Mã giảm giá", "/admin/platform-fee": "Phí nền tảng", "/admin/wallet-tools": "Công cụ ví", "/admin/subsidy-budgets": "Ngân sách trợ giá",
   "/admin/notifications": "Nhật ký & Thông báo",
-  "/account/profile": "Hồ sơ cá nhân", "/account/addresses": "Sổ địa chỉ", "/account/change-password": "Đổi mật khẩu",
+  "/account/profile": "Hồ sơ cá nhân", "/account/addresses": "Sổ địa chỉ", "/account/change-password": "Đổi mật khẩu", "/account/sessions": "Phiên đăng nhập", "/account/notification-preferences": "Tuỳ chọn thông báo", "/account/seller-documents": "Giấy tờ đăng ký bán hàng",
 };
 
 const terminalLabels: Record<string, string> = {
