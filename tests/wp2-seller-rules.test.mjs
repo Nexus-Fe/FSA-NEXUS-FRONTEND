@@ -81,3 +81,9 @@ test("kyc file rules", () => {
   assert.equal(signedPoints(5), "+5");
   assert.equal(signedPoints(-3), "-3");
 });
+
+import { describeWarehouseRetry } from "@/features/staff/warehouse-retry-rules.ts";
+test("warehouse retry messages", () => {
+  assert.match(describeWarehouseRetry({ warehouseReady: true }), /sẵn sàng/);
+  assert.match(describeWarehouseRetry({ warehouseReady: false }), /Chưa tạo được/);
+});

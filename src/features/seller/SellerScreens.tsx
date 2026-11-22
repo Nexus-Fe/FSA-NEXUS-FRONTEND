@@ -26,6 +26,7 @@ import { sellerOrdersService } from "./services/seller-orders.service";
 import { SellerBuyerReview } from "./SellerBuyerReview";
 import { MAX_INVENTORY_QUANTITY } from "./services/inventory-quantity";
 import { InventoryAlertsPanel } from "./components/InventoryAlertsPanel";
+import { InventoryLedgerPanel } from "./components/InventoryLedgerPanel";
 import { describeCategoryError, leafCategoryOptions } from "./services/category-options";
 
 export { BecomeSellerScreen } from "./BecomeSellerScreen";
@@ -1400,6 +1401,7 @@ export function SellerInventoryScreen() {
       </div>
 
       <InventoryAlertsPanel />
+      <InventoryLedgerPanel />
 
       {/* Full Warehouse Product & SKU Inventory Management */}
       <Card className="card-pad seller-inventory-selector" style={{ marginBottom: 20 }}>

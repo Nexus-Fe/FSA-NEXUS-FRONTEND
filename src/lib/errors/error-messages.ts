@@ -172,6 +172,8 @@ export const ERROR_DICTIONARY: Record<string, Entry> = {
   AUCTION_CANCELLED: { message: "Phiên đấu giá đã bị hủy." },
   AUCTION_HAS_BIDS: { message: "Phiên đã có lượt đặt giá nên không thể thực hiện thao tác này." },
   AUCTION_NOT_EDITABLE: { message: "Phiên đấu giá không còn chỉnh sửa được." },
+  SELLER_NOT_APPROVED: { message: "Chỉ người bán đã được duyệt mới có kho." },
+  SELLER_NOT_FOUND: { message: "Không tìm thấy hồ sơ người bán." },
   CONFIG_VERSION_CONFLICT: { message: "Mục này vừa được người khác thay đổi.", hint: "Tải lại danh sách rồi sửa lại." },
   DELIVERY_VERSION_CONFLICT: { message: "Lượt gửi này vừa thay đổi trạng thái.", hint: "Tải lại danh sách rồi thử lại." },
   DELIVERY_NOT_RETRYABLE: { message: "Lượt gửi này không thể gửi lại." },
