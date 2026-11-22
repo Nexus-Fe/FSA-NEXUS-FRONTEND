@@ -84,7 +84,30 @@ function pageChoices(current: number, total: number): Array<number | "…"> {
 
 function ProductCard({ product }: { product: Product }) {
   const hasPriceRange = typeof product.maxPrice === "number" && product.maxPrice > product.price;
-  return <article className="product-card"><Link href={ROUTES.catalog.product(product.id)} className="product-media"><BackendImage src={resolveImageUrl(product.imageUrl ?? null)} alt={product.name} compact /></Link><div className="product-body"><p className="product-category">{product.brand ?? product.categoryName ?? ""}</p><h3><Link href={ROUTES.catalog.product(product.id)}>{product.name}</Link></h3><p className="product-seller">{product.status ?? ""}</p><div className="product-bottom"><div className="product-card-price"><span>{hasPriceRange ? "Giá từ" : "Giá bán"}</span><strong>{formatMoney(product.price)}</strong></div><Link aria-label={`Xem ${product.name}`} href={ROUTES.catalog.product(product.id)} className="round-link"><Icon name="arrow" size={18} /></Link></div></div></article>;
+  return (
+    <article className="product-card">
+      <Link href={ROUTES.catalog.product(product.id)} className="product-media">
+        <BackendImage src={resolveImageUrl(product.imageUrl ?? null)} alt={product.name} compact />
+      </Link>
+      <div className="product-body">
+        <p className="product-category">{product.brand ?? product.categoryName ?? ""}</p>
+        <h3>
+          <Link href={ROUTES.catalog.product(product.id)} title={product.name}>
+            {product.name}
+          </Link>
+        </h3>
+        <div className="product-bottom">
+          <div className="product-card-price">
+            <span>{hasPriceRange ? "Giá từ" : "Giá bán"}</span>
+            <strong>{formatMoney(product.price)}</strong>
+          </div>
+          <Link aria-label={`Xem ${product.name}`} href={ROUTES.catalog.product(product.id)} className="round-link">
+            <Icon name="arrow" size={15} />
+          </Link>
+        </div>
+      </div>
+    </article>
+  );
 }
 
 function HomeProductBanner({ products }: { products: Product[] }) {
@@ -162,7 +185,27 @@ export function HomeScreen() {
 
     <section className="home-section home-categories" aria-labelledby="home-categories-title">
       <SectionHeading id="home-categories-title" title="Danh mục khám phá" hint="Tìm nhanh theo danh mục sản phẩm." action={<Link href={ROUTES.catalog.index}>Mở danh mục <Icon name="arrow" size={15}/></Link>} />
-      {categories.error ? <p role="alert" className="notice">{problem(categories.error)}</p> : categories.data?.length ? <div className="category-rail">{categoryGroups(categories.data).map(({ parent, children }) => <div className="category-tile" key={parent.id}><span className="category-tile-mark"><Icon name="grid" size={20}/></span>{children.length ? <><strong>{parent.name}</strong><div className="category-tile-children">{children.map((child) => <Link key={child.id} href={`${ROUTES.catalog.index}?categoryId=${encodeURIComponent(child.id)}`}>{child.name}</Link>)}</div></> : <Link href={`${ROUTES.catalog.index}?categoryId=${encodeURIComponent(parent.id)}`}><strong>{parent.name}</strong></Link>}</div>)}</div> : <NoData className="empty-grid" title={categories.loading ? "Đang tải danh mục…" : "Chưa có danh mục"} />}
+      {categories.error ? (
+        <p role="alert" className="notice">{problem(categories.error)}</p>
+      ) : categories.data?.length ? (
+        <div className="category-rail">
+          {categoryGroups(categories.data).map(({ parent }) => (
+            <Link
+              className="category-tile"
+              key={parent.id}
+              href={`${ROUTES.catalog.index}?categoryId=${encodeURIComponent(parent.id)}`}
+              title={parent.name}
+            >
+              <span className="category-tile-mark">
+                <Icon name="grid" size={24} />
+              </span>
+              <strong className="category-tile-name">{parent.name}</strong>
+            </Link>
+          ))}
+        </div>
+      ) : (
+        <NoData className="empty-grid" title={categories.loading ? "Đang tải danh mục…" : "Chưa có danh mục"} />
+      )}
     </section>
   </>;
 }
@@ -234,33 +277,40 @@ export function CatalogScreen({ sellerId = "", title = "Danh sách sản phẩm"
   const goToPage = (target: number) => router.push(`${catalogHref(filters, target, pageSize, basePath)}#catalog-results`);
   const heading = <PageHeading title={title} description={description} />;
 
-  return <>
-    {sellerId ? heading : <div className="catalog-intro">{heading}<CatalogPromoBanner /></div>}
-    <div className="split catalog-layout">
-      <CatalogFilters key={JSON.stringify(filters)} initialFilters={filters} pageSize={pageSize} categories={categoryRows} categoriesError={categories.error} basePath={basePath} />
-      <div id="catalog-results" className="catalog-results">
-        <div className="section-heading catalog-results-heading">
-          <div><h2>Sản phẩm đang bán</h2><p aria-live="polite">{products.loading ? "Đang tải…" : `Hiển thị ${firstItem}–${lastItem} / ${pagination?.totalCount ?? 0} sản phẩm${categoryName ? ` · ${categoryName}` : ""}`}</p></div>
-          <label className="catalog-page-size" htmlFor="catalog-page-size">Sản phẩm / trang
-            <select id="catalog-page-size" className="select-field" value={pageSize} onChange={(event) => router.push(catalogHref(filters, 1, Number(event.target.value), basePath), { scroll: false })}>
-              {pageSizes.map((size) => <option key={size} value={size}>{size}</option>)}
-            </select>
-          </label>
+  return (
+    <div className="catalog-page-wrapper">
+      <div className="catalog-header-wrap">{heading}</div>
+      {!sellerId && (
+        <div className="catalog-promo-wrap">
+          <CatalogPromoBanner />
         </div>
-        {products.error && <p role="alert" className="notice">{problem(products.error)}</p>}
-        <div className="product-grid catalog-products">{productRows.length ? productRows.map((product) => <ProductCard key={product.id} product={product} />) : <NoData className="empty-grid" title={products.loading ? "Đang tải sản phẩm…" : products.error ? "Không tải được sản phẩm" : "Không tìm thấy sản phẩm"} />}</div>
-        {totalPages > 1 && <nav className="catalog-pagination" aria-label="Phân trang sản phẩm">
-          <button type="button" className="button button-secondary button-small" disabled={pageIndex <= 1 || products.loading} onClick={() => goToPage(pageIndex - 1)}>Trang trước</button>
-          <div className="catalog-page-numbers">
-            {pageChoices(pageIndex, totalPages).map((choice, index) => choice === "…"
-              ? <span key={`gap-${index}`} aria-hidden="true">…</span>
-              : <button key={choice} type="button" className={choice === pageIndex ? "catalog-page-number active" : "catalog-page-number"} aria-label={`Trang ${choice}`} aria-current={choice === pageIndex ? "page" : undefined} disabled={products.loading} onClick={() => goToPage(choice)}>{choice}</button>)}
+      )}
+      <div className="split catalog-layout">
+        <CatalogFilters key={JSON.stringify(filters)} initialFilters={filters} pageSize={pageSize} categories={categoryRows} categoriesError={categories.error} basePath={basePath} />
+        <div id="catalog-results" className="catalog-results">
+          <div className="section-heading catalog-results-heading">
+            <div><h2>Sản phẩm đang bán</h2><p aria-live="polite">{products.loading ? "Đang tải…" : `Hiển thị ${firstItem}–${lastItem} / ${pagination?.totalCount ?? 0} sản phẩm${categoryName ? ` · ${categoryName}` : ""}`}</p></div>
+            <label className="catalog-page-size" htmlFor="catalog-page-size">Sản phẩm / trang
+              <select id="catalog-page-size" className="select-field" value={pageSize} onChange={(event) => router.push(catalogHref(filters, 1, Number(event.target.value), basePath), { scroll: false })}>
+                {pageSizes.map((size) => <option key={size} value={size}>{size}</option>)}
+              </select>
+            </label>
           </div>
-          <button type="button" className="button button-secondary button-small" disabled={pageIndex >= totalPages || products.loading} onClick={() => goToPage(pageIndex + 1)}>Trang sau</button>
-        </nav>}
+          {products.error && <p role="alert" className="notice">{problem(products.error)}</p>}
+          <div className="product-grid catalog-products">{productRows.length ? productRows.map((product) => <ProductCard key={product.id} product={product} />) : <NoData className="empty-grid" title={products.loading ? "Đang tải sản phẩm…" : products.error ? "Không tải được sản phẩm" : "Không tìm thấy sản phẩm"} />}</div>
+          {totalPages > 1 && <nav className="catalog-pagination" aria-label="Phân trang sản phẩm">
+            <button type="button" className="button button-secondary button-small" disabled={pageIndex <= 1 || products.loading} onClick={() => goToPage(pageIndex - 1)}>Trang trước</button>
+            <div className="catalog-page-numbers">
+              {pageChoices(pageIndex, totalPages).map((choice, index) => choice === "…"
+                ? <span key={`gap-${index}`} aria-hidden="true">…</span>
+                : <button key={choice} type="button" className={choice === pageIndex ? "catalog-page-number active" : "catalog-page-number"} aria-label={`Trang ${choice}`} aria-current={choice === pageIndex ? "page" : undefined} disabled={products.loading} onClick={() => goToPage(choice)}>{choice}</button>)}
+            </div>
+            <button type="button" className="button button-secondary button-small" disabled={pageIndex >= totalPages || products.loading} onClick={() => goToPage(pageIndex + 1)}>Trang sau</button>
+          </nav>}
+        </div>
       </div>
     </div>
-  </>;
+  );
 }
 
 export { ProductDetailScreen } from './ProductDetailScreen';

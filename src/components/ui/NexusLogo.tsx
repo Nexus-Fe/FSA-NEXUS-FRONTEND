@@ -28,8 +28,8 @@ export function NexusBrandHeader({
           height={22}
           style={{ objectFit: "contain", flexShrink: 0 }}
         />
-        <span style={{ fontWeight: 800, letterSpacing: "-0.04em", fontSize: 18 }}>
-          NEXUS<span className="brand-mark brand-mark-sky" style={{ color: "var(--primary)", fontSize: 10 }}>●</span>
+        <span style={{ fontWeight: 800, letterSpacing: "-0.04em", fontSize: 18, color: light ? "#F4EDE0" : "inherit" }}>
+          NEXUS<span className="brand-mark brand-mark-sky" style={{ color: "var(--accent)", fontSize: 10 }}>●</span>
         </span>
       </span>
     );

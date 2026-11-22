@@ -367,7 +367,7 @@ export function BuyerShell({ children }: { children: ReactNode }) {
       <header className="buyer-header">
         <div className="buyer-header-inner">
           <Link href={homeHref} aria-label={`NEXUS - ${homeLabel}`} title={homeLabel}>
-            <Brand />
+            <Brand light />
           </Link>
           <form action={ROUTES.catalog.index} method="get" className="header-search">
             <Icon name="search" size={18} />
@@ -393,9 +393,15 @@ export function BuyerShell({ children }: { children: ReactNode }) {
                   href={href}
                   aria-label={label}
                   title={label}
+                  style={{
+                    backgroundColor: "#ffffff",
+                    color: "var(--accent)",
+                    borderColor: "rgba(255, 107, 91, 0.4)",
+                    fontWeight: 700,
+                  }}
                 >
                   <Icon name={icon} size={18} />
-                  <span>{label}</span>
+                  <span style={{ color: "var(--accent)" }}>{label}</span>
                 </Link>
               ))}
             <Link href={ROUTES.buyer.orders}>
@@ -424,7 +430,7 @@ export function BuyerShell({ children }: { children: ReactNode }) {
       </main>
       <footer className="site-footer">
         <div>
-          <Brand compact />
+          <Brand compact light />
           <p>Copyright 2026</p>
         </div>
         <p>© NEXUS</p>
@@ -518,7 +524,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
     <div className="auth-shell">
       <header className="auth-header">
         <Link href={homeHref} aria-label={`NEXUS - ${homeLabel}`} title={homeLabel}>
-          <Brand />
+          <Brand light />
         </Link>
         <Link className="auth-home" href={homeHref}>
           {homeLabel}
