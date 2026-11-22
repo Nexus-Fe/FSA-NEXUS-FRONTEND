@@ -17,7 +17,7 @@ import {
   type AdminProductItem,
   type ModerateProductPayload,
 } from "./services/product-moderation.service";
-import { extractAdminError } from "@/features/admin/services/admin-helpers";
+import { describeError, formatError } from "@/lib/errors/error-messages";
 
 const statuses = [
   { value: "", label: "Tất cả trạng thái" },
@@ -130,11 +130,8 @@ export function StaffProductModerationScreen() {
         setSelectedProduct(null);
       }, 1200);
     } catch (cause) {
-      if (cause instanceof ApiError) {
-        setError({ message: cause.message, traceId: cause.traceId });
-      } else {
-        setError(extractAdminError(cause, "Không thể xử lý kiểm duyệt sản phẩm."));
-      }
+      // The dictionary turns codes such as AUCTION_FORCE_CANCEL_REQUIRED into the step the staff member must take.
+      setError({ message: formatError(describeError(cause, { operation: "write" })), traceId: cause instanceof ApiError ? cause.traceId : undefined });
     } finally {
       setBusy(false);
     }
