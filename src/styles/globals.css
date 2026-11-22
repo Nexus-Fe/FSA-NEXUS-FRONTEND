@@ -3223,3 +3223,15 @@ h1,h2,h3 { letter-spacing: -.025em; }
 .state-error { display: grid; gap: 8px; }
 .state-error p { margin: 0; }
 .state-error-reference { font-size: 11px; opacity: .8; word-break: break-all; }
+
+/* Voucher, modal and operations styles (from the Phase 2 backup branch) */
+.voucher-filters,.voucher-form-grid,.ops-filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin:14px 0 20px}
+.voucher-filters label,.voucher-form label,.ops-filters label{display:grid;gap:6px;font-size:13px;font-weight:600;color:#334155}
+.voucher-row-actions,.voucher-dialog-actions,.ops-section-head,.checkout-voucher-heading,.checkout-voucher-manual{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.voucher-row-actions{justify-content:flex-start}
+.modal-backdrop{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:16px;background:rgb(15 23 42 / 52%)}
+.modal-panel{width:min(100%,660px);max-height:calc(100vh - 32px);overflow:auto;background:#fff;border:1px solid #e2e8f0;border-radius:14px;box-shadow:0 20px 60px rgb(15 23 42 / 18%);padding:24px}
+.voucher-form{display:grid;gap:14px}.voucher-checkbox{display:flex!important;align-items:center;gap:8px}.voucher-dialog-actions{justify-content:flex-end;padding-top:12px}
+.checkout-voucher-panel{padding:16px 0;border-top:1px solid #e2e8f0}.checkout-voucher-heading h3{font-size:15px;margin:0}.checkout-voucher-list{display:grid;gap:8px;margin:14px 0;max-height:240px;overflow:auto}.checkout-voucher-option{display:flex;gap:10px;align-items:flex-start;padding:10px;border:1px solid #e2e8f0;border-radius:8px}.checkout-voucher-option span{display:grid;gap:3px;flex:1}.checkout-voucher-option small{font-size:12px;color:#64748b}.checkout-voucher-option b{font-variant-numeric:tabular-nums;color:#0284c7}.checkout-voucher-manual{flex-wrap:nowrap}.checkout-voucher-manual input{min-width:0;flex:1}.checkout-voucher-selected{font-size:12px;color:#334155}
+.ops-source-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}.ops-source{display:grid;gap:6px;padding:14px;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc}.ops-source small{color:#64748b}.ops-changed,.finance-mismatch{background:#fff7ed}.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px;overflow-wrap:anywhere}.tabular-nums{font-variant-numeric:tabular-nums}
+@media(max-width:640px){.modal-panel{padding:16px}.voucher-form-grid,.ops-filters,.voucher-filters{grid-template-columns:1fr}.checkout-voucher-manual{flex-wrap:wrap}.checkout-voucher-manual input{width:100%}}

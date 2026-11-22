@@ -12,7 +12,9 @@ import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatMoney, resolveImageUrl } from "@/lib/presentation";
 import { fulfillmentService } from "@/features/fulfillment";
 import { walletService } from "@/features/wallet";
-import { CheckoutVoucherPreview } from "@/features/coupons/CheckoutVoucherPreview";
+import { CheckoutVoucherPanel } from "@/features/coupons/CheckoutVoucherPanel";
+import { describeRejectedVoucher } from "@/features/coupons/voucher-outcome";
+import { clearUnknownOrderMarker, describeCartFailure, describePlaceOrderFailure, describeQuoteFailure, readUnknownOrderMarker, writeUnknownOrderMarker } from "@/features/commerce/checkout-outcome";
 import administrativeUnits from "@/data/vietnam-administrative-units.json";
 
 
@@ -54,6 +56,10 @@ type CheckoutQuoteResponse = {
   walletBalance: number;
   shops: Array<{ sellerId: string; shopName: string; itemsAmount: number; discountAmount: number; shippingFeeAmount: number; totalAmount: number }>;
   expiredAt: string;
+  /** Vouchers the back end really applied, with what each took off. A code asked for but not listed here was left out. */
+  appliedVouchers?: string[] | null;
+  appliedVoucherDetails?: Array<{ code: string; scopeType: string; ownerSellerId?: string | null; discountAmount: number }> | null;
+  rejectedVouchers?: Array<{ code: string; reasonCode: string }> | null;
 };
 type CreateOrderResponse = {
   orderId: string;
@@ -269,7 +275,7 @@ export function CartScreen() {
       });
       cart.reload();
     } catch (reason) {
-      setActionError((reason as Error).message);
+      setActionError(describeCartFailure(reason));
     } finally {
       setBusyId(null);
     }
@@ -287,7 +293,7 @@ export function CartScreen() {
       });
       cart.reload();
     } catch (reason) {
-      setActionError((reason as Error).message);
+      setActionError(describeCartFailure(reason));
     } finally {
       setBusyId(null);
     }
@@ -383,6 +389,10 @@ export function CheckoutScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [quoteError, setQuoteError] = useState("");
+  const [voucherCodes, setVoucherCodes] = useState<string[]>([]);
+  // The result of the last order attempt is unknown: ordering stays locked (kept per browser tab) until the buyer has checked.
+  const [unknownOutcome, setUnknownOutcome] = useState(() =>
+    typeof window === "undefined" ? false : readUnknownOrderMarker(window.sessionStorage) !== null);
   const [now, setNow] = useState(0);
   const quoteLock = useRef(false);
   const orderLock = useRef(false);
@@ -408,7 +418,7 @@ export function CheckoutScreen() {
   const quoteKey = JSON.stringify({
     items: items.map((item) => [item.id, item.quantity, item.unitPriceSnapshot]),
     receiverName: form.receiverName.trim(), phone: form.phone.trim(), address: form.address.trim(),
-    province: extra.province, ward: extra.ward,
+    province: extra.province, ward: extra.ward, vouchers: [...voucherCodes].sort(),
   });
   const activeQuote = quoteState?.key === quoteKey ? quoteState.data : null;
   const quoteExpired = Boolean(activeQuote && now >= Date.parse(activeQuote.expiredAt));
@@ -485,7 +495,7 @@ export function CheckoutScreen() {
       const quote = unwrap(
         await api.post<ApiResponse<CheckoutQuoteResponse> | CheckoutQuoteResponse>("/api/v1/checkouts/quote", {
           cartItemIds: items.map((item) => item.id),
-          voucherCodes: [],
+          voucherCodes,
           shippingAddress: {
             receiverName: form.receiverName.trim(),
             contactPhone: form.phone.trim(),
@@ -504,7 +514,7 @@ export function CheckoutScreen() {
       setQuoteState({ key: quoteKey, data: quote });
       setEditingShipping(false);
     } catch (reason) {
-      setQuoteError((reason as Error).message || "Không lấy được báo giá. Vui lòng thử lại.");
+      setQuoteError(describeQuoteFailure(reason).message);
     } finally {
       quoteLock.current = false;
       setQuoting(false);
@@ -512,7 +522,7 @@ export function CheckoutScreen() {
   }
 
   async function handlePlaceOrder() {
-    if (orderLock.current || !activeQuote) return;
+    if (orderLock.current || !activeQuote || unknownOutcome) return;
     setSubmitError("");
     if (Date.now() >= Date.parse(activeQuote.expiredAt)) {
       setQuoteState(null);
@@ -557,11 +567,19 @@ export function CheckoutScreen() {
         phone: form.phone.trim(),
         fullAddress,
       });
+      clearUnknownOrderMarker(window.sessionStorage);
       cart.reload();
       wallet.reload();
     } catch (reason) {
+      const failure = describePlaceOrderFailure(reason);
+      // The quote is used up in every case. A refusal needs a new quote; an unknown result locks ordering instead of inviting a second order.
       setQuoteState(null);
-      setSubmitError((reason as Error).message || "Thanh toán đơn hàng thất bại.");
+      setSubmitError(failure.message);
+      if (failure.unknownOutcome) {
+        writeUnknownOrderMarker(window.sessionStorage, Date.now());
+        setUnknownOutcome(true);
+      }
+      if (failure.reloadCart) cart.reload();
     } finally {
       orderLock.current = false;
       setSubmitting(false);
@@ -674,11 +692,13 @@ export function CheckoutScreen() {
     })}</div> : <NoData title={cart.loading ? "Đang tải giỏ hàng…" : "Chưa có sản phẩm được chọn"} />}
       <div className="checkout-summary-line"><span>Tiền hàng</span><strong>{items.length ? formatMoney(activeQuote ? quotedItemsAmount : subtotal) : "—"}</strong></div>
       <div className="checkout-summary-line"><span>Phí giao hàng</span><strong>{activeQuote ? formatMoney(quotedShippingFee) : items.length ? "Theo báo giá" : "—"}</strong></div>
-      {items.length > 0 && <CheckoutVoucherPreview itemsAmount={activeQuote ? quotedItemsAmount : subtotal} shippingFee={activeQuote ? quotedShippingFee : null} />}
-      {activeQuote && quotedDiscount > 0 && <div className="checkout-summary-line"><span>Giảm giá</span><strong>−{formatMoney(quotedDiscount)}</strong></div>}
+      {items.length > 0 && <CheckoutVoucherPanel cartItemIds={items.map((item) => item.id)} selectedCodes={voucherCodes} disabled={unknownOutcome || quoting || submitting} onChange={setVoucherCodes} />}
+      {activeQuote?.appliedVoucherDetails?.map((applied) => <div className="checkout-summary-line" key={applied.code}><span>Mã {applied.code}</span><strong>−{formatMoney(applied.discountAmount)}</strong></div>)}
+      {activeQuote && quotedDiscount > 0 && !activeQuote.appliedVoucherDetails?.length && <div className="checkout-summary-line"><span>Giảm giá</span><strong>−{formatMoney(quotedDiscount)}</strong></div>}
+      {activeQuote?.rejectedVouchers?.map((rejected) => <p className="checkout-field-error" role="status" key={rejected.code}>Mã {rejected.code} không được áp dụng: {describeRejectedVoucher(rejected.reasonCode)}</p>)}
       <div className="checkout-summary-total"><span>{activeQuote ? "Tổng thanh toán" : "Tạm tính tiền hàng"}</span><strong>{items.length ? formatMoney(activeQuote?.grandTotal ?? subtotal) : "—"}</strong></div>
-      {quoteReady && activeQuote ? <><p>Báo giá có hiệu lực đến {new Date(activeQuote.expiredAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}. Số dư ví theo thời điểm báo giá: {formatMoney(activeQuote.walletBalance)}.</p><button className="button checkout-place-order" type="button" disabled={submitting || activeQuote.walletBalance < activeQuote.grandTotal} onClick={() => void handlePlaceOrder()}>{submitting ? "Đang đặt hàng…" : `Đặt hàng bằng Ví Nexus · ${formatMoney(activeQuote.grandTotal)}`}</button>{activeQuote.walletBalance < activeQuote.grandTotal && <p className="checkout-field-error">Số dư Ví Nexus không đủ. Vui lòng nạp thêm trước khi đặt hàng.</p>}</> : quoteExpired ? <p>Báo giá đã hết hạn. Vui lòng lấy báo giá mới.</p> : null}
-      {submitError && <><p className="checkout-field-error" role="alert">{submitError}</p><Link href={ROUTES.buyer.orders}>Kiểm tra đơn mua của tôi</Link></>}
+      {unknownOutcome ? <div className="notice state-error" role="alert"><strong>Chưa xác định được kết quả đặt đơn</strong><p>Yêu cầu đặt hàng gần nhất có thể đã được xử lý. Để tránh đặt trùng, nút đặt hàng đang bị khóa.</p><p>Hãy kiểm tra <Link href={ROUTES.buyer.orders}>Đơn mua</Link> và <Link href={ROUTES.buyer.wallet}>Ví của bạn</Link>. Nếu đã có đơn hoặc ví đã bị trừ tiền, bạn không cần đặt lại. Nếu vẫn không chắc chắn, hãy liên hệ hỗ trợ để được đối soát trước khi đặt lại.</p></div> : quoteReady && activeQuote ? <><p>Báo giá có hiệu lực đến {new Date(activeQuote.expiredAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}. Số dư ví theo thời điểm báo giá: {formatMoney(activeQuote.walletBalance)}.</p><button className="button checkout-place-order" type="button" disabled={submitting || activeQuote.walletBalance < activeQuote.grandTotal} onClick={() => void handlePlaceOrder()}>{submitting ? "Đang đặt hàng…" : `Đặt hàng bằng Ví Nexus · ${formatMoney(activeQuote.grandTotal)}`}</button>{activeQuote.walletBalance < activeQuote.grandTotal && <p className="checkout-field-error">Số dư Ví Nexus không đủ. Vui lòng nạp thêm trước khi đặt hàng.</p>}</> : quoteExpired ? <p>Báo giá đã hết hạn. Vui lòng lấy báo giá mới.</p> : null}
+      {submitError && !unknownOutcome && <><p className="checkout-field-error" role="alert">{submitError}</p><Link href={ROUTES.buyer.cart}>Quay lại giỏ hàng</Link></>}
     </aside></div>
   </>;
 }
@@ -752,7 +772,7 @@ export function OrderDetailScreen() {
       setConfirmMessage("Đã xác nhận nhận hàng. Hệ thống đang cập nhật trạng thái giải ngân cho người bán.");
       order.reload();
     } catch (reason) {
-      setConfirmError((reason as Error).message || "Không thể xác nhận đã nhận hàng.");
+      setConfirmError(describeCartFailure(reason));
     } finally {
       setConfirmingSubOrderId(null);
     }
@@ -777,7 +797,7 @@ export function OrderDetailScreen() {
       order.reload();
       shipment.reload();
     } catch (reason) {
-      setConfirmError((reason as Error).message || "Không thể hủy đơn hàng này.");
+      setConfirmError(describeCartFailure(reason));
     } finally {
       setCancellingOrder(false);
     }
