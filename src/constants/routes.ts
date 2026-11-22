@@ -81,6 +81,8 @@ export const ROUTES = {
     ledger: "/admin/ledger",
     categories: "/admin/categories",
     coupons: "/admin/coupons",
+    platformFee: "/admin/platform-fee",
+    subsidyBudgets: "/admin/subsidy-budgets",
     notifications: "/admin/notifications",
   },
 } as const;

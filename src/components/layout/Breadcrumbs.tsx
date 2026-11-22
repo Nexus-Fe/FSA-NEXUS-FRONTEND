@@ -22,7 +22,7 @@ const labels: Record<string, string> = {
   "/admin/auction-configs": "Cài đặt đấu giá", "/admin/users": "Tài khoản & Phân quyền", "/admin/roles": "Phân quyền & vai trò",
   "/admin/penalties": "Xử phạt vi phạm", "/admin/reports": "Khiếu nại & Vi phạm",
   "/admin/categories": "Danh mục sản phẩm", "/admin/ledger": "Điều chỉnh số dư ví",
-  "/admin/configs": "Cài đặt hệ thống", "/admin/coupons": "Mã giảm giá",
+  "/admin/configs": "Cài đặt hệ thống", "/admin/coupons": "Mã giảm giá", "/admin/platform-fee": "Phí nền tảng", "/admin/subsidy-budgets": "Ngân sách trợ giá",
   "/admin/notifications": "Nhật ký & Thông báo",
   "/account/profile": "Hồ sơ cá nhân", "/account/addresses": "Sổ địa chỉ", "/account/change-password": "Đổi mật khẩu",
 };
