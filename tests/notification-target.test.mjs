@@ -91,7 +91,7 @@ test("an invitation that ran out says so instead of opening a dead end", () => {
 
 test("unknown types and missing or broken payloads open nothing", () => {
   assert.equal(notificationTarget(item("Promotion", { type: "Promotion" }), "buyer", NOW), null);
-  assert.equal(notificationTarget(item("OrderRefunded", { orderId: "O1" }), "buyer", NOW), null);
+  assert.equal(notificationTarget(item("Promotion", { orderId: "O1" }), "buyer", NOW), null);
   assert.equal(notificationTarget({ notificationType: "AuctionWon", payload: null }, "buyer", NOW), null);
   assert.equal(notificationTarget({ notificationType: "AuctionWon", payload: "{broken" }, "buyer", NOW), null);
   assert.equal(notificationTarget({ notificationType: null, payload: '{"auctionId":"A1"}' }, "buyer", NOW), null);
@@ -102,4 +102,16 @@ test("ids are put in the address safely", () => {
   const notice = item("AuctionWon", { type: "AuctionWon", auctionId: "a/b?c" });
 
   assert.equal(link(notificationTarget(notice, "buyer", NOW)), "/buyer/auctions/a%2Fb%3Fc/payment");
+});
+
+test("newer notification types open their screens", () => {
+  const link = (type, extra = {}, viewer = "buyer") => notificationTarget({ notificationType: type, payload: JSON.stringify({ type, ...extra }) }, viewer);
+  assert.equal(link("AuctionWatchlistBid", { auctionId: "a1" }).href, "/auctions/a1");
+  assert.equal(link("AuctionDeposit").href, "/buyer/deposits");
+  assert.match(link("AuctionReserveApprovalNeeded", { auctionId: "a1" }, "seller").href, /seller\/auctions\/a1/);
+  assert.equal(link("AuctionReserveApprovalNeeded"), null);
+  assert.equal(link("WithdrawalResult", {}, "seller").href, "/seller/withdrawals");
+  assert.equal(link("ProductBannedByReport").href, "/seller/products");
+  assert.equal(link("ProductReportResolved").href, "/buyer/reports");
+  assert.equal(link("OrderRefunded", {}, "seller").href, "/seller/refunds");
 });

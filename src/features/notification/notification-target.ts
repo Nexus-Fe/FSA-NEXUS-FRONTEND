@@ -79,6 +79,32 @@ export function notificationTarget(
       return { kind: "link", href: ROUTES.buyer.auctions, label: "Xem lời mời" };
     }
 
+    case "AuctionWatchlistBid":
+      return auctionId ? { kind: "link", href: ROUTES.auction.room(auctionId), label: "Vào phòng đấu giá" } : null;
+
+    case "AuctionDeposit":
+      return { kind: "link", href: ROUTES.buyer.deposits, label: "Xem cọc của tôi" };
+
+    // The seller decides a below-reserve price on the result page of the auction.
+    case "AuctionReserveApprovalNeeded":
+      return auctionId ? { kind: "link", href: ROUTES.seller.auctionResult(auctionId), label: "Duyệt giá dưới sàn" } : null;
+
+    case "AuctionReserveRestriction":
+      return { kind: "link", href: ROUTES.seller.auctions, label: "Xem phiên đấu giá của tôi" };
+
+    case "WithdrawalResult":
+      return { kind: "link", href: viewer === "seller" ? ROUTES.seller.withdrawals : ROUTES.buyer.wallet, label: "Xem yêu cầu rút tiền" };
+
+    case "ProductBannedByReport":
+      return { kind: "link", href: ROUTES.seller.products, label: "Xem sản phẩm của tôi" };
+
+    case "AuctionReportResolved":
+    case "ProductReportResolved":
+      return { kind: "link", href: ROUTES.buyer.reports, label: "Xem báo cáo của tôi" };
+
+    case "OrderRefunded":
+      return { kind: "link", href: viewer === "seller" ? ROUTES.seller.refunds : ROUTES.buyer.refunds, label: "Xem hoàn tiền" };
+
     default:
       return null;
   }
