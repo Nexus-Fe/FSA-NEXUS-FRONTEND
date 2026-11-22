@@ -18,6 +18,7 @@ import { Modal } from "@/components/ui/Modal";
 import { cartService } from "@/features/commerce/services/cart.service";
 import { canContinueToCheckout, describeCartIssue, type CartValidation } from "@/features/commerce/cart-rules";
 import { ChangeAddressButton, CompleteOrderButton, RepayButton } from "@/features/commerce/OrderActions";
+import { canReportSubOrder, orderReportHref } from "@/features/commerce/order-report";
 import { canChangeAddress, canCompleteOrder, canRepay } from "@/features/commerce/order-rules";
 import { clearUnknownOrderMarker, describeCartFailure, describePlaceOrderFailure, describeQuoteFailure, readUnknownOrderMarker, writeUnknownOrderMarker } from "@/features/commerce/checkout-outcome";
 import { GhnLocationSelect } from "@/features/shipping/GhnLocationSelect";
@@ -1048,6 +1049,9 @@ export function OrderDetailScreen() {
             <>
               <div className="info-row"><span>Mã Buyer</span><strong>{order.data.buyerId}</strong></div>
               <div className="info-row"><span>Ngày tạo đơn</span><strong>{order.data.createdAt ? new Date(order.data.createdAt).toLocaleString("vi-VN") : "—"}</strong></div>
+              {subOrders.filter((sub) => canReportSubOrder(sub.status)).map((sub) => (
+                <div className="info-row" key={sub.subOrderId}><span>{sub.shopName || sub.subOrderNo}</span><Link href={orderReportHref(sub)}>Báo cáo vấn đề với người bán</Link></div>
+              ))}
             </>
           ) : (
             <NoData title={order.loading ? "Đang tải đơn hàng…" : "Không có dữ liệu đơn hàng"} />
