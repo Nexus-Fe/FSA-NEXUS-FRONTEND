@@ -10,6 +10,8 @@ export const buyerNavigation: NavigationItem[] = [
   { label: "Sản phẩm", href: ROUTES.catalog.index, icon: "grid" },
   { label: "Đấu giá trực tiếp", href: ROUTES.auction.index, icon: "gavel" },
   { label: "Đấu giá của tôi", href: ROUTES.buyer.auctions, icon: "gavel" },
+  { label: "Cọc của tôi", href: ROUTES.buyer.deposits, icon: "wallet" },
+  { label: "Theo dõi phiên", href: ROUTES.buyer.watchlist, icon: "gavel" },
   { label: "Uy tín của tôi", href: ROUTES.buyer.reputation, icon: "users" },
   { label: "Đăng ký bán hàng", href: ROUTES.buyer.becomeSeller, icon: "warehouse" },
 ];

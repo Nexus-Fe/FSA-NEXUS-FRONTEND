@@ -3,7 +3,7 @@ import { api, unwrap, type ApiResponse } from "@/lib/api/client";
 export type AuctionOrderDetail = {
   id: string; orderNo: string; auctionId: string; productId?: string; productName: string;
   winningAmount: number; depositAmount: number; shippingFeeAmount: number | null; totalAmount: number | null;
-  status: string; paymentDeadlineAt: string; sellerRespondDeadlineAt: string | null;
+  status: string; orderSource?: string; paymentDeadlineAt: string; sellerRespondDeadlineAt: string | null;
   paidAt: string | null; shippedAt: string | null; deliveredAt: string | null;
 };
 export type AuctionOrderSummary = Pick<AuctionOrderDetail, "id" | "orderNo" | "auctionId" | "productName" | "winningAmount" | "totalAmount" | "status" | "paymentDeadlineAt">;

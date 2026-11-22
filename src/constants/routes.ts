@@ -24,6 +24,8 @@ export const ROUTES = {
     orderReview: (id: string) => "/buyer/orders/" + encodeURIComponent(id) + "/review",
     notifications: "/buyer/notifications",
     wallet: "/buyer/wallet",
+    deposits: "/buyer/deposits",
+    watchlist: "/buyer/watchlist",
     topUp: "/buyer/wallet/top-up",
     transfer: "/buyer/wallet/transfer",
     topUpResult: "/buyer/wallet/top-up/result",

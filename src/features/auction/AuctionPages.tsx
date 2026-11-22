@@ -17,6 +17,10 @@ import { AuctionUnavailableState } from "./AuctionUnavailableState";
 import { BuyerAuctionOffers } from "./BuyerAuctionOffers";
 import { AuctionResultExtras } from "./AuctionResultExtras";
 import { AuctionDepositPanel } from "./AuctionDepositPanel";
+import { AuctionBuyNowPanel } from "./AuctionBuyNowPanel";
+import { AuctionWatchButton } from "./AuctionWatchButton";
+import { canOfferBuyNow } from "./buy-now-outcome";
+import { canWatchAuction } from "./watch";
 import { describeOutcome } from "./auction-outcome";
 import { auctionService } from "./services/auction.service";
 import { normalizeAuctionStatus, statusLabel, auctionStatusTone } from "./contract";
@@ -99,7 +103,7 @@ export function AuctionRoomScreen() {
   if (!isAuctionId(id)) return <NoData title="Mã phiên đấu giá không hợp lệ" />;
   if (detail.error instanceof ApiError && detail.error.status === 404) return <AuctionUnavailableState />;
   return <div className="auction-surface auction-room">
-    <PageHeading title={auction?.productName ?? "Phòng đấu giá"} description={auction ? `Mã phiên ${auction.auctionId}` : "Đang tải thông tin phiên đấu giá"} action={<ButtonLink href={ROUTES.auction.index} variant="secondary" small>Quay lại danh sách</ButtonLink>} />
+    <PageHeading title={auction?.productName ?? "Phòng đấu giá"} description={auction ? `Mã phiên ${auction.auctionId}` : "Đang tải thông tin phiên đấu giá"} action={<div className="action-row">{auction && canWatchAuction({ userId: user?.id, sellerId: auction.sellerId, canBid }) && user && <AuctionWatchButton auctionId={id} userId={user.id} />}<ButtonLink href={ROUTES.auction.index} variant="secondary" small>Quay lại danh sách</ButtonLink></div>} />
     {detail.error && <div className="notice" role="alert"><p>{message(detail.error)}</p><button className="button button-secondary button-small" type="button" onClick={refreshAuction}>Tải lại phiên</button></div>}
     {error && <p className="notice" role="alert">{error}</p>}{success && <p className="form-success" role="status">{success}</p>}
     {detail.loading && !auction ? <NoData title="Đang tải phiên đấu giá…" /> : auction ? <>
@@ -117,10 +121,11 @@ export function AuctionRoomScreen() {
           <Card className="card-pad auction-rules"><h2>Quy tắc phiên đấu giá</h2><ul><li>Giá đặt phải đạt mức tối thiểu của phiên.</li><li>Hạn thanh toán hiển thị sau khi phiên có kết quả.</li><li>Phiên có thể gia hạn {auction.antiSnipingExtensionMinutes} phút/lần, tối đa {auction.maxExtensionCount} lần.</li></ul></Card>
         </div>
         <aside className="auction-room-rail">
+          {auction.buyNowPriceAmount != null && canOfferBuyNow({ buyNowAvailable: auction.buyNowAvailable, buyNowPriceAmount: auction.buyNowPriceAmount, status: auction.status, sellerId: auction.sellerId, userId: user?.id, canBid }) && active && deposit.data?.canBid !== false && <AuctionBuyNowPanel auctionId={id} price={auction.buyNowPriceAmount} version={currentVersion} reload={refreshAuction} />}
           <Card className="card-pad auction-bid-panel">
             <div className="auction-status-line"><Badge tone={auctionTone(auction.status)}>{statusLabel(auction.status)}</Badge><div><span>{scheduled ? "Bắt đầu sau" : "Thời gian còn"}</span><strong><Countdown end={scheduled ? auction.scheduledStartAt : scheduledEndAt} offsetMs={detail.data?.clockOffsetMs} /></strong></div></div>
             <p className="auction-price-label">Giá hiện tại</p><strong className="auction-live-price">{formatMoney(currentPrice)}</strong>
-            <div className="auction-price-facts"><div><span>Giá khởi điểm</span><strong>{formatMoney(auction.startPriceAmount)}</strong></div><div><span>Lượt đặt giá</span><strong>{useLatestBid ? latestBid!.bidCount : auction.bidCount}</strong></div><div><span>Bước giá</span><strong>{formatMoney(auction.bidStepAmount)}</strong></div></div>
+            <div className="auction-price-facts"><div><span>Giá khởi điểm</span><strong>{formatMoney(auction.startPriceAmount)}</strong></div><div><span>Lượt đặt giá</span><strong>{useLatestBid ? latestBid!.bidCount : auction.bidCount}</strong></div><div><span>Bước giá</span><strong>{formatMoney(auction.bidStepAmount)}</strong></div>{auction.hasReservePrice && <div><span>Giá sàn</span><strong>{auction.isReserveMet ? "Đã đạt" : "Chưa đạt"}</strong></div>}</div>
             {(useLatestBid ? latestBid!.extensionCount : auction.extensionCount) > 0 && <p className="auction-extension-note">Đã gia hạn {auction.antiSnipingExtensionMinutes} phút · lần {useLatestBid ? latestBid!.extensionCount : auction.extensionCount}/{auction.maxExtensionCount}</p>}<div className="auction-schedule-facts"><div><span>Bắt đầu</span><strong>{dateText(auction.scheduledStartAt)}</strong></div><div><span>Kết thúc</span><strong>{dateText(scheduledEndAt)}</strong></div></div>
             {active && <><p className="auction-reputation">Hệ thống kiểm tra điểm uy tín khi đặt giá.</p><div className="auction-quick-bids"><button type="button" className="button button-secondary" disabled={!canBid || auction.sellerId === user?.id || busy} onClick={() => setAmount(String(minimumBid))}>+1 bước giá</button><button type="button" className="button button-secondary" disabled={!canBid || auction.sellerId === user?.id || busy} onClick={() => setAmount(String(currentPrice + 2 * auction.bidStepAmount))}>+2 bước giá</button><button type="button" className="button button-secondary" disabled={!canBid || auction.sellerId === user?.id || busy} onClick={() => setAmount(String(currentPrice + 5 * auction.bidStepAmount))}>+5 bước giá</button></div><form onSubmit={(event) => void submit(event)}>
               <label className="field-wrap" htmlFor="auction-bid-amount">Mức giá bạn muốn đặt<input id="auction-bid-amount" className="field" type="number" inputMode="numeric" min={minimumBid} step="1" required value={amount} onChange={(event) => setAmount(event.target.value)} /></label>
