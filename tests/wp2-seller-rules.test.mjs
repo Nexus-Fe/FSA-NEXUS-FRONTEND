@@ -32,3 +32,22 @@ test("describeConfirmReturn separates repeat from first confirmation", () => {
   assert.equal(describeConfirmReturn({ code: "ALREADY_RETURNED" }).restored, false);
   assert.equal(describeConfirmReturn({ data: { restoredStock: 3 } }).restored, true);
 });
+
+import { asRefundPage, canDecideRefund, parseRejectReason } from "@/features/refunds/refund-rules.ts";
+
+test("refund rules: only non-buyers decide a Requested refund", () => {
+  assert.equal(canDecideRefund("seller", "Requested"), true);
+  assert.equal(canDecideRefund("buyer", "Requested"), false);
+  assert.equal(canDecideRefund("admin", "Completed"), false);
+});
+
+test("refund rules: reject reason is required and bounded", () => {
+  assert.ok("error" in parseRejectReason("   "));
+  assert.ok("error" in parseRejectReason("x".repeat(501)));
+  assert.deepEqual(parseRejectReason(" hết hàng "), { value: "hết hàng" });
+});
+
+test("asRefundPage tolerates an envelope and junk", () => {
+  assert.equal(asRefundPage({ data: { items: [{ id: "1" }], pagination: { totalPages: 3 } } }).pagination.totalPages, 3);
+  assert.equal(asRefundPage(null).items.length, 0);
+});
