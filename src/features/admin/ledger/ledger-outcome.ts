@@ -1,0 +1,6 @@
+export const transactionTypes: Record<string, string> = {
+  TopupVnpay: "Nạp qua VNPay", PurchaseDebit: "Thanh toán đơn", RefundCredit: "Hoàn tiền", EscrowCredit: "Ghi có ký quỹ", EscrowRelease: "Giải ngân ký quỹ", WithdrawalDebit: "Rút tiền", WithdrawalReversal: "Hoàn yêu cầu rút", PlatformFeeCredit: "Phí nền tảng", AdjustmentCredit: "Điều chỉnh tăng", AdjustmentDebit: "Điều chỉnh giảm", DirectGatewayPayment: "Thanh toán trực tiếp", TransferIn: "Chuyển vào", TransferOut: "Chuyển ra", TopupStripe: "Nạp qua Stripe", AuctionHoldCapture: "Thu cọc đấu giá", AuctionForfeitCredit: "Phân bổ cọc tịch thu", AuctionDepositRefund: "Hoàn cọc đấu giá", OrderPaymentAdjustmentDebit: "Điều chỉnh thanh toán", OrderPaymentAdjustmentRefund: "Hoàn điều chỉnh thanh toán", EscrowCancellationRefund: "Hoàn ký quỹ khi hủy",
+};
+export const findingStatus: Record<string, string> = { Open: "Chưa xử lý", Investigating: "Đang kiểm tra", Resolved: "Đã xử lý", Accepted: "Đã ghi nhận" };
+export function balanceTone(difference?: number | null): "green" | "red" | "slate" { return difference == null ? "slate" : Math.abs(difference) < 0.01 ? "green" : "red"; }
+export function findingLabel(code: string): string { const match = /^I(1[0-2]|[1-9])_/.exec(code); return match ? `Bất biến ${match[1]} · ${code}` : code; }

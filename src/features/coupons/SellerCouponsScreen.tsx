@@ -1,7 +1,7 @@
 "use client";
 
-import { CouponDraftScreen } from "./CouponDraftScreen";
+import { VoucherManager } from "./VoucherManager";
 
 export function SellerCouponsScreen() {
-  return <CouponDraftScreen scope="seller" />;
+  return <VoucherManager scope="seller" />;
 }

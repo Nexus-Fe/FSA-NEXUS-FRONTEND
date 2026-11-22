@@ -1,5 +1,6 @@
 "use client";
 
+import { SellerAuctionStats } from "@/features/auction/SellerAuctionStats";
 import { useParams } from "next/navigation";
 import { BackendImage } from "@/components/ui/BackendImage";
 import { Card, NoData } from "@/components/ui/Primitives";
@@ -35,6 +36,7 @@ export function ShopScreen() {
             {typeof profile.data.ratingAvg === "number" && profile.data.ratingAvg > 0 && <span>★ {profile.data.ratingAvg.toFixed(1)}/5</span>}
             {typeof profile.data.totalProducts === "number" && <span>{profile.data.totalProducts} sản phẩm</span>}
           </div>
+          <SellerAuctionStats sellerId={sellerId} />
         </div>
       </> : <div>{profile.error ? <><h1>Gian hàng</h1><p role="alert">Chưa tải được hồ sơ gian hàng. Bạn vẫn có thể xem sản phẩm bên dưới.</p><button type="button" className="button button-secondary button-small" onClick={profile.reload}>Thử lại</button></> : <NoData title="Đang tải thông tin gian hàng…" />}</div>}
     </Card>

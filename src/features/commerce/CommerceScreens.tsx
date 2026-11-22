@@ -1,23 +1,29 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { useState } from "react";
+import { describeError, formatError } from "@/lib/errors/error-messages";
+import { evidenceRequired, parseReportPrefill } from "./order-report";
 import { Badge, Card, NoData, PageHeading } from "@/components/ui/Primitives";
 import { api, type ApiResponse } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
+import { REPORT_REFUND_STATUS, REPORT_STATUS, statusLabel } from "@/lib/status-labels";
 
 const unwrap = <T,>(value: ApiResponse<T> | T): T => value && typeof value === "object" && "data" in value ? value.data : value;
 const errorText = (error: Error | null) => error?.message ?? "";
 
-type UserReport = { reportId?: string; targetType?: string; targetId?: string; reason?: string; status?: string; adminNote?: string; createdAt?: string };
-const reportStatusLabel: Record<string, string> = { PENDING: "Chờ xử lý", UNDER_REVIEW: "Đang xem xét", RESOLVED: "Đã xử lý", REJECTED: "Đã từ chối" };
+type UserReport = { refundStatus?: string; refundAmount?: number; reportId?: string; targetType?: string; targetId?: string; reason?: string; status?: string; adminNote?: string; createdAt?: string };
+
 
 export function BuyerReportsScreen() {
-  const [targetId,setTargetId]=useState("");const [violationType,setType]=useState("Fraud");const [description,setDescription]=useState("");const [evidence,setEvidence]=useState<File[]>([]);const [error,setError]=useState("");const [success,setSuccess]=useState("");const [busy,setBusy]=useState(false);
+  const prefill=parseReportPrefill(useSearchParams());
+  const [targetId,setTargetId]=useState(prefill.reportedUserId);const [violationType,setType]=useState("Fraud");const [description,setDescription]=useState("");const [evidence,setEvidence]=useState<File[]>([]);const [error,setError]=useState("");const [success,setSuccess]=useState("");const [busy,setBusy]=useState(false);
   const reports=useApiResource("/api/v1/me/reports?page=1&limit=20",async()=>{const result=unwrap(await api.get<ApiResponse<{items:UserReport[]}>>('/api/v1/me/reports?page=1&limit=20'));return result.items??[];});
   async function submit(event:React.FormEvent<HTMLFormElement>){event.preventDefault();if(busy)return;setBusy(true);setError("");setSuccess("");try{
+    if(evidenceRequired(prefill.referenceType,violationType,evidence.length)){setError("Báo cáo gian lận hoặc hàng giả về một đơn cần ít nhất một ảnh bằng chứng.");setBusy(false);return;}
     let evidenceUrls:string[]=[];
     if(evidence.length){const form=new FormData();evidence.forEach(file=>form.append("files",file));const uploaded=unwrap(await api.post<ApiResponse<{urls:string[]}>|{urls:string[]}>("/api/v1/reports/files/upload",form));evidenceUrls=uploaded.urls;}
-    await api.post('/api/v1/users/reports',{reportedUserId:targetId.trim(),violationType,description:description.trim(),evidenceUrls});setSuccess("Đã gửi báo cáo. Trạng thái sẽ cập nhật khi được xử lý.");setTargetId("");setDescription("");setEvidence([]);reports.reload();}catch(reason){setError(errorText(reason as Error));}finally{setBusy(false);}}
+    await api.post('/api/v1/users/reports',{reportedUserId:targetId.trim(),...(prefill.referenceType?{referenceType:prefill.referenceType,referenceId:prefill.referenceId}:{}),violationType,description:description.trim(),evidenceUrls});setSuccess("Đã gửi báo cáo. Trạng thái sẽ cập nhật khi được xử lý.");setTargetId("");setDescription("");setEvidence([]);reports.reload();}catch(reason){setError(formatError(describeError(reason,{operation:"write"})));}finally{setBusy(false);}}
   return <div className="buyer-reports-page">
     <PageHeading title="Báo cáo người dùng" />
     <div className="split buyer-reports-layout">
@@ -42,8 +48,9 @@ export function BuyerReportsScreen() {
             <span className="buyer-report-item-id">{report.targetId??"—"}</span>
             {report.createdAt&&<time dateTime={report.createdAt}>{new Date(report.createdAt).toLocaleString("vi-VN")}</time>}
             {report.adminNote&&<p>Phản hồi: {report.adminNote}</p>}
+            {report.refundStatus&&report.refundStatus!=="None"&&<p>Hoàn tiền: {statusLabel(REPORT_REFUND_STATUS, report.refundStatus)}{typeof report.refundAmount==="number"&&report.refundAmount>0?` (${report.refundAmount.toLocaleString("vi-VN")} ₫)`:""}</p>}
           </div>
-          <Badge>{reportStatusLabel[report.status?.toUpperCase() ?? ""] ?? report.status ?? "—"}</Badge>
+          <Badge>{statusLabel(REPORT_STATUS, report.status)}</Badge>
         </div>):<NoData title={reports.loading?"Đang tải báo cáo…":reports.error?"Không tải được báo cáo":"Chưa gửi báo cáo nào"}/>}
       </Card>
     </div>

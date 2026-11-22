@@ -73,7 +73,7 @@ export type WithdrawalResponse = {
   requestedAt: string;
 };
 
-export type WithdrawalStatusName = "Pending" | "Approved" | "Processing" | "Completed" | "Rejected" | "Failed";
+export type WithdrawalStatusName = "Pending" | "Approved" | "Processing" | "Completed" | "Rejected" | "Failed" | "Cancelled";
 
 export type Pagination = { pageIndex: number; pageSize: number; totalCount: number; totalPages: number; hasPreviousPage: boolean; hasNextPage: boolean };
 

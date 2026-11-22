@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Card, PageHeading } from "@/components/ui/Primitives";
 import { api, unwrap, type ApiResponse } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
+import { describeError, formatError } from "@/lib/errors/error-messages";
 
 type Report = { id: string; productId: string; productName: string; reason: string; description: string; status: string; evidenceImages: string[] | null; createdAt: string };
 type ReportPage = { items: Report[]; pagination: { hasNextPage: boolean } };
@@ -24,7 +25,7 @@ export function StaffProductReportsScreen() {
       await api.put(`/api/v1/admin/reports/products/${encodeURIComponent(id)}/action`, { action, resolutionNote });
       setNotice("Đã cập nhật kết quả kiểm duyệt báo cáo.");
       reports.reload();
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Không xử lý được báo cáo."); }
+    } catch (cause) { setError(formatError(describeError(cause, { operation: "write" }))); }
     finally { setBusyId(""); }
   }
 

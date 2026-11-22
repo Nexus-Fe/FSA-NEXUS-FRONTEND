@@ -7,13 +7,24 @@ import { useSession } from "@/components/auth/SessionProvider";
 import { BackendImage } from "@/components/ui/BackendImage";
 import { Badge, Card, NoData, PageHeading } from "@/components/ui/Primitives";
 import { ROUTES } from "@/constants/routes";
-import { api, unwrap, type ApiResponse } from "@/lib/api/client";
+import { ApiError, api, unwrap, type ApiResponse } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatMoney, resolveImageUrl } from "@/lib/presentation";
-import { fulfillmentService } from "@/features/fulfillment";
+import { OrderShipmentsCard } from "@/features/fulfillment/components/OrderShipmentsCard";
 import { walletService } from "@/features/wallet";
-import { CheckoutVoucherPreview } from "@/features/coupons/CheckoutVoucherPreview";
-import administrativeUnits from "@/data/vietnam-administrative-units.json";
+import { CheckoutVoucherPanel } from "@/features/coupons/CheckoutVoucherPanel";
+import { describeRejectedVoucher } from "@/features/coupons/voucher-outcome";
+import { Modal } from "@/components/ui/Modal";
+import { cartService } from "@/features/commerce/services/cart.service";
+import { canContinueToCheckout, describeCartIssue, type CartValidation } from "@/features/commerce/cart-rules";
+import { ChangeAddressButton, CompleteOrderButton, RepayButton } from "@/features/commerce/OrderActions";
+import { canReportSubOrder, orderReportHref } from "@/features/commerce/order-report";
+import { canChangeAddress, canCompleteOrder, canRepay } from "@/features/commerce/order-rules";
+import { clearUnknownOrderMarker, describeCartFailure, describePlaceOrderFailure, describeQuoteFailure, readUnknownOrderMarker, writeUnknownOrderMarker } from "@/features/commerce/checkout-outcome";
+import { GhnLocationSelect } from "@/features/shipping/GhnLocationSelect";
+import { SavedAddressPicker } from "@/features/profile/SavedAddressPicker";
+import { toGhnSelection } from "@/features/profile/address-rules";
+import { EMPTY_GHN_SELECTION, buildShippingAddress, formatAddressLine, parseGhnSelection, validateGhnSelection, type GhnSelection } from "@/features/shipping/ghn-address";
 
 
 type CartItem = { id: string; productId: string; skuId: string; sellerId: string; productName: string; quantity: number; unitPriceSnapshot: number };
@@ -54,6 +65,10 @@ type CheckoutQuoteResponse = {
   walletBalance: number;
   shops: Array<{ sellerId: string; shopName: string; itemsAmount: number; discountAmount: number; shippingFeeAmount: number; totalAmount: number }>;
   expiredAt: string;
+  /** Vouchers the back end really applied, with what each took off. A code asked for but not listed here was left out. */
+  appliedVouchers?: string[] | null;
+  appliedVoucherDetails?: Array<{ code: string; scopeType: string; ownerSellerId?: string | null; discountAmount: number }> | null;
+  rejectedVouchers?: Array<{ code: string; reasonCode: string }> | null;
 };
 type CreateOrderResponse = {
   orderId: string;
@@ -128,9 +143,10 @@ function useCart() {
 
 const SHIPPING_STORAGE_KEY = "nexus:checkout-shipping";
 const SHIPPING_EXTRA_KEY = "nexus:checkout-extra";
+const SHIPPING_GHN_KEY = "nexus:checkout-ghn";
 type ShippingForm = { receiverName: string; phone: string; address: string };
-type ShippingExtra = { email: string; province: string; ward: string; note: string };
-type ShippingErrors = Partial<Record<keyof ShippingForm | "province" | "ward", string>>;
+type ShippingExtra = { email: string; note: string };
+type ShippingErrors = Partial<Record<keyof ShippingForm | "province" | "district" | "ward", string>>;
 const emptyShipping: ShippingForm = { receiverName: "", phone: "", address: "" };
 
 function loadShipping(): ShippingForm {
@@ -146,27 +162,25 @@ function loadShipping(): ShippingForm {
 }
 
 function loadShippingExtra(): ShippingExtra {
-  const empty = { email: "", province: "", ward: "", note: "" };
+  const empty = { email: "", note: "" };
   if (typeof window === "undefined") return empty;
   try {
     const parsed = JSON.parse(window.sessionStorage.getItem(SHIPPING_EXTRA_KEY) ?? "null") as Partial<ShippingExtra> | null;
-    if (!parsed) return empty;
-    const savedProvince = String(parsed.province ?? "").trim();
-    const province = administrativeUnits.provinces.find((entry) => entry.code === savedProvince || entry.name === savedProvince || entry.name.replace(/^(Tỉnh|Thành phố) /, "") === savedProvince);
-    const savedWard = String(parsed.ward ?? "").trim();
-    const ward = province?.wards.find((entry) => entry.code === savedWard || entry.name === savedWard);
-    return { email: String(parsed.email ?? ""), province: province?.code ?? "", ward: ward?.code ?? "", note: String(parsed.note ?? "") };
+    return parsed ? { email: String(parsed.email ?? ""), note: String(parsed.note ?? "") } : empty;
   } catch { return empty; }
 }
 
-function validateShipping(form: ShippingForm, extra: ShippingExtra): ShippingErrors {
+function loadGhn(): GhnSelection {
+  if (typeof window === "undefined") return EMPTY_GHN_SELECTION;
+  try { return parseGhnSelection(window.sessionStorage.getItem(SHIPPING_GHN_KEY)); } catch { return EMPTY_GHN_SELECTION; }
+}
+
+function validateShipping(form: ShippingForm, ghn: GhnSelection): ShippingErrors {
   const errors: ShippingErrors = {};
   if (form.receiverName.trim().length < 2) errors.receiverName = "Nhập họ tên người nhận.";
   if (!/^(0|\+84)\d{9}$/.test(form.phone.replace(/[\s.-]/g, ""))) errors.phone = "Nhập số điện thoại Việt Nam hợp lệ, ví dụ 0901234567.";
   if (form.address.trim().length < 5) errors.address = "Nhập địa chỉ nhận hàng cụ thể.";
-  const province = administrativeUnits.provinces.find((entry) => entry.code === extra.province);
-  if (!province) errors.province = "Chọn tỉnh hoặc thành phố.";
-  if (!province?.wards.some((entry) => entry.code === extra.ward)) errors.ward = "Chọn phường, xã hoặc đặc khu thuộc tỉnh/thành phố đã chọn.";
+  Object.assign(errors, validateGhnSelection(ghn));
   return errors;
 }
 
@@ -206,6 +220,11 @@ export function CartScreen() {
   const [quantityErrors, setQuantityErrors] = useState<Record<string, string>>({});
   const [actionError, setActionError] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const shops = useApiResource(items.length ? "cart-shop-names" : null, (signal) => cartService.shops(signal));
+  const [validation, setValidation] = useState<CartValidation | null>(null);
+  const [validating, setValidating] = useState(false);
+  const [clearOpen, setClearOpen] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
   const itemIds = items.map((item) => item.id);
   const activeSelectedIds = selectedIds ?? new Set(itemIds);
   const selectedItems = items.filter((item) => activeSelectedIds.has(item.id));
@@ -269,7 +288,7 @@ export function CartScreen() {
       });
       cart.reload();
     } catch (reason) {
-      setActionError((reason as Error).message);
+      setActionError(describeCartFailure(reason));
     } finally {
       setBusyId(null);
     }
@@ -287,7 +306,7 @@ export function CartScreen() {
       });
       cart.reload();
     } catch (reason) {
-      setActionError((reason as Error).message);
+      setActionError(describeCartFailure(reason));
     } finally {
       setBusyId(null);
     }
@@ -310,10 +329,70 @@ export function CartScreen() {
     }
     if (valid !== null) void updateQuantity(item, valid);
   }
-  function continueToCheckout() {
-    if (!selectedItems.length || hasQuantityError || stock.loading || stock.error) return;
-    const query = selectedItems.length === items.length ? "" : `?items=${encodeURIComponent(selectedItems.map((item) => item.id).join(","))}`;
-    router.push(`${ROUTES.buyer.checkout}${query}`);
+  async function continueToCheckout() {
+    if (!selectedItems.length || hasQuantityError || stock.loading || stock.error || validating) return;
+    setValidating(true);
+    setActionError("");
+    setValidation(null);
+    try {
+      // The back end checks price and stock of the selected lines before the buyer leaves the cart.
+      const result = await cartService.validate(selectedItems.map((item) => item.id));
+      if (!canContinueToCheckout(result)) {
+        setValidation(result);
+        cart.reload();
+        return;
+      }
+      const query = selectedItems.length === items.length ? "" : `?items=${encodeURIComponent(selectedItems.map((item) => item.id).join(","))}`;
+      router.push(`${ROUTES.buyer.checkout}${query}`);
+    } catch (reason) {
+      setActionError(describeCartFailure(reason));
+    } finally {
+      setValidating(false);
+    }
+  }
+  async function removeSelected() {
+    if (!selectedItems.length || bulkBusy) return;
+    setBulkBusy(true);
+    setActionError("");
+    try {
+      await cartService.bulkRemove(selectedItems.map((item) => item.id));
+      setSelectedIds(null);
+      setValidation(null);
+      cart.reload();
+    } catch (reason) {
+      setActionError(describeCartFailure(reason));
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+  async function clearCart() {
+    if (bulkBusy) return;
+    setBulkBusy(true);
+    setActionError("");
+    try {
+      await cartService.clear();
+      setSelectedIds(null);
+      setValidation(null);
+      setClearOpen(false);
+      cart.reload();
+    } catch (reason) {
+      setActionError(describeCartFailure(reason));
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+  async function changeVariant(item: CartItem, newSkuId: string) {
+    if (!newSkuId || newSkuId === item.skuId) return;
+    setBusyId(item.id);
+    setActionError("");
+    try {
+      await cartService.changeVariant(item.id, newSkuId);
+      cart.reload();
+    } catch (reason) {
+      setActionError(describeCartFailure(reason));
+    } finally {
+      setBusyId(null);
+    }
   }
 
   return <>
@@ -324,8 +403,13 @@ export function CartScreen() {
       <div className="buyer-cart-items">
         {items.length ? <>
           <label className="cart-select-all"><input type="checkbox" checked={allSelected} onChange={toggleAll} /><span>Chọn tất cả ({selectedItems.length}/{items.length})</span></label>
+          <div className="action-row">
+            <button type="button" className="button button-secondary button-small" disabled={!selectedItems.length || bulkBusy} onClick={() => void removeSelected()}>{bulkBusy ? "Đang xóa…" : `Xóa mục đã chọn (${selectedItems.length})`}</button>
+            <button type="button" className="button button-secondary button-small" disabled={bulkBusy} onClick={() => setClearOpen(true)}>Xóa cả giỏ hàng</button>
+          </div>
+          {validation && !validation.isValid && <div className="notice" role="alert"><strong>Giỏ hàng cần chỉnh trước khi đặt hàng:</strong><ul>{validation.issues.map((issue) => <li key={`${issue.cartItemId}-${issue.issueType}`}>{describeCartIssue(issue, items.find((item) => item.id === issue.cartItemId)?.productName ?? "Sản phẩm")}</li>)}</ul></div>}
           {Object.entries(sellerGroups).map(([sellerId, group], groupIndex) => <section className="cart-seller-group" key={sellerId} aria-label={`Gian hàng ${groupIndex + 1}`}>
-            <h2>Gian hàng #{sellerId.slice(0, 8)}</h2>
+            <h2>{shops.data?.[sellerId] ?? `Gian hàng #${sellerId.slice(0, 8)}`}</h2>
             {group.map((item) => {
               const draft = draftQuantities[item.id] ?? String(item.quantity);
               const available = stock.data?.[item.skuId];
@@ -339,7 +423,9 @@ export function CartScreen() {
                 <Link className="cart-product-image" href={ROUTES.catalog.product(item.productId)} aria-label={`Xem ${item.productName}`}><BackendImage src={resolveImageUrl(image)} alt="" compact /></Link>
                 <div className="cart-product-info">
                   <Link className="cart-product-title" href={ROUTES.catalog.product(item.productId)}>{item.productName}</Link>
-                  {variant?.name && <p>Phiên bản: {variant.name}</p>}
+                  {(detail?.variants?.length ?? 0) > 1
+                    ? <label className="field-wrap">Phiên bản<select className="field" value={item.skuId} disabled={busyId !== null} onChange={(event) => void changeVariant(item, event.target.value)}>{detail?.variants?.map((entry) => <option key={entry.variantId} value={entry.variantId}>{entry.name ?? entry.skuCode ?? entry.variantId}</option>)}</select></label>
+                    : variant?.name && <p>Phiên bản: {variant.name}</p>}
                   <p>Mã SKU: {variant?.skuCode ?? item.skuId}</p>
                   <div className="cart-product-actions"><span className="cart-quantity-label">Số lượng</span><div className="cart-quantity-control" role="group" aria-label={`Số lượng ${item.productName}`}>
                     <button type="button" disabled={busyId !== null || stock.loading} aria-label={item.quantity === 1 ? `Xóa ${item.productName} khỏi giỏ hàng` : `Giảm số lượng ${item.productName}`} onClick={() => void (item.quantity === 1 ? removeItem(item) : updateQuantity(item, item.quantity - 1))}>
@@ -360,8 +446,12 @@ export function CartScreen() {
           </section>)}
         </> : <div className="cart-empty"><NoData title={cart.loading ? "Đang tải giỏ hàng…" : cart.error ? "Không tải được giỏ hàng" : "Giỏ hàng đang trống"} />{!cart.loading && !cart.error && <Link className="button button-primary" href={ROUTES.catalog.index}>Khám phá sản phẩm</Link>}</div>}
       </div>
-      <aside className="buyer-cart-summary"><h2>Tóm tắt đơn hàng</h2><div className="cart-summary-line"><span>Sản phẩm đã chọn ({selectedItems.length})</span><strong>{formatMoney(selectedTotal)}</strong></div><div className="cart-summary-line"><span>Phí vận chuyển</span><strong>{selectedItems.length ? "Tính khi báo giá" : "—"}</strong></div><div className="cart-summary-total"><span>Tạm tính tiền hàng</span><strong>{formatMoney(selectedTotal)}</strong></div><button className="button button-primary" type="button" disabled={!selectedItems.length || hasQuantityError || stock.loading || Boolean(stock.error) || busyId !== null} onClick={continueToCheckout}>Tiếp tục đặt hàng</button><p>{stock.error ? "Chưa kiểm tra được tồn kho. Vui lòng tải lại trang." : hasQuantityError ? "Điều chỉnh số lượng theo tồn kho trước khi tiếp tục." : selectedItems.length ? "Bước tiếp theo nhập địa chỉ nhận hàng và thanh toán bằng Ví Nexus." : "Chọn ít nhất một sản phẩm để tiếp tục."}</p></aside>
+      <aside className="buyer-cart-summary"><h2>Tóm tắt đơn hàng</h2><div className="cart-summary-line"><span>Sản phẩm đã chọn ({selectedItems.length})</span><strong>{formatMoney(selectedTotal)}</strong></div><div className="cart-summary-line"><span>Phí vận chuyển</span><strong>{selectedItems.length ? "Tính khi báo giá" : "—"}</strong></div><div className="cart-summary-total"><span>Tạm tính tiền hàng</span><strong>{formatMoney(selectedTotal)}</strong></div><button className="button button-primary" type="button" disabled={!selectedItems.length || hasQuantityError || stock.loading || Boolean(stock.error) || busyId !== null || validating} onClick={() => void continueToCheckout()}>{validating ? "Đang kiểm tra giỏ hàng…" : "Tiếp tục đặt hàng"}</button><p>{stock.error ? "Chưa kiểm tra được tồn kho. Vui lòng tải lại trang." : hasQuantityError ? "Điều chỉnh số lượng theo tồn kho trước khi tiếp tục." : selectedItems.length ? "Bước tiếp theo nhập địa chỉ nhận hàng và thanh toán bằng Ví Nexus." : "Chọn ít nhất một sản phẩm để tiếp tục."}</p></aside>
     </div>
+    <Modal open={clearOpen} title="Xóa toàn bộ giỏ hàng?" busy={bulkBusy} onClose={() => setClearOpen(false)}
+      footer={<><button type="button" className="button button-secondary" disabled={bulkBusy} onClick={() => setClearOpen(false)}>Giữ lại</button><button type="button" className="button button-primary" disabled={bulkBusy} onClick={() => void clearCart()}>{bulkBusy ? "Đang xóa…" : "Xóa cả giỏ hàng"}</button></>}>
+      <p>Tất cả {items.length} sản phẩm sẽ bị xóa khỏi giỏ hàng. Thao tác này không hoàn tác được.</p>
+    </Modal>
   </>;
 }
 
@@ -377,12 +467,18 @@ export function CheckoutScreen() {
   const [form, setForm] = useState<ShippingForm>(loadShipping);
   const [errors, setErrors] = useState<ShippingErrors>({});
   const [extra, setExtra] = useState<ShippingExtra>(loadShippingExtra);
-  const [quoteState, setQuoteState] = useState<{ key: string; data: CheckoutQuoteResponse } | null>(null);
+  const [ghn, setGhn] = useState<GhnSelection>(loadGhn);
+  const [quoteState, setQuoteState] = useState<{ key: string; baseKey: string; data: CheckoutQuoteResponse } | null>(null);
   const [editingShipping, setEditingShipping] = useState(true);
   const [quoting, setQuoting] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [quoteError, setQuoteError] = useState("");
+  const [voucherCodes, setVoucherCodes] = useState<string[]>([]);
+  const [paymentMethod, setPaymentMethod] = useState<"Wallet" | "Cod">("Wallet");
+  // The result of the last order attempt is unknown: ordering stays locked (kept per browser tab) until the buyer has checked.
+  const [unknownOutcome, setUnknownOutcome] = useState(() =>
+    typeof window === "undefined" ? false : readUnknownOrderMarker(window.sessionStorage) !== null);
   const [now, setNow] = useState(0);
   const quoteLock = useRef(false);
   const orderLock = useRef(false);
@@ -396,19 +492,19 @@ export function CheckoutScreen() {
     fullAddress: string;
   } | null>(null);
 
-  const selectedProvince = administrativeUnits.provinces.find((entry) => entry.code === extra.province);
-  const selectedWard = selectedProvince?.wards.find((entry) => entry.code === extra.ward);
-  const currentErrors = validateShipping(form, extra);
+  const currentErrors = validateShipping(form, ghn);
   const isShippingComplete = Object.keys(currentErrors).length === 0;
   const allItems = cart.data?.items ?? [];
   const selectedIds = selectedParam ? new Set(selectedParam.split(",").filter(Boolean)) : null;
   const items = selectedIds ? allItems.filter((item) => selectedIds.has(item.id)) : allItems;
   const subtotal = items.reduce((sum, item) => sum + item.unitPriceSnapshot * item.quantity, 0);
   const availableBalance = wallet.data?.availableBalance ?? wallet.data?.balance ?? 0;
+  // What the price depends on besides the address. When only the address changed, the open quote is recalculated instead of replaced.
+  const baseKey = JSON.stringify({ items: items.map((item) => [item.id, item.quantity, item.unitPriceSnapshot]), vouchers: [...voucherCodes].sort(), paymentMethod });
   const quoteKey = JSON.stringify({
     items: items.map((item) => [item.id, item.quantity, item.unitPriceSnapshot]),
     receiverName: form.receiverName.trim(), phone: form.phone.trim(), address: form.address.trim(),
-    province: extra.province, ward: extra.ward,
+    province: ghn.provinceId, district: ghn.districtId, ward: ghn.wardCode, vouchers: [...voucherCodes].sort(), paymentMethod,
   });
   const activeQuote = quoteState?.key === quoteKey ? quoteState.data : null;
   const quoteExpired = Boolean(activeQuote && now >= Date.parse(activeQuote.expiredAt));
@@ -438,12 +534,12 @@ export function CheckoutScreen() {
     setSubmitError("");
     setQuoteError("");
     if (errors[field]) {
-      const nextErrors = validateShipping(nextForm, extra);
+      const nextErrors = validateShipping(nextForm, ghn);
       setErrors((current) => ({ ...current, [field]: nextErrors[field] }));
     }
   }
   function blurField(field: keyof ShippingErrors) {
-    const nextErrors = validateShipping(form, extra);
+    const nextErrors = validateShipping(form, ghn);
     if (nextErrors[field]) {
       setErrors((current) => ({ ...current, [field]: nextErrors[field] }));
     }
@@ -453,10 +549,10 @@ export function CheckoutScreen() {
     if (quoteLock.current || (quoteReady && !editingShipping)) return;
     setQuoteError("");
     setSubmitError("");
-    const found = validateShipping(form, extra);
+    const found = validateShipping(form, ghn);
     setErrors(found);
     if (Object.keys(found).length) {
-      const order: Array<keyof ShippingErrors> = ["receiverName", "phone", "address", "province", "ward"];
+      const order: Array<keyof ShippingErrors> = ["receiverName", "phone", "address", "province", "district", "ward"];
       const firstKey = order.find((key) => Boolean(found[key]));
       if (firstKey) {
         event.currentTarget.querySelector<HTMLElement>(`[name="${firstKey}"]`)?.focus();
@@ -469,6 +565,7 @@ export function CheckoutScreen() {
       return;
     }
 
+    const previous = quoteState && quoteState.baseKey === baseKey && Date.now() < Date.parse(quoteState.data.expiredAt) ? quoteState.data : null;
     setQuoteState(null);
 
     quoteLock.current = true;
@@ -477,34 +574,43 @@ export function CheckoutScreen() {
       try {
         window.sessionStorage.setItem(SHIPPING_STORAGE_KEY, JSON.stringify({ receiverName: form.receiverName.trim(), phone: form.phone.trim(), address: form.address.trim() }));
         window.sessionStorage.setItem(SHIPPING_EXTRA_KEY, JSON.stringify(extra));
+        window.sessionStorage.setItem(SHIPPING_GHN_KEY, JSON.stringify(ghn));
       } catch {
         // Browser storage may be disabled; the current checkout can still continue.
       }
-      const provinceName = selectedProvince?.name ?? extra.province;
-      const wardName = selectedWard?.name ?? extra.ward;
-      const quote = unwrap(
-        await api.post<ApiResponse<CheckoutQuoteResponse> | CheckoutQuoteResponse>("/api/v1/checkouts/quote", {
-          cartItemIds: items.map((item) => item.id),
-          voucherCodes: [],
-          shippingAddress: {
-            receiverName: form.receiverName.trim(),
+      const shippingAddress = buildShippingAddress({ receiverName: form.receiverName, phone: form.phone, street: form.address }, ghn);
+      let quote: CheckoutQuoteResponse | null = null;
+      if (previous) {
+        try {
+          const recalculated = unwrap(
+            await api.post<ApiResponse<CheckoutQuoteResponse> | CheckoutQuoteResponse>(`/api/v1/checkouts/quote/${encodeURIComponent(previous.quoteId)}/recalculate`, { shippingAddress, contactPhone: form.phone.trim() }),
+          );
+          // Only the shipping part changes: keep the vouchers and the expiry of the quote that was already agreed.
+          quote = { ...previous, ...recalculated, appliedVouchers: previous.appliedVouchers, appliedVoucherDetails: previous.appliedVoucherDetails, rejectedVouchers: previous.rejectedVouchers };
+        } catch (cause) {
+          // A quote that is gone is replaced by a new one; any other failure is shown.
+          if (!(cause instanceof ApiError && cause.errorCode === "QUOTE_NOT_FOUND")) throw cause;
+        }
+      }
+      if (!quote) {
+        quote = unwrap(
+          await api.post<ApiResponse<CheckoutQuoteResponse> | CheckoutQuoteResponse>("/api/v1/checkouts/quote", {
+            cartItemIds: items.map((item) => item.id),
+            voucherCodes,
+            paymentMethod,
+            shippingAddress,
             contactPhone: form.phone.trim(),
-            street: form.address.trim(),
-            ward: wardName,
-            district: wardName || provinceName,
-            province: provinceName,
-          },
-          contactPhone: form.phone.trim(),
-        }),
-      );
+          }),
+        );
+      }
 
       if (!quote.quoteId || !Number.isFinite(quote.grandTotal) || quote.grandTotal <= 0 || !Number.isFinite(quote.walletBalance) || !Array.isArray(quote.shops) || !quote.shops.every((shop) => [shop.itemsAmount, shop.discountAmount, shop.shippingFeeAmount].every(Number.isFinite)) || !Number.isFinite(Date.parse(quote.expiredAt))) {
         throw new Error("Backend chưa trả tổng tiền báo giá hợp lệ.");
       }
-      setQuoteState({ key: quoteKey, data: quote });
+      setQuoteState({ key: quoteKey, baseKey, data: quote });
       setEditingShipping(false);
     } catch (reason) {
-      setQuoteError((reason as Error).message || "Không lấy được báo giá. Vui lòng thử lại.");
+      setQuoteError(describeQuoteFailure(reason).message);
     } finally {
       quoteLock.current = false;
       setQuoting(false);
@@ -512,31 +618,29 @@ export function CheckoutScreen() {
   }
 
   async function handlePlaceOrder() {
-    if (orderLock.current || !activeQuote) return;
+    if (orderLock.current || !activeQuote || unknownOutcome) return;
     setSubmitError("");
     if (Date.now() >= Date.parse(activeQuote.expiredAt)) {
       setQuoteState(null);
       setSubmitError("Báo giá đã hết hạn. Vui lòng lấy báo giá mới.");
       return;
     }
-    if (!items.length || Object.keys(validateShipping(form, extra)).length > 0) {
+    if (!items.length || Object.keys(validateShipping(form, ghn)).length > 0) {
       setSubmitError("Thông tin giao hàng đã thay đổi. Vui lòng lấy báo giá mới.");
       return;
     }
-    if (activeQuote.walletBalance < activeQuote.grandTotal) {
+    if (paymentMethod === "Wallet" && activeQuote.walletBalance < activeQuote.grandTotal) {
       setSubmitError(`Số dư Ví Nexus (${formatMoney(activeQuote.walletBalance)}) không đủ để thanh toán ${formatMoney(activeQuote.grandTotal)}.`);
       return;
     }
-    const provinceName = selectedProvince?.name ?? extra.province;
-    const wardName = selectedWard?.name ?? extra.ward;
-    const fullAddress = `${form.address.trim()}, ${wardName}, ${provinceName}`;
+    const fullAddress = formatAddressLine(form.address, ghn);
     orderLock.current = true;
     setSubmitting(true);
     try {
       const created = unwrap(
         await api.post<ApiResponse<CreateOrderResponse> | CreateOrderResponse>("/api/v1/orders", {
           quoteId: activeQuote.quoteId,
-          paymentMethod: "Wallet",
+          paymentMethod,
           shippingAddress: fullAddress,
           contactPhone: form.phone.trim(),
           note: extra.note.trim() || undefined,
@@ -557,11 +661,19 @@ export function CheckoutScreen() {
         phone: form.phone.trim(),
         fullAddress,
       });
+      clearUnknownOrderMarker(window.sessionStorage);
       cart.reload();
       wallet.reload();
     } catch (reason) {
+      const failure = describePlaceOrderFailure(reason);
+      // The quote is used up in every case. A refusal needs a new quote; an unknown result locks ordering instead of inviting a second order.
       setQuoteState(null);
-      setSubmitError((reason as Error).message || "Thanh toán đơn hàng thất bại.");
+      setSubmitError(failure.message);
+      if (failure.unknownOutcome) {
+        writeUnknownOrderMarker(window.sessionStorage, Date.now());
+        setUnknownOutcome(true);
+      }
+      if (failure.reloadCart) cart.reload();
     } finally {
       orderLock.current = false;
       setSubmitting(false);
@@ -637,19 +749,20 @@ export function CheckoutScreen() {
     {cart.error && <p className="notice" role="alert">{cart.error.message}</p>}
     <div className="checkout-layout"><div className="checkout-main">
       <section className="checkout-panel" aria-labelledby="checkout-address-heading"><div className="checkout-panel-heading"><div><h1 id="checkout-address-heading">Địa chỉ nhận hàng</h1><p>Điền thông tin để xem tổng thanh toán trước khi đặt hàng.</p></div></div>
-        {quoteReady && !editingShipping && <div className="checkout-address-review"><div><span>Liên hệ</span><strong>{form.receiverName} · {form.phone}</strong>{extra.email && <small>{extra.email}</small>}</div><div><span>Giao tới</span><strong>{form.address}, {selectedWard?.name}, {selectedProvince?.name}</strong></div><button className="button button-secondary" type="button" onClick={() => { setEditingShipping(true); setSubmitError(""); }}>Sửa thông tin</button></div>}
+        {quoteReady && !editingShipping && <div className="checkout-address-review"><div><span>Liên hệ</span><strong>{form.receiverName} · {form.phone}</strong>{extra.email && <small>{extra.email}</small>}</div><div><span>Giao tới</span><strong>{formatAddressLine(form.address, ghn)}</strong></div><button className="button button-secondary" type="button" onClick={() => { setEditingShipping(true); setSubmitError(""); }}>Sửa thông tin</button></div>}
         <form className="checkout-form" onSubmit={(e) => void handleCheckoutSubmit(e)} noValidate>
           {(!quoteReady || editingShipping) && <>
+          <SavedAddressPicker onPick={(saved) => { setForm({ receiverName: saved.recipientName, phone: saved.phone, address: saved.addressLine }); setGhn(toGhnSelection(saved)); setErrors({}); setSubmitError(""); setQuoteError(""); }} />
           <label className="field-wrap"><span>Họ tên người nhận <abbr className="checkout-required" title="Bắt buộc">*</abbr></span><input className="field" name="receiverName" required autoComplete="name" value={form.receiverName} onChange={(event) => setField("receiverName", event.target.value)} onBlur={() => blurField("receiverName")} aria-invalid={Boolean(errors.receiverName)} placeholder="Ví dụ: Nguyễn Văn A" />{errors.receiverName && <small className="checkout-field-error" role="alert">{errors.receiverName}</small>}</label>
           <div className="checkout-contact-row"><label className="field-wrap">Email liên hệ<input className="field" type="email" autoComplete="email" value={extra.email} onChange={(event) => setExtra((current) => ({ ...current, email: event.target.value }))} placeholder="contact@example.com" /></label>
           <label className="field-wrap"><span>Số điện thoại <abbr className="checkout-required" title="Bắt buộc">*</abbr></span><input className="field" name="phone" type="tel" required autoComplete="tel" inputMode="tel" value={form.phone} onChange={(event) => setField("phone", event.target.value)} onBlur={() => blurField("phone")} aria-invalid={Boolean(errors.phone)} placeholder="Ví dụ: 0901234567" />{errors.phone && <small className="checkout-field-error" role="alert">{errors.phone}</small>}</label></div>
           <label className="field-wrap"><span>Địa chỉ cụ thể <abbr className="checkout-required" title="Bắt buộc">*</abbr></span><input className="field" name="address" required autoComplete="street-address" value={form.address} onChange={(event) => setField("address", event.target.value)} onBlur={() => blurField("address")} aria-invalid={Boolean(errors.address)} placeholder="Số nhà, tên đường" />{errors.address && <small className="checkout-field-error" role="alert">{errors.address}</small>}</label>
-          <div className="checkout-form-row"><label className="field-wrap">Quốc gia<input className="field checkout-country" value="Việt Nam" readOnly aria-readonly="true" /></label><label className="field-wrap"><span>Tỉnh / Thành phố <abbr className="checkout-required" title="Bắt buộc">*</abbr></span><select className="field" name="province" required autoComplete="address-level1" value={extra.province} aria-invalid={Boolean(errors.province)} onBlur={() => blurField("province")} onChange={(event) => { setExtra((current) => ({ ...current, province: event.target.value, ward: "" })); setErrors((current) => ({ ...current, province: undefined, ward: undefined })); setSubmitError(""); }}><option value="">Chọn tỉnh / thành phố</option>{administrativeUnits.provinces.map((province) => <option key={province.code} value={province.code}>{province.name}</option>)}</select>{errors.province && <small className="checkout-field-error" role="alert">{errors.province}</small>}</label></div>
-          <label className="field-wrap"><span>Phường / Xã / Đặc khu <abbr className="checkout-required" title="Bắt buộc">*</abbr></span><select className="field" name="ward" required autoComplete="address-level2" value={extra.ward} disabled={!selectedProvince} aria-invalid={Boolean(errors.ward)} onBlur={() => blurField("ward")} onChange={(event) => { setExtra((current) => ({ ...current, ward: event.target.value })); setErrors((current) => ({ ...current, ward: undefined })); setSubmitError(""); }}><option value="">{selectedProvince ? "Chọn phường / xã / đặc khu" : "Chọn tỉnh / thành phố trước"}</option>{selectedProvince?.wards.map((ward) => <option key={ward.code} value={ward.code}>{ward.name}</option>)}</select>{errors.ward && <small className="checkout-field-error" role="alert">{errors.ward}</small>}</label>
+          <label className="field-wrap">Quốc gia<input className="field checkout-country" value="Việt Nam" readOnly aria-readonly="true" /></label>
+          <GhnLocationSelect value={ghn} errors={errors} onChange={(next) => { setGhn(next); setErrors((current) => ({ ...current, province: undefined, district: undefined, ward: undefined })); setSubmitError(""); }} />
           <label className="field-wrap">Ghi chú giao hàng<textarea className="field" rows={3} value={extra.note} onChange={(event) => setExtra((current) => ({ ...current, note: event.target.value }))} placeholder="Ví dụ: Giao hàng ngoài giờ hành chính" /></label>
           </>}
 
-          <fieldset className="checkout-payment-methods"><legend>Phương thức thanh toán</legend><label className="checkout-payment-choice is-selected"><input type="radio" name="paymentMethod" value="Wallet" checked readOnly /><span><strong>Ví Nexus</strong><small>Số dư khả dụng: {activeQuote ? formatMoney(activeQuote.walletBalance) : wallet.loading ? "Đang kiểm tra…" : wallet.data ? formatMoney(availableBalance) : "Không xác định"}</small></span></label><label className="checkout-payment-choice is-disabled"><input type="radio" name="paymentMethod" value="Stripe" disabled /><span><strong>Stripe <small>Chưa khả dụng</small></strong><small>Thanh toán trực tiếp qua Stripe đang hoàn thiện.</small></span></label></fieldset>
+          <fieldset className="checkout-payment-methods" disabled={unknownOutcome || quoting || submitting}><legend>Phương thức thanh toán</legend><label className={"checkout-payment-choice" + (paymentMethod === "Wallet" ? " is-selected" : "")}><input type="radio" name="paymentMethod" value="Wallet" checked={paymentMethod === "Wallet"} onChange={() => setPaymentMethod("Wallet")} /><span><strong>Ví Nexus</strong><small>Số dư khả dụng: {activeQuote ? formatMoney(activeQuote.walletBalance) : wallet.loading ? "Đang kiểm tra…" : wallet.data ? formatMoney(availableBalance) : "Không xác định"}</small></span></label><label className={"checkout-payment-choice" + (paymentMethod === "Cod" ? " is-selected" : "")}><input type="radio" name="paymentMethod" value="Cod" checked={paymentMethod === "Cod"} onChange={() => setPaymentMethod("Cod")} /><span><strong>Thanh toán khi nhận hàng (COD)</strong><small>Trả tiền mặt cho đơn vị giao hàng. Không dùng được mã giảm giá của sàn.</small></span></label><label className="checkout-payment-choice is-disabled"><input type="radio" name="paymentMethod" value="Stripe" disabled /><span><strong>Stripe <small>Chưa khả dụng</small></strong><small>Thanh toán trực tiếp qua Stripe đang hoàn thiện.</small></span></label></fieldset>
 
           {(!quoteReady || editingShipping) && <div className="checkout-form-footer">
             <Link href={ROUTES.buyer.cart}>← Quay lại giỏ hàng</Link>
@@ -674,11 +787,13 @@ export function CheckoutScreen() {
     })}</div> : <NoData title={cart.loading ? "Đang tải giỏ hàng…" : "Chưa có sản phẩm được chọn"} />}
       <div className="checkout-summary-line"><span>Tiền hàng</span><strong>{items.length ? formatMoney(activeQuote ? quotedItemsAmount : subtotal) : "—"}</strong></div>
       <div className="checkout-summary-line"><span>Phí giao hàng</span><strong>{activeQuote ? formatMoney(quotedShippingFee) : items.length ? "Theo báo giá" : "—"}</strong></div>
-      {items.length > 0 && <CheckoutVoucherPreview itemsAmount={activeQuote ? quotedItemsAmount : subtotal} shippingFee={activeQuote ? quotedShippingFee : null} />}
-      {activeQuote && quotedDiscount > 0 && <div className="checkout-summary-line"><span>Giảm giá</span><strong>−{formatMoney(quotedDiscount)}</strong></div>}
+      {items.length > 0 && <CheckoutVoucherPanel cartItemIds={items.map((item) => item.id)} selectedCodes={voucherCodes} cashOnDelivery={paymentMethod === "Cod"} disabled={unknownOutcome || quoting || submitting} onChange={setVoucherCodes} />}
+      {activeQuote?.appliedVoucherDetails?.map((applied) => <div className="checkout-summary-line" key={applied.code}><span>Mã {applied.code}</span><strong>−{formatMoney(applied.discountAmount)}</strong></div>)}
+      {activeQuote && quotedDiscount > 0 && !activeQuote.appliedVoucherDetails?.length && <div className="checkout-summary-line"><span>Giảm giá</span><strong>−{formatMoney(quotedDiscount)}</strong></div>}
+      {activeQuote?.rejectedVouchers?.map((rejected) => <p className="checkout-field-error" role="status" key={rejected.code}>Mã {rejected.code} không được áp dụng: {describeRejectedVoucher(rejected.reasonCode)}</p>)}
       <div className="checkout-summary-total"><span>{activeQuote ? "Tổng thanh toán" : "Tạm tính tiền hàng"}</span><strong>{items.length ? formatMoney(activeQuote?.grandTotal ?? subtotal) : "—"}</strong></div>
-      {quoteReady && activeQuote ? <><p>Báo giá có hiệu lực đến {new Date(activeQuote.expiredAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}. Số dư ví theo thời điểm báo giá: {formatMoney(activeQuote.walletBalance)}.</p><button className="button checkout-place-order" type="button" disabled={submitting || activeQuote.walletBalance < activeQuote.grandTotal} onClick={() => void handlePlaceOrder()}>{submitting ? "Đang đặt hàng…" : `Đặt hàng bằng Ví Nexus · ${formatMoney(activeQuote.grandTotal)}`}</button>{activeQuote.walletBalance < activeQuote.grandTotal && <p className="checkout-field-error">Số dư Ví Nexus không đủ. Vui lòng nạp thêm trước khi đặt hàng.</p>}</> : quoteExpired ? <p>Báo giá đã hết hạn. Vui lòng lấy báo giá mới.</p> : null}
-      {submitError && <><p className="checkout-field-error" role="alert">{submitError}</p><Link href={ROUTES.buyer.orders}>Kiểm tra đơn mua của tôi</Link></>}
+      {unknownOutcome ? <div className="notice state-error" role="alert"><strong>Chưa xác định được kết quả đặt đơn</strong><p>Yêu cầu đặt hàng gần nhất có thể đã được xử lý. Để tránh đặt trùng, nút đặt hàng đang bị khóa.</p><p>Hãy kiểm tra <Link href={ROUTES.buyer.orders}>Đơn mua</Link> và <Link href={ROUTES.buyer.wallet}>Ví của bạn</Link>. Nếu đã có đơn hoặc ví đã bị trừ tiền, bạn không cần đặt lại. Nếu vẫn không chắc chắn, hãy liên hệ hỗ trợ để được đối soát trước khi đặt lại.</p></div> : quoteReady && activeQuote ? <><p>Báo giá có hiệu lực đến {new Date(activeQuote.expiredAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}. {paymentMethod === "Wallet" ? `Số dư ví theo thời điểm báo giá: ${formatMoney(activeQuote.walletBalance)}.` : "Bạn sẽ trả tiền mặt khi nhận hàng."}</p><button className="button checkout-place-order" type="button" disabled={submitting || (paymentMethod === "Wallet" && activeQuote.walletBalance < activeQuote.grandTotal)} onClick={() => void handlePlaceOrder()}>{submitting ? "Đang đặt hàng…" : paymentMethod === "Wallet" ? `Đặt hàng bằng Ví Nexus · ${formatMoney(activeQuote.grandTotal)}` : `Đặt hàng (thanh toán khi nhận) · ${formatMoney(activeQuote.grandTotal)}`}</button>{paymentMethod === "Wallet" && activeQuote.walletBalance < activeQuote.grandTotal && <p className="checkout-field-error">Số dư Ví Nexus không đủ. Vui lòng nạp thêm trước khi đặt hàng.</p>}</> : quoteExpired ? <p>Báo giá đã hết hạn. Vui lòng lấy báo giá mới.</p> : null}
+      {submitError && !unknownOutcome && <><p className="checkout-field-error" role="alert">{submitError}</p><Link href={ROUTES.buyer.cart}>Quay lại giỏ hàng</Link></>}
     </aside></div>
   </>;
 }
@@ -737,11 +852,19 @@ export function OrderDetailScreen() {
   const { id } = useParams<{ id: string }>();
   const orderId = String(id ?? "");
   const order = useApiResource(orderId ? `buyer-order:${orderId}` : null, (signal) => api.get<ApiResponse<Order> | Order>(`/api/v1/orders/${encodeURIComponent(orderId)}`, { signal }).then(unwrap));
-  const shipment = useApiResource(orderId ? `buyer-shipment:${orderId}` : null, (signal) => fulfillmentService.getShipmentByOrderId(orderId, signal));
+  const [shipmentRefresh, setShipmentRefresh] = useState(0);
   const [confirmingSubOrderId, setConfirmingSubOrderId] = useState<string | null>(null);
   const [cancellingOrder, setCancellingOrder] = useState(false);
   const [confirmMessage, setConfirmMessage] = useState("");
   const [confirmError, setConfirmError] = useState("");
+  const [mountedAt] = useState(() => Date.now());
+
+  function afterAction(message: string) {
+    setConfirmError("");
+    setConfirmMessage(message);
+    order.reload();
+    setShipmentRefresh((value) => value + 1);
+  }
 
   async function confirmDelivery(subOrderId: string) {
     setConfirmingSubOrderId(subOrderId);
@@ -752,7 +875,7 @@ export function OrderDetailScreen() {
       setConfirmMessage("Đã xác nhận nhận hàng. Hệ thống đang cập nhật trạng thái giải ngân cho người bán.");
       order.reload();
     } catch (reason) {
-      setConfirmError((reason as Error).message || "Không thể xác nhận đã nhận hàng.");
+      setConfirmError(describeCartFailure(reason));
     } finally {
       setConfirmingSubOrderId(null);
     }
@@ -775,9 +898,9 @@ export function OrderDetailScreen() {
       }
       setConfirmMessage("Đã hủy đơn hàng thành công! Tồn kho tạm giữ (Reserved) đã được nhả lại vào khả dụng (Available) và tiền đơn hàng (nếu đã thanh toán qua Ví) đã được hoàn trả.");
       order.reload();
-      shipment.reload();
+      setShipmentRefresh((value) => value + 1);
     } catch (reason) {
-      setConfirmError((reason as Error).message || "Không thể hủy đơn hàng này.");
+      setConfirmError(describeCartFailure(reason));
     } finally {
       setCancellingOrder(false);
     }
@@ -786,21 +909,29 @@ export function OrderDetailScreen() {
   const subOrders = order.data?.subOrders ?? [];
   const primaryStatus = subOrders[0]?.status ?? order.data?.status ?? "—";
   const canCancel = Boolean(order.data && canBuyerCancelOrder(order.data.status, subOrders));
+  const canPayAgain = Boolean(order.data && canRepay(order.data, subOrders, mountedAt));
+  const canComplete = Boolean(order.data && canCompleteOrder(order.data, subOrders));
 
   return <>
     <PageHeading
       title="Chi tiết đơn mua"
       action={
-        canCancel ? (
-          <button
-            type="button"
-            className="button button-secondary"
-            style={{ borderColor: "var(--danger, #dc2626)", color: "var(--danger, #dc2626)" }}
-            disabled={cancellingOrder}
-            onClick={() => void handleCancelOrder()}
-          >
-            {cancellingOrder ? "Đang hủy đơn…" : "Hủy đơn hàng"}
-          </button>
+        canCancel || canPayAgain || canComplete ? (
+          <div className="action-row">
+            {canPayAgain && order.data && <RepayButton orderId={orderId} total={order.data.totalAmount} onDone={afterAction} />}
+            {canComplete && <CompleteOrderButton orderId={orderId} onDone={afterAction} />}
+            {canCancel && (
+              <button
+                type="button"
+                className="button button-secondary"
+                style={{ borderColor: "var(--danger, #dc2626)", color: "var(--danger, #dc2626)" }}
+                disabled={cancellingOrder}
+                onClick={() => void handleCancelOrder()}
+              >
+                {cancellingOrder ? "Đang hủy đơn…" : "Hủy đơn hàng"}
+              </button>
+            )}
+          </div>
         ) : undefined
       }
     />
@@ -856,6 +987,7 @@ export function OrderDetailScreen() {
               <h2 style={{ margin: 0 }}>Đơn gian hàng {sub.subOrderNo} · {sub.shopName}</h2>
               <Badge>{describeOrderStatus(sub.status)}</Badge>
             </div>
+            {canChangeAddress(sub) && <div className="action-row" style={{ marginBottom: 12 }}><ChangeAddressButton subOrderId={sub.subOrderId} onDone={afterAction} /></div>}
             <div className="info-row">
               <span>Phương thức thanh toán</span>
               <strong>Ví Nexus ({sub.paymentMethod})</strong>
@@ -917,25 +1049,15 @@ export function OrderDetailScreen() {
             <>
               <div className="info-row"><span>Mã Buyer</span><strong>{order.data.buyerId}</strong></div>
               <div className="info-row"><span>Ngày tạo đơn</span><strong>{order.data.createdAt ? new Date(order.data.createdAt).toLocaleString("vi-VN") : "—"}</strong></div>
+              {subOrders.filter((sub) => canReportSubOrder(sub.status)).map((sub) => (
+                <div className="info-row" key={sub.subOrderId}><span>{sub.shopName || sub.subOrderNo}</span><Link href={orderReportHref(sub)}>Báo cáo vấn đề với người bán</Link></div>
+              ))}
             </>
           ) : (
             <NoData title={order.loading ? "Đang tải đơn hàng…" : "Không có dữ liệu đơn hàng"} />
           )}
         </Card>
-        <Card className="card-pad">
-          <h2>Giao nhận</h2>
-          {shipment.error && <p className="notice" role="alert">{shipment.error.message}</p>}
-          {shipment.data ? (
-            <>
-              <div className="info-row"><span>Mã vận đơn</span><strong>{shipment.data.trackingNumber ?? "Đang khởi tạo"}</strong></div>
-              <div className="info-row"><span>Trạng thái</span><strong>{shipment.data.status}</strong></div>
-              <div className="info-row"><span>Người nhận</span><strong>{shipment.data.receiverName}</strong></div>
-              <div className="info-row"><span>Địa chỉ</span><strong>{shipment.data.receiverAddress}</strong></div>
-            </>
-          ) : (
-            <NoData title={shipment.loading ? "Đang tải vận đơn…" : "Vận đơn sẽ hiển thị khi người bán chấp nhận đơn"} />
-          )}
-        </Card>
+        <OrderShipmentsCard key={shipmentRefresh} orderId={orderId} />
       </div>
     </div>
   </>;

@@ -6,21 +6,10 @@ import { ROUTES } from "@/constants/routes";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatMoney } from "@/lib/presentation";
 import { walletService } from "./services/wallet.service";
+import { transactionDirection, transactionTypeLabel } from "./transaction-display";
 
 export function transactionType(type: string): string {
-  return (
-    {
-      TOPUPVNPAY: "Nạp tiền",
-      TOPUPSTRIPE: "Nạp tiền",
-      DEPOSIT: "Nạp tiền",
-      PURCHASEDEBIT: "Thanh toán đơn hàng",
-      PAYMENT: "Thanh toán",
-      REFUNDCREDIT: "Hoàn tiền",
-      REFUND: "Hoàn tiền",
-      ESCROWRELEASE: "Nhận tiền đơn hàng",
-      WITHDRAWALDEBIT: "Rút tiền",
-    } as Record<string, string>
-  )[type.toUpperCase()] ?? type;
+  return transactionTypeLabel(type);
 }
 
 export function transactionStatus(status: string): string {
@@ -33,40 +22,6 @@ export function transactionStatus(status: string): string {
       CANCELLED: "Đã hủy",
     } as Record<string, string>
   )[status.toUpperCase()] ?? status;
-}
-
-const creditTypes = new Set([
-  "TOPUPVNPAY",
-  "TOPUPSTRIPE",
-  "DEPOSIT",
-  "REFUNDCREDIT",
-  "REFUND",
-  "TRANSFERIN",
-  "ADJUSTMENTCREDIT",
-  "WITHDRAWALREVERSAL",
-]);
-
-const debitTypes = new Set([
-  "PURCHASEDEBIT",
-  "PAYMENT",
-  "TRANSFEROUT",
-  "ADJUSTMENTDEBIT",
-  "WITHDRAWALDEBIT",
-]);
-
-function transactionDirection(
-  type: string,
-  status: string,
-  amount: number,
-): "credit" | "debit" | null {
-  if (amount === 0 || !["SUCCESS", "COMPLETED"].includes(status.toUpperCase())) {
-    return null;
-  }
-
-  const normalizedType = type.toUpperCase();
-  if (creditTypes.has(normalizedType)) return "credit";
-  if (debitTypes.has(normalizedType)) return "debit";
-  return null;
 }
 
 export function transactionDate(value: string): string {
@@ -188,6 +143,7 @@ export function WalletScreen() {
       )}
 
       <div className="action-row">
+        <Link className="button button-secondary" href={ROUTES.buyer.transfer}>Chuyển tiền</Link>
         <Link className="button button-secondary" href={ROUTES.buyer.topUp}>
           Nạp tiền vào ví
         </Link>

@@ -11,14 +11,22 @@ import { Badge, ButtonLink, Card, NoData, PageHeading, SectionHeading } from "@/
 import { api, unwrap, type ApiResponse } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatMoney, resolveImageUrl } from "@/lib/presentation";
-import { fulfillmentService } from "@/features/fulfillment";
+import { countFailedAttempts, fulfillmentService, hasShipmentToTrack, shipmentStatusLabel } from "@/features/fulfillment";
 import { loadSafeRegistrationDraft, sellerService } from "./services/seller.service";
 import { SellerShopAddressFields } from "./components/SellerShopAddressFields";
+import { ConfirmReturnButton } from "./components/ConfirmReturnButton";
+import { canConfirmReturn } from "./return-rules";
+import { SellerWarehouseGate } from "./components/SellerWarehouseForm";
+import { describeShipmentRetryFailure, needsShipmentRetry } from "./shipment-retry-outcome";
+import { useWarehouseReadiness } from "./use-warehouse-readiness";
+import { acceptOrderBlock, warehouseReadiness } from "./warehouse-readiness";
 import { ghnPresets } from "./ghn-presets";
 import { isSellerWarehouse, sellerCatalogService, type InventoryBalance, type ProductVariant, type SellerProductDetail } from "./services/catalog.service";
 import { sellerOrdersService } from "./services/seller-orders.service";
 import { SellerBuyerReview } from "./SellerBuyerReview";
 import { MAX_INVENTORY_QUANTITY } from "./services/inventory-quantity";
+import { InventoryAlertsPanel } from "./components/InventoryAlertsPanel";
+import { InventoryLedgerPanel } from "./components/InventoryLedgerPanel";
 import { describeCategoryError, leafCategoryOptions } from "./services/category-options";
 
 export { BecomeSellerScreen } from "./BecomeSellerScreen";
@@ -1341,10 +1349,19 @@ export function SellerInventoryScreen() {
           Không tải được hồ sơ Seller: {sellerProfile.error.message}
         </p>
       )}
-      {!warehouses.loading && !sellerProfile.loading && !sellerProfile.error && !personalWarehouse && (
-        <p className="notice" role="status" style={{ marginBottom: 16 }}>
-          Kho riêng chưa được đồng bộ sau khi duyệt hồ sơ. Vui lòng tải lại trang hoặc kiểm tra hồ sơ Shop.
-        </p>
+      {!warehouses.loading && !warehouses.error && !sellerProfile.loading && !sellerProfile.error && (
+        <SellerWarehouseGate
+          readiness={warehouseReadiness(personalWarehouse)}
+          warehouse={personalWarehouse}
+          profile={{
+            provinceId: String(sellerProfile.data?.provinceId ?? ""),
+            districtId: String(sellerProfile.data?.districtId ?? ""),
+            wardCode: String(sellerProfile.data?.wardCode ?? ""),
+            streetAddress: pickupAddress,
+            phone: String(sellerProfile.data?.hotline ?? ""),
+          }}
+          onSaved={warehouses.reload}
+        />
       )}
       {intakeSuccess && !intakeModalOpen && (
         <p className="form-success" role="status" style={{ marginBottom: 16 }}>
@@ -1382,6 +1399,9 @@ export function SellerInventoryScreen() {
           </strong>
         </Card>
       </div>
+
+      <InventoryAlertsPanel />
+      <InventoryLedgerPanel />
 
       {/* Full Warehouse Product & SKU Inventory Management */}
       <Card className="card-pad seller-inventory-selector" style={{ marginBottom: 20 }}>
@@ -1828,44 +1848,63 @@ export function SellerInventoryScreen() {
 }
 
 export function SellerShipmentsScreen() {
-  const [orderId, setOrderId] = useState("");
+  const [page, setPage] = useState(1);
+  const resource = useApiResource(
+    `seller-shipments-list:${page}`,
+    (signal) => sellerOrdersService.list<SellerPaged<SellerSubOrderSummary>>(page, signal, 20),
+  );
+  const rows = (resource.data?.items ?? []).filter((sub) => hasShipmentToTrack(sub.status));
   return (
     <>
       <PageHeading
         overline="Kênh người bán"
         title="Vận đơn & giao nhận"
-        description="Tra cứu vận đơn theo mã đơn hàng qua Fulfillment API."
+        description="Các đơn bạn đã chấp nhận. Chọn một đơn để xem hành trình giao hàng."
       />
+      {resource.error && <p className="notice" role="alert">{msg(resource.error)}</p>}
       <Card className="card-pad">
-        <form
-          className="toolbar"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (orderId.trim()) window.location.assign(ROUTES.seller.shipment(orderId.trim()));
-          }}
-        >
-          <label className="field-wrap">
-            Mã đơn hàng
-            <input
-              className="field"
-              required
-              value={orderId}
-              onChange={(event) => setOrderId(event.target.value)}
-              placeholder="UUID đơn hàng"
-            />
-          </label>
-          <button className="button button-secondary">Tra cứu vận đơn</button>
-        </form>
-        <p className="status-note">
-          Fulfillment chưa có API danh sách vận đơn theo Seller. Bạn có thể tra cứu bằng mã đơn hàng đã biết.
-        </p>
-      </Card>
-      <Card className="card-pad">
-        <h2>Tạo vận đơn GHN</h2>
-        <p>Đơn hàng có thể tạo vận đơn sau khi Seller chấp nhận. Tạo vận đơn tạm chưa mở trong bản demo này.</p>
-        <button className="button button-disabled" disabled>
-          Tạo vận đơn
-        </button>
+        {rows.length ? (
+          <div className="table-scroll">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Mã đơn gian hàng</th>
+                  <th>Trạng thái</th>
+                  <th>Thao tác</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((sub) => (
+                  <tr key={sub.subOrderId}>
+                    <td>
+                      <strong>{sub.subOrderNo}</strong>
+                      <div style={{ fontSize: 12, color: "var(--muted)" }}>{new Date(sub.createdAt).toLocaleString("vi-VN")}</div>
+                    </td>
+                    <td><Badge tone={sellerOrderStatusTone(sub.status)}>{describeSellerOrderStatus(sub.status)}</Badge></td>
+                    <td><ButtonLink href={ROUTES.seller.shipment(sub.subOrderId)} variant="secondary">Theo dõi vận đơn</ButtonLink></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <NoData
+            title={
+              resource.loading
+                ? "Đang tải danh sách đơn…"
+                : resource.error
+                  ? "Không tải được danh sách đơn"
+                  : "Chưa có đơn nào đã chấp nhận trong trang này"
+            }
+          />
+        )}
+        {resource.data && resource.data.pagination.totalPages > 1 && (
+          <div className="action-row">
+            <button type="button" className="button button-secondary" disabled={page <= 1} onClick={() => setPage((value) => value - 1)}>Trang trước</button>
+            <span>Trang {page}/{resource.data.pagination.totalPages}</span>
+            <button type="button" className="button button-secondary" disabled={!resource.data.pagination.hasNextPage} onClick={() => setPage((value) => value + 1)}>Trang sau</button>
+          </div>
+        )}
       </Card>
     </>
   );
@@ -1905,6 +1944,10 @@ type SellerSubOrder = {
   itemsAmount: number;
   shippingFeeAmount: number;
   totalAmount: number;
+  productDiscountAmount?: number;
+  shopDiscountAmount?: number;
+  systemDiscountAmount?: number;
+  discountAmount?: number;
   createdAt: string;
   items: SellerSubOrderItem[];
 };
@@ -1957,6 +2000,7 @@ export function SellerOrdersScreen() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState("");
   const [actionError, setActionError] = useState("");
+  const acceptBlock = acceptOrderBlock(useWarehouseReadiness().readiness);
   const resource = useApiResource(
     `seller-sub-orders:${page}:${pageSize}:${statusFilter}`,
     (signal) =>
@@ -1970,7 +2014,7 @@ export function SellerOrdersScreen() {
     try {
       await sellerOrdersService.accept(sub.orderId, sub.subOrderId);
       setFeedback(
-        `Đã chấp nhận đơn ${sub.subOrderNo}. Thông tin vận đơn sẽ cập nhật khi có dữ liệu từ hệ thống giao nhận.`,
+        `Đã chấp nhận đơn ${sub.subOrderNo}. Mở "Theo dõi vận đơn" để xem mã vận đơn; nếu chưa có, mở chi tiết đơn để tạo lại vận đơn.`,
       );
       resource.reload();
     } catch (reason) {
@@ -1997,6 +2041,11 @@ export function SellerOrdersScreen() {
       {feedback && (
         <p role="status" className="form-success">
           {feedback}
+        </p>
+      )}
+      {acceptBlock && (
+        <p role="alert" className="notice">
+          {acceptBlock.message} <Link href={ROUTES.seller.inventory}>Mở Quản lý kho</Link>
         </p>
       )}
       <div className="seller-orders-filter">
@@ -2062,7 +2111,8 @@ export function SellerOrdersScreen() {
                             <button
                               type="button"
                               className="button button-primary"
-                              disabled={busyId === sub.subOrderId}
+                              disabled={busyId === sub.subOrderId || Boolean(acceptBlock)}
+                              title={acceptBlock?.message}
                               onClick={() => void acceptOrder(sub)}
                             >
                               {busyId === sub.subOrderId ? "Đang xác nhận…" : "Chấp nhận đơn"}
@@ -2071,6 +2121,11 @@ export function SellerOrdersScreen() {
                           <ButtonLink href={ROUTES.seller.order(sub.subOrderId)} variant="secondary">
                             Chi tiết
                           </ButtonLink>
+                          {hasShipmentToTrack(sub.status) && (
+                            <ButtonLink href={ROUTES.seller.shipment(sub.subOrderId)} variant="secondary">
+                              Theo dõi vận đơn
+                            </ButtonLink>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -2146,7 +2201,17 @@ export function SellerOrderDetailScreen() {
       sellerOrdersService.detail<SellerSubOrder>(subOrderId, signal),
   );
 
+  const acceptBlock = acceptOrderBlock(useWarehouseReadiness().readiness);
+  const [retryBusy, setRetryBusy] = useState(false);
+  const [retryFailure, setRetryFailure] = useState<ReturnType<typeof describeShipmentRetryFailure> | null>(null);
   const sub = resource.data;
+  const accepted = Boolean(sub && hasShipmentToTrack(sub.status) && needsShipmentRetry(sub.status, null));
+  // An accepted order whose shipment was never created has no tracking code in its timeline.
+  const shipmentInfo = useApiResource(
+    sub && accepted ? `seller-order-shipment:${sub.subOrderId}` : null,
+    (signal) => fulfillmentService.getSubOrderTimeline(subOrderId, signal),
+  );
+  const canRetryShipment = Boolean(accepted && shipmentInfo.data && needsShipmentRetry(sub?.status, shipmentInfo.data.trackingCode));
   const canAccept = Boolean(sub && ["PAID", "PENDINGCONFIRMATION"].includes(sub.status.replace(/[^a-z]/gi, "").toUpperCase()));
 
   async function handleAccept() {
@@ -2157,13 +2222,29 @@ export function SellerOrderDetailScreen() {
     try {
       await sellerOrdersService.accept(sub.orderId, sub.subOrderId);
       setFeedback(
-        "Đã chấp nhận đơn hàng. Vận đơn sẽ cập nhật khi hệ thống giao nhận tạo thành công.",
+        "Đã chấp nhận đơn hàng. Nếu vận đơn chưa tạo được, bạn sẽ thấy nút \"Tạo lại vận đơn\" ở trang này.",
       );
       resource.reload();
     } catch (reason) {
       setActionError(msg(reason as Error));
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function handleRetryShipment() {
+    if (!sub || retryBusy) return;
+    setRetryBusy(true);
+    setRetryFailure(null);
+    setFeedback("");
+    try {
+      const result = await fulfillmentService.retrySubOrderShipment(sub.subOrderId);
+      setFeedback(`Đã tạo lại vận đơn ${result.trackingCode}.`);
+      shipmentInfo.reload();
+    } catch (reason) {
+      setRetryFailure(describeShipmentRetryFailure(reason));
+    } finally {
+      setRetryBusy(false);
     }
   }
 
@@ -2281,17 +2362,30 @@ export function SellerOrderDetailScreen() {
               <span>Phí giao hàng</span>
               <strong>{formatMoney(sub.shippingFeeAmount)}</strong>
             </div>
+            {([ ["Giảm sản phẩm", sub.productDiscountAmount], ["Giảm từ shop", sub.shopDiscountAmount], ["Giảm từ sàn", sub.systemDiscountAmount] ] as const).filter(([, amount]) => typeof amount === "number" && amount > 0).map(([label, amount]) => <div className="info-row" key={label}><span>{label}</span><strong>−{formatMoney(amount ?? 0)}</strong></div>)}
             <div className="info-row">
               <span>Tổng tiền đơn hàng</span>
               <strong style={{ color: "var(--sky-dark)" }}>{formatMoney(sub.totalAmount)}</strong>
             </div>
+            {acceptBlock && canAccept && (
+              <p role="alert" className="notice" style={{ marginTop: 12 }}>
+                {acceptBlock.message} <Link href={ROUTES.seller.inventory}>Mở Quản lý kho</Link>
+              </p>
+            )}
+            {retryFailure && (
+              <p role="alert" className="notice" style={{ marginTop: 12 }}>
+                {retryFailure.message}{" "}
+                {retryFailure.fix === "warehouse-form" && <Link href={ROUTES.seller.inventory}>Mở Quản lý kho</Link>}
+              </p>
+            )}
             <div className="action-row" style={{ marginTop: 18 }}>
               {canAccept && (
                 <>
                   <button
                     type="button"
                     className="button button-primary"
-                    disabled={busy}
+                    disabled={busy || Boolean(acceptBlock)}
+                    title={acceptBlock?.message}
                     onClick={() => void handleAccept()}
                   >
                     {busy ? "Đang xử lý…" : "Chấp nhận đơn"}
@@ -2305,6 +2399,16 @@ export function SellerOrderDetailScreen() {
                     Từ chối đơn
                   </button>
                 </>
+              )}
+              {canRetryShipment && (
+                <button type="button" className="button button-primary" disabled={retryBusy} onClick={() => void handleRetryShipment()}>
+                  {retryBusy ? "Đang tạo…" : "Tạo lại vận đơn"}
+                </button>
+              )}
+              {hasShipmentToTrack(sub.status) && (
+                <ButtonLink href={ROUTES.seller.shipment(sub.subOrderId)} variant="secondary">
+                  Theo dõi vận đơn
+                </ButtonLink>
               )}
               <ButtonLink href={ROUTES.seller.orders} variant="secondary">
                 Quay lại đơn hàng
@@ -2332,17 +2436,26 @@ export function SellerOrderDetailScreen() {
 
 export function SellerShipmentDetailScreen() {
   const params = useParams<{ id: string }>();
-  const orderId = String(params.id ?? "");
+  const subOrderId = String(params.id ?? "");
   const resource = useApiResource(
-    orderId ? `seller-shipment-order:${orderId}` : null,
-    (signal) => fulfillmentService.getShipmentByOrderId(orderId, signal),
+    subOrderId ? `seller-shipment-timeline:${subOrderId}` : null,
+    (signal) => fulfillmentService.getSubOrderTimeline(subOrderId, signal),
   );
+  const data = resource.data;
+  const finished = data ? ["DELIVERED", "COMPLETED"].includes(data.currentStatus.replace(/[^a-z]/gi, "").toUpperCase()) : true;
+  // The carrier's own record explains failed delivery attempts. It is extra detail, so a failure to load it is not shown as an error.
+  const carrier = useApiResource(
+    data?.trackingCode && !finished ? `seller-shipment-carrier:${data.trackingCode}` : null,
+    (signal) => fulfillmentService.getShipmentByTracking(data?.trackingCode ?? "", signal),
+  );
+  const failedAttempts = countFailedAttempts(carrier.data?.events);
+  const lastReason = [...(carrier.data?.events ?? [])].reverse().find((event) => event.status === "DeliveryAttemptFailed" && event.reason)?.reason;
   return (
     <>
       <PageHeading
         overline="Kênh người bán"
         title="Theo dõi vận đơn"
-        description="Trạng thái giao nhận của đơn hàng từ Fulfillment API."
+        description="Hành trình giao hàng của đơn gian hàng."
       />
       {resource.error && (
         <p className="notice" role="alert">
@@ -2350,32 +2463,50 @@ export function SellerShipmentDetailScreen() {
         </p>
       )}
       <Card className="card-pad">
-        {resource.data ? (
+        {data ? (
           <>
             <div className="info-row">
-              <span>Mã đơn hàng</span>
-              <strong className="seller-wrap-value">{resource.data.orderId}</strong>
+              <span>Mã đơn gian hàng</span>
+              <strong className="seller-wrap-value">{data.subOrderNo}</strong>
+            </div>
+            <div className="info-row">
+              <span>Đơn vị vận chuyển</span>
+              <strong>{data.carrierName ?? data.carrierCode ?? "—"}</strong>
             </div>
             <div className="info-row">
               <span>Mã vận đơn</span>
-              <strong>{resource.data.trackingNumber ?? "Chưa cấp"}</strong>
+              <strong>{data.trackingCode ?? "Chưa có mã vận đơn"}</strong>
             </div>
             <div className="info-row">
               <span>Trạng thái</span>
-              <Badge>{resource.data.status}</Badge>
+              <Badge>{shipmentStatusLabel(data.currentStatus)}</Badge>
             </div>
-            <div className="info-row">
-              <span>Người nhận</span>
-              <strong>{resource.data.receiverName}</strong>
-            </div>
-            <div className="info-row">
-              <span>Số điện thoại</span>
-              <strong>{resource.data.receiverPhone}</strong>
-            </div>
-            <div className="info-row">
-              <span>Địa chỉ</span>
-              <strong className="seller-wrap-value">{resource.data.receiverAddress}</strong>
-            </div>
+            {data.estimatedDeliveryAt && (
+              <div className="info-row">
+                <span>Dự kiến giao</span>
+                <strong>{new Date(data.estimatedDeliveryAt).toLocaleString("vi-VN")}</strong>
+              </div>
+            )}
+            {lastReason && (
+              <p className="notice" role="status">Lần giao gần nhất không thành công: {lastReason}</p>
+            )}
+            {failedAttempts > 0 && !lastReason && (
+              <p className="notice" role="status">Đã có {failedAttempts} lần giao không thành công.</p>
+            )}
+            <h3 style={{ marginTop: 16 }}>Hành trình</h3>
+            {data.timeline.length ? (
+              <ol style={{ margin: 0, paddingLeft: 18 }}>
+                {data.timeline.map((event, index) => (
+                  <li key={`${event.status}-${event.occurredAt}-${index}`} style={{ marginBottom: 6 }}>
+                    <strong>{event.title || shipmentStatusLabel(event.status)}</strong>
+                    <div>{event.description}</div>
+                    <small>{new Date(event.occurredAt).toLocaleString("vi-VN")}{event.location ? ` · ${event.location}` : ""}</small>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p>Chưa có cập nhật hành trình.</p>
+            )}
           </>
         ) : (
           <NoData
@@ -2389,9 +2520,12 @@ export function SellerShipmentDetailScreen() {
           />
         )}
       </Card>
-      <p className="status-note">
-        Xác nhận hàng hoàn và cộng lại tồn đang tạm khóa. Fulfillment cần chặn xác nhận lặp và kiểm tra quyền với đơn ở kho chung trước khi thao tác này được mở.
-      </p>
+      <div className="action-row">
+        {data && canConfirmReturn(data.timeline) && <ConfirmReturnButton subOrderId={subOrderId} onDone={() => { resource.reload(); }} />}
+        <ButtonLink href={ROUTES.seller.shipments} variant="secondary">
+          Quay lại danh sách vận đơn
+        </ButtonLink>
+      </div>
     </>
   );
 }

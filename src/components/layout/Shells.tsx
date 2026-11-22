@@ -12,6 +12,7 @@ import { authService } from "@/features/auth";
 import { NotificationBell } from "@/features/notification";
 import { notificationService, notificationsChangedEvent } from "@/features/notification/services/notification.service";
 import { NexusBrandHeader } from "@/components/ui/NexusLogo";
+import { useEnabledNavigation } from "@/lib/features/use-enabled-navigation";
 import { NavLinks } from "./NavLinks";
 import { Breadcrumbs } from "./Breadcrumbs";
 import { useApiResource } from "@/lib/api/use-api-resource";
@@ -232,7 +233,27 @@ function AccountNavigation() {
                 <Icon name="user" size={16} />
                 <span>Hồ sơ cá nhân</span>
               </Link>
-              <Link href={ROUTES.auth.changePassword}>
+              <Link href={ROUTES.auth.addresses}>
+                <Icon name="warehouse" size={16} />
+                <span>Sổ địa chỉ</span>
+              </Link>
+              <Link href={ROUTES.auth.sessions}>
+                <Icon name="shield" size={16} />
+                <span>Phiên đăng nhập</span>
+              </Link>
+              <Link href={ROUTES.auth.notificationPreferences}>
+                <Icon name="flag" size={16} />
+                <span>Tuỳ chọn thông báo</span>
+              </Link>
+              <Link href={ROUTES.auth.sessions}>
+              <Icon name="shield" size={16} />
+              <span>Phiên đăng nhập</span>
+            </Link>
+            <Link href={ROUTES.auth.notificationPreferences}>
+              <Icon name="flag" size={16} />
+              <span>Tuỳ chọn thông báo</span>
+            </Link>
+            <Link href={ROUTES.auth.changePassword}>
                 <Icon name="shield" size={16} />
                 <span>Đổi mật khẩu</span>
               </Link>
@@ -343,6 +364,10 @@ function PortalAccountMenu({ role }: { role: string }) {
               <Icon name="user" size={16} />
               <span>Hồ sơ cá nhân</span>
             </Link>
+            <Link href={ROUTES.auth.addresses}>
+              <Icon name="warehouse" size={16} />
+              <span>Sổ địa chỉ</span>
+            </Link>
             <Link href={ROUTES.auth.changePassword}>
               <Icon name="shield" size={16} />
               <span>Đổi mật khẩu</span>
@@ -390,7 +415,8 @@ export function BuyerShell({ children }: { children: ReactNode }) {
   const homeLabel = getRoleHomeLabel(user);
   const isSeller = getNormalizedRoles(user).includes("seller");
 
-  const dynamicBuyerNav = buyerNavigation.filter((item) => {
+  const enabledBuyerNav = useEnabledNavigation(buyerNavigation);
+  const dynamicBuyerNav = enabledBuyerNav.filter((item) => {
     // Nếu người dùng đã là người bán, họ đã có nút "Kênh người bán" ở góc phải header-actions.
     // Ẩn tab đăng ký bán hàng khỏi thanh nav mua sắm để tránh trùng lặp.
     if (item.href === ROUTES.buyer.becomeSeller && isSeller) {

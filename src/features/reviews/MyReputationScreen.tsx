@@ -2,6 +2,7 @@
 
 import { Card, NoData, PageHeading } from "@/components/ui/Primitives";
 import { useApiResource } from "@/lib/api/use-api-resource";
+import { ReputationHistoryBlock, ReputationPolicyBlock } from "@/features/account/ReputationDetails";
 import { reviewService } from "./services/review.service";
 
 const DATE = new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium", timeStyle: "short" });
@@ -37,6 +38,8 @@ export function MyReputationScreen() {
           negative={data.sellerNegativeReviews} penalties={data.sellerPenaltyCount} next={data.sellerNextLevelThreshold}
           note={data.canSell ? "Bạn đủ điều kiện bán hàng." : "Điểm hiện tại chưa đủ để bán hàng."} />
       </div>
+      <ReputationPolicyBlock />
+      <ReputationHistoryBlock />
       {data.updatedAt && <p className="status-note">Cập nhật lần cuối {DATE.format(new Date(data.updatedAt))}.</p>}
     </>}
   </>;

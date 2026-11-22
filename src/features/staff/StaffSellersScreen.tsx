@@ -6,6 +6,7 @@ import { useState } from "react";
 import { AdminPagination, Badge, Card, NoData, PageHeading } from "@/components/ui/Primitives";
 import { ROUTES } from "@/constants/routes";
 import { useApiResource } from "@/lib/api/use-api-resource";
+import { StaffWarehouseRetry } from "./StaffWarehouseRetry";
 import { sellerRegistrationsService, type SellerRegistration } from "./services/seller-registrations.service";
 
 const statuses = [
@@ -521,6 +522,7 @@ export function StaffSellerDetailScreen() {
       {registration.data && registration.data.status?.toUpperCase() === "APPROVED" && sellerId && (
         <div style={{ marginTop: 24, borderTop: "1px solid var(--border)", paddingTop: 16 }}>
           <h3 style={{ fontSize: 16, marginBottom: 12 }}>Quản trị trạng thái gian hàng</h3>
+          <StaffWarehouseRetry sellerProfileId={id} />
           {sellerProfile.data && (
             <div style={{ marginBottom: 16 }}>
               <div className="info-row"><span>Trạng thái gian hàng:</span><strong><Badge tone={sellerProfile.data.status === "Active" ? "green" : "red"}>{sellerProfile.data.status || "Hoạt động"}</Badge></strong></div>

@@ -94,6 +94,10 @@ export type WarehouseInfo = {
   name: string;
   type?: string;
   address?: string | null;
+  contactPhone?: string | null;
+  provinceName?: string | null;
+  districtId?: number | null;
+  wardCode?: string | null;
   isDisabled?: boolean;
   sellerId?: string | null;
 };
@@ -384,6 +388,23 @@ export const sellerCatalogService = {
     );
   },
 
+  async lowStockAlerts(warehouseId?: string, signal?: AbortSignal): Promise<unknown> {
+    const query = warehouseId ? `?warehouseId=${encodeURIComponent(warehouseId)}` : "";
+    return unwrap(await api.get<unknown>(`/api/v1/inventories/alerts/low-stock${query}`, { signal }));
+  },
+
+  async deadStockAlerts(days: number, warehouseId?: string, signal?: AbortSignal): Promise<unknown> {
+    const query = `?days=${days}${warehouseId ? `&warehouseId=${encodeURIComponent(warehouseId)}` : ""}`;
+    return unwrap(await api.get<unknown>(`/api/v1/inventories/alerts/dead-stock${query}`, { signal }));
+  },
+
+  async updateThreshold(skuId: string, minStockThreshold: number, isLowStockAlertEnabled?: boolean) {
+    return api.put<unknown>(`/api/v1/inventories/${encodeURIComponent(skuId)}/threshold`, {
+      minStockThreshold,
+      ...(isLowStockAlertEnabled === undefined ? {} : { isLowStockAlertEnabled }),
+    });
+  },
+
   async declareInventory(input: {
     skuId: string;
     warehouseId?: string;
@@ -467,15 +488,13 @@ export const sellerCatalogService = {
     return [];
   },
 
-  async createWarehouse(input: { code: string; name: string; address: string; sellerId?: string }) {
+  /** Completes the seller's own warehouse. The server needs only the name; the other fields are updated when sent. */
+  async updateWarehouse(
+    id: string,
+    input: { name: string; address?: string; contactPhone?: string; provinceName?: string; districtId?: number; wardCode?: string },
+  ) {
     return unwrap(
-      await api.post<ApiResponse<WarehouseInfo> | WarehouseInfo>("/api/v1/warehouses", {
-        code: input.code.trim().toUpperCase(),
-        name: input.name.trim(),
-        type: "SellerWarehouse",
-        address: input.address.trim(),
-        sellerId: input.sellerId,
-      }),
+      await api.put<ApiResponse<WarehouseInfo> | WarehouseInfo>(`/api/v1/warehouses/${encodeURIComponent(id)}`, input),
     );
   },
 };

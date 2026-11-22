@@ -32,6 +32,10 @@ export const withdrawalService = {
   get: async (id: string, signal?: AbortSignal): Promise<WithdrawalSummary> =>
     unwrap(await api.get<Envelope<WithdrawalSummary>>(`/api/v1/wallets/withdrawals/${encodeURIComponent(id)}`, { signal })),
 
+  /** Seller cancels a request that is still Pending; the held money becomes available again. Not idempotent: a second call is refused by status. */
+  cancel: async (id: string): Promise<WithdrawalSummary> =>
+    unwrap(await api.post<Envelope<WithdrawalSummary>>(`/api/v1/wallets/withdrawals/${encodeURIComponent(id)}/cancel`, {})),
+
   adminList: async (page = 1, pageSize = 20, status?: string, signal?: AbortSignal): Promise<AdminWithdrawalPage> =>
     unwrap(await api.get<Envelope<AdminWithdrawalPage>>(`/api/v1/admin/wallets/withdrawals?${query({ page, pageSize, status })}`, { signal })),
 
@@ -52,7 +56,16 @@ export const WITHDRAWAL_STATUS: Record<string, { label: string; tone: StatusTone
   Completed: { label: "Đã chuyển tiền", tone: "green", hint: "Ngân hàng đã chuyển tiền vào tài khoản nhận." },
   Rejected: { label: "Bị từ chối", tone: "red", hint: "Yêu cầu bị từ chối, tiền đã trả lại khả dụng trong ví." },
   Failed: { label: "Chuyển khoản thất bại", tone: "red", hint: "Chuyển khoản không thành công, tiền đã được hoàn lại vào ví." },
+  Cancelled: { label: "Đã hủy", tone: "slate", hint: "Bạn đã hủy yêu cầu, tiền đã trả lại khả dụng trong ví." },
 };
+
+/** Every state a request can be in, in the order staff filters show them. Staff and seller read the same table above. */
+export const WITHDRAWAL_STATUS_ORDER = ["Pending", "Approved", "Processing", "Completed", "Rejected", "Failed", "Cancelled"] as const;
+
+/** Only a request that nobody has started to process may still be cancelled by its owner. */
+export function canCancelWithdrawal(status: string): boolean {
+  return status.replace(/[^a-z]/gi, "").toUpperCase() === "PENDING";
+}
 
 export function withdrawalStatus(status: string) {
   return WITHDRAWAL_STATUS[status] ?? { label: status, tone: "slate" as StatusTone, hint: "" };
@@ -80,4 +93,14 @@ export const WITHDRAWAL_HISTORY_LABEL: Record<string, string> = {
   Complete: "Xác nhận đã chuyển tiền",
   Fail: "Chuyển khoản thất bại, hoàn ví",
   ResolveFailed: "Admin xử lý thất bại, hoàn ví",
+  Cancel: "Seller hủy yêu cầu",
+  // The server sends the audit action name, for example "WithdrawalApprove"; the short names above are kept for older data.
+  WithdrawalRequest: "Seller gửi yêu cầu",
+  WithdrawalApprove: "Duyệt",
+  WithdrawalReject: "Từ chối",
+  WithdrawalStartProcessing: "Bắt đầu chuyển khoản",
+  WithdrawalComplete: "Xác nhận đã chuyển tiền",
+  WithdrawalFail: "Chuyển khoản thất bại, hoàn ví",
+  WithdrawalResolveFailed: "Admin xử lý thất bại, hoàn ví",
+  WithdrawalCancel: "Seller hủy yêu cầu",
 };
