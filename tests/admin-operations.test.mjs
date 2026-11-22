@@ -15,3 +15,15 @@ test("audit diff detects a changed field and masks sensitive names", () => {
   assert.equal(safeAuditValue("metadata", { bank: { accountNumber: "123456" } }), '{"bank":{"accountNumber":"Đã che"}}');
   assert.equal(jsonDiff('{"status":"Open"}', '{"status":"Closed"}')[0].changed, true);
 });
+
+import { canRetryDelivery, validateRetryReason, validateTemplate } from "@/features/admin/notifications/notification-admin-rules.ts";
+
+test("notification admin rules", () => {
+  assert.equal(canRetryDelivery("Failed"), true);
+  assert.equal(canRetryDelivery("Sent"), false);
+  assert.ok(validateRetryReason("  "));
+  assert.equal(validateRetryReason("kênh đã sửa"), null);
+  assert.ok(validateTemplate("", "x"));
+  assert.ok(validateTemplate("a", "b".repeat(4001)));
+  assert.equal(validateTemplate("a", "b"), null);
+});

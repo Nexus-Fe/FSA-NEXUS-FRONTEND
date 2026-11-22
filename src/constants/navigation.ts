@@ -39,6 +39,7 @@ export const staffNavigation: NavigationItem[] = [
   { label: "Duyệt rút tiền", href: ROUTES.staff.withdrawals, icon: "wallet" },
   { label: "Khiếu nại & Vi phạm", href: ROUTES.staff.reports, icon: "flag" },
   { label: "Hoàn tiền", href: ROUTES.staff.refunds, icon: "orders", feature: "refunds" },
+  { label: "Trung tâm thông báo", href: ROUTES.staff.notificationCenter, icon: "orders" },
   { label: "Xử phạt vi phạm", href: ROUTES.staff.penalties, icon: "gavel" },
   { label: "Đối soát giao dịch", href: ROUTES.staff.discrepancies, icon: "orders" },
 ];
@@ -62,4 +63,5 @@ export const adminNavigation: NavigationItem[] = [
   { label: "Cảnh báo bảo mật", href: ROUTES.admin.securityAlerts, icon: "shield", feature: "security-alerts" },
   { label: "Sức khỏe hệ thống", href: ROUTES.admin.systemHealth, icon: "shield", feature: "system-health" },
   { label: "Nhật ký & Thông báo", href: ROUTES.admin.notifications, icon: "orders" },
+  { label: "Trung tâm thông báo", href: ROUTES.admin.notificationCenter, icon: "orders" },
 ];

@@ -72,6 +72,7 @@ export const ROUTES = {
     seller: (id: string) => "/staff/sellers/" + encodeURIComponent(id),
     reports: "/staff/reports",
     refunds: "/staff/refunds",
+    notificationCenter: "/staff/notification-center",
     penalties: "/staff/penalties",
   },
   admin: {
@@ -86,6 +87,7 @@ export const ROUTES = {
     penalties: "/admin/penalties",
     reports: "/admin/reports",
     auditLogs: "/admin/audit-logs",
+    notificationCenter: "/admin/notification-center",
     securityAlerts: "/admin/security-alerts",
     systemHealth: "/admin/system-health",
     refunds: "/admin/refunds",

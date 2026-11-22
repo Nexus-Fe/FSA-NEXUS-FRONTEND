@@ -27,6 +27,7 @@ export const RefundsScreenClient = dynamic(() => import("@/features/refunds/Refu
 export const AuditLogsScreenClient = dynamic(() => import("@/features/admin/operations/OperationsScreens").then((module) => module.AuditLogsScreen), { ssr: false, loading: ScreenLoading });
 export const SecurityAlertsScreenClient = dynamic(() => import("@/features/admin/operations/OperationsScreens").then((module) => module.SecurityAlertsScreen), { ssr: false, loading: ScreenLoading });
 export const SystemHealthScreenClient = dynamic(() => import("@/features/admin/operations/OperationsScreens").then((module) => module.SystemHealthScreen), { ssr: false, loading: ScreenLoading });
+export const NotificationCenterScreenClient = dynamic(() => import("@/features/admin/notifications/NotificationCenterScreen").then((module) => module.NotificationCenterScreen), { ssr: false, loading: ScreenLoading });
 export const MyWatchlistScreenClient = dynamic(() => import("@/features/auction/MyWatchlistScreen").then((module) => module.MyWatchlistScreen), { ssr: false, loading: ScreenLoading });
 export const AddressBookScreenClient = dynamic(() => import("@/features/profile/AddressBookScreen").then((module) => module.AddressBookScreen), { ssr: false, loading: ScreenLoading });
 export const AccountProfileScreenClient = dynamic(() => import("@/features/auth/AuthScreens").then((module) => module.AccountProfileScreen), { ssr: false, loading: ScreenLoading });
