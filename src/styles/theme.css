@@ -14,32 +14,38 @@
   --font-ui: var(--font-plus-jakarta-sans, "Plus Jakarta Sans"), "Segoe UI", Arial, sans-serif;
 
   /* =======================================================================
-   * 1. MÀU XANH CHỦ ĐẠO (PRIMARY BLUE NAVY)
+   * 1. MÀU XANH CHỦ ĐẠO (DEEP FOREST)
    * Thay đổi mã hex này để thay đổi toàn bộ màu xanh của web.
    * ======================================================================= */
-  --primary: #192841;
+  --primary: #235347;
   /* Màu chính: Nút bấm (Buttons), liên kết, tab active, brand */
-  --primary-hover: #121e31;
+  --primary-hover: #0b2b26;
   /* Màu khi di chuột (hover) vào nút bấm hoặc menu */
-  --primary-active: #0d1726;
+  --primary-active: #051f20;
   /* Màu khi bấm giữ (active/click) */
-  --primary-soft: #eaf0f6;
+  --primary-soft: #daf1de;
   /* Nền nhạt: Huy hiệu (badge), avatar, card highlight */
-  --primary-border: #bac9dc;
+  --primary-border: #8eb69b;
   /* Viền nhạt màu xanh đồng bộ */
-  --primary-rgb: 25, 40, 65;
+  --primary-rgb: 35, 83, 71;
   /* RGB của --primary (dùng cho hiệu ứng đổ bóng shadow, độ mờ) */
+  --forest-mid: #163832;
+  --mint: #8eb69b;
+  --mint-light: #daf1de;
+  --glass-surface: radial-gradient(ellipse at 12% 0%, rgba(255, 255, 255, .56), transparent 48%), linear-gradient(145deg, rgba(255, 255, 255, .42), rgba(255, 255, 255, .2) 58%, rgba(255, 255, 255, .3));
+  --glass-border: rgba(255, 255, 255, 0.88);
+  --glass-shadow: 0 16px 36px rgba(5, 31, 32, 0.13);
 
   /* =======================================================================
    * 2. ĐIỂM NHẤN SÁNG TRÊN NỀN TỐI (HERO / AUTH EFFECTS)
    * Các chi tiết phát sáng và chữ nổi bật ở cột trái trang đăng nhập/đăng ký.
    * ======================================================================= */
-  --primary-accent: #5275a5;
+  --primary-accent: #8eb69b;
   /* Màu phát sáng (glow orb, pill viền, dot) */
-  --primary-accent-light: #7b9cc9;
+  --primary-accent-light: #daf1de;
   /* Chữ nổi bật và icon trên nền tối */
-  --primary-accent-rgb: 82, 117, 165;
-  --hero-bg-deep: #060b13;
+  --primary-accent-rgb: 142, 182, 155;
+  --hero-bg-deep: #051f20;
   /* Nền tối sâu nhất của hiệu ứng gradient */
 
   /* =======================================================================
@@ -51,17 +57,18 @@
   --sky-border: var(--primary-border);
 
   /* =======================================================================
-   * 4. MÀU NỀN & MÀU CHỮ CƠ BẢN (KHÔNG PHẢI MÀU XANH - GIỮ NGUYÊN)
+   * 4. MÀU NỀN & MÀU CHỮ CƠ BẢN
    * ======================================================================= */
-  --ink: #0f172a;
+  --ink: #051f20;
   /* Màu chữ đậm chính */
-  --muted: #64748b;
+  --muted: #49665b;
   /* Màu chữ phụ / xám mờ */
-  --canvas: #f8fafc;
-  /* Nền xám nhạt toàn trang */
-  --surface: #ffffff;
-  /* Nền trắng thẻ card, form, modal */
-  --line: #e2e8f0;
+  --canvas: #8eb69b;
+  /* Nền xanh chung của toàn website */
+  --site-background-image: url("/botanical-background.png");
+  --surface: rgba(255, 255, 255, 0.94);
+  /* Nền sáng cho phần nội dung và form */
+  --line: #d4e4d9;
   /* Đường kẻ chia vạch phân cách */
 
   /* =======================================================================
