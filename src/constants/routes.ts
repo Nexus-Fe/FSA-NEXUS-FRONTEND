@@ -64,6 +64,7 @@ export const ROUTES = {
     productModeration: "/staff/product-moderation",
     discrepancies: "/staff/transactions/discrepancies",
     auctions: "/staff/auctions",
+    auctionOps: "/staff/auction-ops",
     auction: (id: string) => "/staff/auctions/" + encodeURIComponent(id),
     sellers: "/staff/sellers",
     seller: (id: string) => "/staff/sellers/" + encodeURIComponent(id),
@@ -73,6 +74,7 @@ export const ROUTES = {
   admin: {
     overview: "/admin/overview",
     auctions: "/admin/auctions",
+    auctionOps: "/admin/auction-ops",
     auction: (id: string) => "/admin/auctions/" + encodeURIComponent(id),
     auctionConfigs: "/admin/auction-configs",
     auctionSettlements: "/admin/auction-settlements",

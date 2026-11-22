@@ -31,6 +31,7 @@ export const sellerNavigation: NavigationItem[] = [
 
 export const staffNavigation: NavigationItem[] = [
   { label: "Giám sát đấu giá", href: ROUTES.staff.auctions, icon: "gavel" },
+  { label: "Vận hành đấu giá", href: ROUTES.staff.auctionOps, icon: "gavel" },
   { label: "Duyệt người bán", href: ROUTES.staff.sellers, icon: "users" },
   { label: "Duyệt sản phẩm", href: ROUTES.staff.productModeration, icon: "grid" },
   { label: "Duyệt rút tiền", href: ROUTES.staff.withdrawals, icon: "wallet" },
@@ -49,6 +50,7 @@ export const adminNavigation: NavigationItem[] = [
   { label: "Công cụ ví", href: ROUTES.admin.walletTools, icon: "wallet" },
   { label: "Phí nền tảng", href: ROUTES.admin.platformFee, icon: "wallet" },
   { label: "Ngân sách trợ giá", href: ROUTES.admin.subsidyBudgets, icon: "wallet" },
+  { label: "Vận hành đấu giá", href: ROUTES.admin.auctionOps, icon: "gavel" },
   { label: "Cài đặt đấu giá", href: ROUTES.admin.auctionConfigs, icon: "gavel" },
   { label: "Quyết toán đấu giá", href: ROUTES.admin.auctionSettlements, icon: "orders" },
   { label: "Cài đặt hệ thống", href: ROUTES.admin.configs, icon: "shield" },

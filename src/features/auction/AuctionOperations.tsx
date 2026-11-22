@@ -1,5 +1,7 @@
 "use client";
 
+import { TimeControlsPanel } from "./TimeControlsPanel";
+import { AuctionOpsActions } from "./AuctionOpsActions";
 import { describeAuctionPriceFailure, parseOptionalAmount, reserveRestrictionText, validateAuctionPrices } from "./auction-prices";
 import { SellerReserveApprovalPanel } from "./SellerReserveApprovalPanel";
 import { mayAnswerBelowReserve } from "./reserve-approval";
@@ -200,6 +202,8 @@ export function OperationsDetailScreen({ role }: { role: Role }) {
   return (
     <div className="auction-surface">
       <PageHeading title={auction?.productName ?? "Chi tiết phiên đấu giá"} description={`Mã phiên: ${id}`} />
+      {(role === "admin" || role === "staff") && auction && <AuctionOpsActions auctionId={id} status={auction.status} onChanged={() => { detail.reload(); history.reload(); }} />}
+      {role === "admin" && auction && <TimeControlsPanel auctionId={id} status={auction.status} onApplied={() => { detail.reload(); history.reload(); }} />}
       {(role === "admin" || role === "staff") && <div className="portal-page-actions"><ButtonLink href={`/${role}/auctions/${encodeURIComponent(id)}/deposits`} variant="secondary">Xem cọc và đối soát</ButtonLink></div>}
       {role === "seller" && normalizeAuctionStatus(auction?.status ?? "") === "SCHEDULED" && (
         <div className="portal-page-actions">
