@@ -32,9 +32,9 @@
   --forest-mid: #163832;
   --mint: #8eb69b;
   --mint-light: #daf1de;
-  --glass-surface: rgba(255, 255, 255, 0.72);
-  --glass-border: rgba(255, 255, 255, 0.82);
-  --glass-shadow: 0 18px 48px rgba(5, 31, 32, 0.09);
+  --glass-surface: radial-gradient(ellipse at 12% 0%, rgba(255, 255, 255, .56), transparent 48%), linear-gradient(145deg, rgba(255, 255, 255, .42), rgba(255, 255, 255, .2) 58%, rgba(255, 255, 255, .3));
+  --glass-border: rgba(255, 255, 255, 0.88);
+  --glass-shadow: 0 16px 36px rgba(5, 31, 32, 0.13);
 
   /* =======================================================================
    * 2. ĐIỂM NHẤN SÁNG TRÊN NỀN TỐI (HERO / AUTH EFFECTS)
@@ -63,10 +63,11 @@
   /* Màu chữ đậm chính */
   --muted: #49665b;
   /* Màu chữ phụ / xám mờ */
-  --canvas: #f3f8f4;
-  /* Nền xám nhạt toàn trang */
-  --surface: #ffffff;
-  /* Nền trắng thẻ card, form, modal */
+  --canvas: #8eb69b;
+  /* Nền xanh chung của toàn website */
+  --site-background-image: url("/botanical-background.png");
+  --surface: rgba(255, 255, 255, 0.94);
+  /* Nền sáng cho phần nội dung và form */
   --line: #d4e4d9;
   /* Đường kẻ chia vạch phân cách */
 

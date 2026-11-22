@@ -1,6 +1,8 @@
 import { api, unwrap, type ApiResponse } from "@/lib/api/client";
 import type { NotificationItem, NotificationPage } from "../types";
 
+export const notificationsChangedEvent = "nexus:notifications-changed";
+
 export const notificationService = {
   getNotifications: async (page = 1, pageSize = 20, isRead?: boolean, signal?: AbortSignal) => {
     const query = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });

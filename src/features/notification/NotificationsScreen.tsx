@@ -6,7 +6,7 @@ import { Card, NoData, PageHeading } from "@/components/ui/Primitives";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { usePathname } from "next/navigation";
 import { NotificationAction } from "./NotificationAction";
-import { notificationService } from "./services/notification.service";
+import { notificationService, notificationsChangedEvent } from "./services/notification.service";
 
 export function NotificationsScreen() {
   const { user } = useSession();
@@ -24,6 +24,7 @@ export function NotificationsScreen() {
     try {
       await notificationService.markAsRead(id);
       resource.reload();
+      window.dispatchEvent(new Event(notificationsChangedEvent));
     } catch (error) {
       setActionError(error instanceof Error ? error.message : "Không đánh dấu được thông báo.");
     } finally {

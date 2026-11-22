@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { notificationService } from "./services/notification.service";
+import { notificationService, notificationsChangedEvent } from "./services/notification.service";
 import { notificationTarget, type NotificationViewer } from "./notification-target";
 import type { NotificationItem } from "./types";
 
@@ -18,6 +18,9 @@ export function NotificationAction({ item, viewer, onRead }: { item: Notificatio
     onClick={() => {
       if (item.isRead) return;
       // The page moves on at once; a failed "read" mark only leaves the badge until the next reload.
-      void notificationService.markAsRead(item.id).then(() => onRead?.(), () => undefined);
+      void notificationService.markAsRead(item.id).then(() => {
+        onRead?.();
+        window.dispatchEvent(new Event(notificationsChangedEvent));
+      }, () => undefined);
     }}>{target.label}</Link>;
 }
