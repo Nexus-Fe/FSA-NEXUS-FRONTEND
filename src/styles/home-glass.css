@@ -1,0 +1,666 @@
+/* Buyer home presentation. All business content and navigation remain in HomeScreen. */
+.buyer-glass-shell {
+  background:
+    radial-gradient(circle at 93% 21%, color-mix(in srgb, var(--mint) 35%, transparent), transparent 29%),
+    radial-gradient(circle at 8% 53%, color-mix(in srgb, var(--mint-light) 72%, transparent), transparent 35%),
+    var(--canvas);
+}
+
+.buyer-glass-shell .buyer-header {
+  background: linear-gradient(115deg,
+    color-mix(in srgb, var(--surface) 62%, transparent),
+    color-mix(in srgb, var(--mint-light) 38%, transparent));
+  border-color: color-mix(in srgb, var(--surface) 70%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--surface) 86%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--surface) 48%, transparent),
+    0 12px 34px rgba(5, 31, 32, .12);
+  -webkit-backdrop-filter: blur(26px) saturate(155%);
+  backdrop-filter: blur(26px) saturate(155%);
+}
+
+.buyer-glass-shell .buyer-nav-wrap {
+  margin: 0 clamp(12px, 2vw, 24px) 10px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--surface) 72%, transparent);
+  border-radius: 16px;
+  background: linear-gradient(155deg,
+    color-mix(in srgb, var(--surface) 48%, transparent),
+    color-mix(in srgb, var(--mint-light) 23%, transparent));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--surface) 88%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--surface) 30%, transparent),
+    0 7px 24px rgba(5, 31, 32, .09);
+}
+
+.buyer-glass-shell .header-search {
+  border-color: color-mix(in srgb, var(--surface) 72%, var(--primary-border));
+  background: color-mix(in srgb, var(--surface) 46%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--surface) 80%, transparent);
+}
+
+.buyer-glass-shell .top-nav .nav-link {
+  margin: 2px 0;
+  padding: 0 10px;
+  border-radius: 11px;
+  transition: background .2s ease, color .2s ease, border-color .2s ease;
+}
+
+.buyer-glass-shell .top-nav .nav-link:hover,
+.buyer-glass-shell .top-nav .nav-link.active {
+  background: color-mix(in srgb, var(--surface) 38%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--surface) 58%, transparent);
+}
+
+.buyer-home-glass {
+  position: relative;
+  isolation: isolate;
+  padding-bottom: 30px;
+}
+
+.buyer-home-glass .hero {
+  position: relative;
+  min-height: 360px;
+  grid-template-columns: minmax(0, 1.15fr) minmax(280px, .85fr);
+  gap: clamp(24px, 4vw, 72px);
+  padding: clamp(30px, 4.5vw, 72px);
+  border: 1px solid color-mix(in srgb, var(--mint) 38%, transparent);
+  border-radius: 30px;
+  color: var(--mint-light);
+  background:
+    radial-gradient(circle at 76% 35%, color-mix(in srgb, var(--primary) 90%, transparent), transparent 41%),
+    radial-gradient(circle at 3% 100%, color-mix(in srgb, var(--mint) 25%, transparent), transparent 45%),
+    linear-gradient(125deg, var(--hero-bg-deep), var(--forest-mid));
+  box-shadow: 0 28px 70px rgba(5, 31, 32, .18);
+  animation: buyer-home-rise .7s cubic-bezier(.22, 1, .36, 1) both;
+}
+
+.buyer-home-glass .hero::after {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1px solid color-mix(in srgb, var(--glass-border) 32%, transparent);
+  content: "";
+  pointer-events: none;
+}
+
+.buyer-home-glass .hero h1 {
+  max-width: 740px;
+  margin: 14px 0 18px;
+  color: #fff;
+  font-size: clamp(34px, 3.7vw, 62px);
+  letter-spacing: -.045em;
+  line-height: 1.09;
+}
+
+.buyer-home-glass .hero p {
+  max-width: 570px;
+  color: color-mix(in srgb, var(--mint-light) 84%, white);
+  font-size: clamp(14px, 1.1vw, 16px);
+  line-height: 1.75;
+}
+
+.buyer-home-glass .hero .overline {
+  display: inline-flex;
+  padding: 7px 12px;
+  border: 1px solid color-mix(in srgb, var(--mint) 52%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--mint) 15%, transparent);
+  color: var(--mint-light);
+  letter-spacing: .13em;
+}
+
+.buyer-home-glass .hero .action-row {
+  margin-top: 26px;
+  gap: 12px;
+}
+
+.buyer-home-glass .hero .button {
+  min-height: 46px;
+  border-radius: 13px;
+  transition: transform .22s ease, background .22s ease, border-color .22s ease, box-shadow .22s ease;
+}
+
+.buyer-home-glass .hero .button:hover {
+  transform: translateY(-3px);
+}
+
+.buyer-home-glass .hero .button-primary {
+  background: var(--mint-light);
+  color: var(--hero-bg-deep);
+  box-shadow: 0 10px 28px rgba(5, 31, 32, .18);
+}
+
+.buyer-home-glass .hero .button-primary:hover {
+  background: #fff;
+}
+
+.buyer-home-glass .hero .button-secondary {
+  border-color: color-mix(in srgb, var(--mint-light) 43%, transparent);
+  background: color-mix(in srgb, var(--mint-light) 11%, transparent);
+  color: #fff;
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
+.buyer-home-glass .hero .button-secondary:hover {
+  border-color: var(--mint-light);
+  background: color-mix(in srgb, var(--mint-light) 20%, transparent);
+}
+
+.buyer-home-glass .hero-visual {
+  min-height: 285px;
+  border: 1px solid color-mix(in srgb, var(--mint-light) 35%, transparent);
+  border-radius: 26px;
+  background:
+    radial-gradient(circle at 75% 20%, color-mix(in srgb, var(--mint-light) 35%, transparent), transparent 28%),
+    color-mix(in srgb, var(--mint-light) 12%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 38%, transparent), 0 24px 55px rgba(5, 31, 32, .16);
+  color: var(--mint-light);
+  -webkit-backdrop-filter: blur(22px);
+  backdrop-filter: blur(22px);
+}
+
+.buyer-home-glass .hero-visual::before,
+.buyer-home-glass .hero-visual::after,
+.buyer-home-glass .hero-orbit {
+  border-color: color-mix(in srgb, var(--mint-light) 31%, transparent);
+}
+
+.buyer-home-glass .hero-icon {
+  border: 1px solid color-mix(in srgb, white 54%, transparent);
+  background: linear-gradient(145deg, color-mix(in srgb, white 85%, transparent), color-mix(in srgb, var(--mint-light) 55%, transparent));
+  box-shadow: 0 22px 55px rgba(5, 31, 32, .2), 0 0 38px color-mix(in srgb, var(--mint) 36%, transparent);
+  color: var(--forest-mid);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  animation: buyer-home-float 5s ease-in-out infinite;
+}
+
+.buyer-home-glass .home-product-banner {
+  margin-top: 28px;
+  animation: buyer-home-rise .7s .1s cubic-bezier(.22, 1, .36, 1) both;
+}
+
+.buyer-home-glass .hero-banner {
+  padding: 10px 10px 24px;
+  border-color: var(--glass-border);
+  border-radius: 24px;
+  background: var(--glass-surface);
+  box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+}
+
+.buyer-home-glass .hero-banner-image {
+  border-radius: 16px;
+  background: var(--primary-soft);
+}
+
+.buyer-home-glass .swipe-carousel-dots span {
+  background: var(--primary-border);
+}
+
+.buyer-home-glass .swipe-carousel-dots span.active {
+  background: var(--primary);
+}
+
+.buyer-home-glass .home-section {
+  margin-top: clamp(36px, 4vw, 58px);
+  animation: buyer-home-rise .7s .16s cubic-bezier(.22, 1, .36, 1) both;
+}
+
+.buyer-home-glass .home-section:nth-last-child(2) {
+  animation-delay: .22s;
+}
+
+.buyer-home-glass .home-section:last-child {
+  animation-delay: .28s;
+}
+
+.buyer-home-glass .section-heading {
+  margin-bottom: 20px;
+}
+
+.buyer-home-glass .section-heading h2 {
+  color: var(--hero-bg-deep);
+  font-size: clamp(22px, 2vw, 29px);
+  letter-spacing: -.035em;
+}
+
+.buyer-home-glass .section-heading p {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.buyer-home-glass .section-heading > a {
+  border: 1px solid var(--primary-border);
+  border-radius: 999px;
+  padding: 9px 14px;
+  background: var(--glass-surface);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  transition: background .2s ease, transform .2s ease;
+}
+
+.buyer-home-glass .section-heading > a:hover {
+  background: var(--mint-light);
+  transform: translateY(-2px);
+}
+
+.buyer-home-glass .auction-tile,
+.buyer-home-glass .product-card,
+.buyer-home-glass .category-tile,
+.buyer-home-glass .empty-grid {
+  border: 1px solid var(--glass-border);
+  border-radius: 22px;
+  background: var(--glass-surface);
+  box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  transition: transform .24s cubic-bezier(.22, 1, .36, 1), border-color .24s ease, box-shadow .24s ease, background .24s ease;
+}
+
+.buyer-home-glass .auction-tile:hover,
+.buyer-home-glass .product-card:hover,
+.buyer-home-glass .category-tile:hover {
+  transform: translateY(-5px);
+  border-color: var(--primary-border);
+  box-shadow: 0 26px 55px rgba(5, 31, 32, .14);
+}
+
+.buyer-home-glass .auction-tile:focus-within,
+.buyer-home-glass .product-card:focus-within,
+.buyer-home-glass .category-tile:focus-within {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+}
+
+.buyer-home-glass .auction-tile-image,
+.buyer-home-glass .product-media {
+  background: color-mix(in srgb, var(--mint-light) 54%, white);
+}
+
+.buyer-home-glass .auction-tile-image img {
+  object-fit: contain;
+}
+
+.buyer-home-glass .product-card-price strong,
+.buyer-home-glass .auction-tile-body strong {
+  color: var(--primary);
+}
+
+.buyer-home-glass .category-tile {
+  min-height: 132px;
+  padding: 20px;
+}
+
+.buyer-home-glass .category-tile-mark {
+  width: 44px;
+  height: 44px;
+  background: var(--mint-light);
+  color: var(--forest-mid);
+}
+
+.buyer-home-glass .category-tile-children a {
+  border-color: color-mix(in srgb, var(--primary-border) 62%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, white 68%, transparent);
+}
+
+.buyer-home-glass .category-tile-children a:hover {
+  background: var(--mint-light);
+}
+
+@keyframes buyer-home-rise {
+  from { opacity: 0; transform: translate3d(0, 20px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes buyer-home-float {
+  0%, 100% { transform: translateY(0) rotate(-7deg); }
+  50% { transform: translateY(-9px) rotate(-4deg); }
+}
+
+@media (max-width: 900px) {
+  .buyer-home-glass .hero { grid-template-columns: 1fr; }
+  .buyer-home-glass .hero-visual { min-height: 210px; }
+  .buyer-home-glass .auction-list-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .buyer-home-glass .product-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 600px) {
+  .buyer-home-glass .hero { padding: 26px; border-radius: 22px; }
+  .buyer-home-glass .hero h1 { font-size: clamp(31px, 9vw, 42px); }
+  .buyer-home-glass .hero .action-row { align-items: stretch; flex-direction: column; }
+  .buyer-home-glass .hero .button { width: 100%; }
+  .buyer-home-glass .hero-visual { min-height: 160px; }
+  .buyer-home-glass .hero-banner { border-radius: 18px; }
+  .buyer-home-glass .auction-list-grid { grid-template-columns: 1fr; }
+  .buyer-home-glass .product-grid { gap: 12px; }
+  .buyer-home-glass .category-rail { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .buyer-home-glass .section-heading { align-items: flex-start; flex-direction: column; gap: 12px; }
+}
+
+@media (max-width: 380px) {
+  .buyer-home-glass .product-grid,
+  .buyer-home-glass .category-rail { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .buyer-home-glass .hero,
+  .buyer-home-glass .home-product-banner,
+  .buyer-home-glass .home-section,
+  .buyer-home-glass .hero-icon { animation: none; }
+  .buyer-home-glass .hero .button,
+  .buyer-home-glass .section-heading > a,
+  .buyer-home-glass .auction-tile,
+  .buyer-home-glass .product-card,
+  .buyer-home-glass .category-tile { transition: none; }
+  .buyer-home-glass .hero .button:hover,
+  .buyer-home-glass .section-heading > a:hover,
+  .buyer-home-glass .auction-tile:hover,
+  .buyer-home-glass .product-card:hover,
+  .buyer-home-glass .category-tile:hover { transform: none; }
+}
+
+/* Buyer subpages share the Home glass treatment without changing their flows. */
+.buyer-glass-page {
+  min-width: 0;
+  padding-bottom: 32px;
+  animation: buyer-home-rise .6s cubic-bezier(.22, 1, .36, 1) both;
+}
+
+.buyer-glass-page .auction-surface {
+  background: transparent;
+}
+
+.buyer-glass-page .page-heading {
+  display: block;
+  padding: clamp(26px, 3.5vw, 42px);
+  border: 1px solid color-mix(in srgb, var(--mint) 40%, transparent);
+  border-radius: 26px;
+  background:
+    radial-gradient(circle at 88% 16%, color-mix(in srgb, var(--mint) 25%, transparent), transparent 36%),
+    linear-gradient(120deg, var(--hero-bg-deep), var(--forest-mid));
+  box-shadow: 0 22px 52px rgba(5, 31, 32, .16);
+  color: var(--mint-light);
+}
+
+.buyer-glass-page .page-heading h1 {
+  color: #fff;
+  font-size: clamp(28px, 3vw, 38px);
+}
+
+.buyer-glass-page .page-heading .page-description {
+  color: var(--mint-light);
+}
+
+.buyer-glass-page .card,
+.buyer-glass-page .no-data,
+.buyer-glass-page .table-scroll {
+  border-color: var(--glass-border);
+  border-radius: 20px;
+  background: var(--glass-surface);
+  box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+}
+
+.buyer-glass-page .auction-my-bid {
+  transition: transform .24s ease, box-shadow .24s ease;
+}
+
+.buyer-glass-page .auction-my-bid:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 24px 48px rgba(5, 31, 32, .13);
+}
+
+.buyer-glass-page .field,
+.buyer-glass-page .select-field,
+.buyer-glass-page .textarea-field {
+  border-color: var(--line);
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
+}
+
+.buyer-glass-page .field:focus,
+.buyer-glass-page .select-field:focus,
+.buyer-glass-page .textarea-field:focus {
+  border-color: var(--primary);
+}
+
+.buyer-glass-page .button-secondary {
+  border-color: var(--primary-border);
+  background: color-mix(in srgb, var(--surface) 68%, transparent);
+  color: var(--primary-hover);
+}
+
+.buyer-glass-page .button-secondary:hover {
+  background: var(--mint-light);
+}
+
+.buyer-glass-page .seller-money-amount,
+.buyer-glass-page .info-row strong {
+  color: var(--primary-hover);
+}
+
+@media (max-width: 600px) {
+  .buyer-glass-page .page-heading { padding: 24px; border-radius: 20px; }
+  .buyer-glass-page .card,
+  .buyer-glass-page .no-data,
+  .buyer-glass-page .table-scroll { border-radius: 16px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .buyer-glass-page { animation: none; }
+  .buyer-glass-page .auction-my-bid { transition: none; }
+  .buyer-glass-page .auction-my-bid:hover { transform: none; }
+}
+
+/* Public catalog and every Buyer flow use the same surfaces and controls. */
+.buyer-glass-shell .buyer-main:not(:has(.buyer-home-glass)) .page-heading,
+.buyer-glass-shell .cart-page-heading {
+  padding: clamp(24px, 3.5vw, 42px);
+  border: 1px solid color-mix(in srgb, var(--mint) 40%, transparent);
+  border-radius: 26px;
+  background: radial-gradient(circle at 88% 12%, color-mix(in srgb, var(--mint) 25%, transparent), transparent 38%), linear-gradient(120deg, var(--hero-bg-deep), var(--forest-mid));
+  box-shadow: 0 22px 52px rgba(5, 31, 32, .16);
+  color: var(--mint-light);
+}
+
+.buyer-glass-shell .buyer-main:not(:has(.buyer-home-glass)) .page-heading h1,
+.buyer-glass-shell .cart-page-heading h1 { color: #fff; }
+.buyer-glass-shell .buyer-main:not(:has(.buyer-home-glass)) .page-heading .page-description,
+.buyer-glass-shell .cart-page-heading p { color: var(--mint-light); }
+.buyer-glass-shell .cart-page-heading a { color: var(--mint-light); }
+
+.buyer-glass-shell .buyer-main:not(:has(.buyer-home-glass)) .card,
+.buyer-glass-shell .buyer-main:not(:has(.buyer-home-glass)) .no-data,
+.buyer-glass-shell .buyer-main:not(:has(.buyer-home-glass)) .auction-tile,
+.buyer-glass-shell .buyer-main:not(:has(.buyer-home-glass)) .product-card,
+.buyer-glass-shell .buyer-main:not(:has(.buyer-home-glass)) .product-detail-related-item,
+.buyer-glass-shell .buyer-main:not(:has(.buyer-home-glass)) .category-tile {
+  border-color: var(--glass-border);
+  border-radius: 20px;
+  background: var(--glass-surface);
+  box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+
+.buyer-glass-shell .buyer-main:not(:has(.buyer-home-glass)) .product-card,
+.buyer-glass-shell .buyer-main:not(:has(.buyer-home-glass)) .auction-tile,
+.buyer-glass-shell .buyer-main:not(:has(.buyer-home-glass)) .product-detail-related-item {
+  overflow: hidden;
+  transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
+}
+.buyer-glass-shell .buyer-main:not(:has(.buyer-home-glass)) .product-card:hover,
+.buyer-glass-shell .buyer-main:not(:has(.buyer-home-glass)) .auction-tile:hover,
+.buyer-glass-shell .buyer-main:not(:has(.buyer-home-glass)) .product-detail-related-item:hover {
+  transform: translateY(-4px);
+  border-color: var(--primary-border);
+  box-shadow: 0 24px 50px rgba(5, 31, 32, .13);
+}
+
+.buyer-glass-shell .buyer-main .field,
+.buyer-glass-shell .buyer-main .select-field,
+.buyer-glass-shell .buyer-main .textarea-field,
+.buyer-glass-shell .buyer-main .product-detail-option,
+.buyer-glass-shell .buyer-main .cart-quantity-control {
+  border-color: var(--line);
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--surface) 74%, transparent);
+}
+.buyer-glass-shell .buyer-main .field:focus-visible,
+.buyer-glass-shell .buyer-main .select-field:focus-visible,
+.buyer-glass-shell .buyer-main .textarea-field:focus-visible,
+.buyer-glass-shell .buyer-main .product-detail-option:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.buyer-glass-shell .buyer-main .button-secondary {
+  border-color: var(--primary-border);
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
+  color: var(--primary-hover);
+}
+.buyer-glass-shell .buyer-main .button-secondary:hover { background: var(--mint-light); }
+
+.buyer-glass-shell .catalog-intro,
+.buyer-glass-shell .catalog-results,
+.buyer-glass-shell .auction-surface { min-width: 0; background: transparent; }
+.buyer-glass-shell .catalog-filters { -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); }
+.buyer-glass-shell .product-media,
+.buyer-glass-shell .auction-tile-image,
+.buyer-glass-shell .product-detail-image,
+.buyer-glass-shell .product-detail-related-image,
+.buyer-glass-shell .public-shop-logo { background: color-mix(in srgb, var(--mint-light) 52%, white); }
+.buyer-glass-shell .product-detail-option.active { border-color: var(--primary); background: var(--mint-light); color: var(--primary-hover); }
+.buyer-glass-shell .product-detail-availability { border-color: var(--primary); background: var(--mint-light); }
+.buyer-glass-shell .catalog-page-number.active,
+.buyer-glass-shell .auction-filters button.active { border-color: var(--primary); background: var(--primary); color: #fff; }
+
+.buyer-glass-shell .cart-select-all,
+.buyer-glass-shell .cart-seller-group,
+.buyer-glass-shell .order-status-banner { border-color: var(--line); background: var(--glass-surface); }
+.buyer-glass-shell .cart-summary-line strong,
+.buyer-glass-shell .cart-summary-total strong,
+.buyer-glass-shell .cart-product-price strong { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.buyer-glass-shell .cart-summary-total { align-items: flex-start; }
+.buyer-glass-shell .cart-summary-total strong { font-size: clamp(17px, 1.7vw, 22px); }
+.buyer-glass-shell .cart-product-image { background: var(--mint-light); }
+.buyer-glass-shell .color-indigo { --sky: var(--primary); --sky-dark: var(--primary-hover); --sky-soft: var(--primary-soft); }
+.buyer-glass-shell .checkout-main,
+.buyer-glass-shell .checkout-summary,
+.buyer-glass-shell .public-shop-profile {
+  border-color: var(--glass-border);
+  border-radius: 20px;
+  background: var(--glass-surface);
+  box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+.buyer-glass-shell .checkout-summary-total strong,
+.buyer-glass-shell .checkout-summary-line strong { white-space: nowrap; }
+.buyer-glass-shell .checkout-summary-total strong { font-size: clamp(19px, 2vw, 27px); }
+.buyer-glass-shell .checkout-address-review { border-color: var(--line); border-radius: 12px; background: rgba(255, 255, 255, .65); }
+.buyer-glass-shell .buyer-main .table-scroll {
+  border-color: var(--glass-border);
+  border-radius: 16px;
+  background: var(--glass-surface);
+}
+.buyer-glass-shell .buyer-main .data-table th { background: color-mix(in srgb, var(--mint-light) 48%, white); }
+.buyer-glass-shell .buyer-main .info-row strong,
+.buyer-glass-shell .buyer-main .product-card-price strong,
+.buyer-glass-shell .buyer-main .product-detail-price { color: var(--primary-hover); }
+
+@media (max-width: 600px) {
+  .buyer-glass-shell .buyer-main:not(:has(.buyer-home-glass)) .page-heading,
+  .buyer-glass-shell .cart-page-heading { padding: 24px; border-radius: 20px; }
+  .buyer-glass-shell .buyer-main:not(:has(.buyer-home-glass)) .card,
+  .buyer-glass-shell .buyer-main:not(:has(.buyer-home-glass)) .no-data { border-radius: 16px; }
+  .buyer-glass-shell .cart-summary-total { flex-wrap: wrap; }
+  .buyer-glass-shell .cart-summary-total strong { margin-left: auto; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .buyer-glass-shell .buyer-main .product-card,
+  .buyer-glass-shell .buyer-main .auction-tile,
+  .buyer-glass-shell .buyer-main .product-detail-related-item { transition: none; }
+  .buyer-glass-shell .buyer-main .product-card:hover,
+  .buyer-glass-shell .buyer-main .auction-tile:hover,
+  .buyer-glass-shell .buyer-main .product-detail-related-item:hover { transform: none; }
+}
+
+/* Public authentication keeps its split layout and forms, with the green glass palette. */
+.auth-split-container {
+  background: radial-gradient(circle at 15% 22%, var(--primary), transparent 39%),
+    linear-gradient(145deg, var(--forest-mid), var(--hero-bg-deep) 70%);
+}
+.auth-split-left {
+  background: linear-gradient(155deg, color-mix(in srgb, var(--forest-mid) 88%, transparent), var(--hero-bg-deep));
+}
+.auth-split-hero-img {
+  filter: brightness(.32) saturate(.72) blur(1px);
+}
+.auth-split-overlay {
+  background: linear-gradient(140deg, rgba(5, 31, 32, .76), rgba(11, 43, 38, .88));
+}
+.auth-left-brand,
+.auth-trust-badge-item,
+.auth-system-status {
+  border-color: rgba(218, 241, 222, .22);
+  background: rgba(218, 241, 222, .08);
+  box-shadow: inset 0 1px rgba(255, 255, 255, .12), 0 14px 32px rgba(5, 31, 32, .16);
+}
+.auth-hero-pill,
+.auth-feature-icon-box,
+.auth-trust-badge-icon {
+  border-color: rgba(142, 182, 155, .38);
+  background: rgba(142, 182, 155, .14);
+  color: var(--mint);
+}
+.auth-hero-highlight {
+  background: linear-gradient(110deg, var(--mint-light), var(--mint));
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+.auth-trust-badge-content span { color: rgba(218, 241, 222, .76); }
+.auth-split-right {
+  background: radial-gradient(circle at 100% 0%, rgba(142, 182, 155, .2), transparent 38%),
+    linear-gradient(165deg, #fff, var(--mint-light));
+  border-left-color: rgba(142, 182, 155, .24);
+}
+.auth-close-btn {
+  border-color: var(--line);
+  background: rgba(255, 255, 255, .66);
+  color: var(--primary-hover);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+.auth-split-body {
+  padding: clamp(24px, 3vw, 36px);
+  border: 1px solid rgba(218, 241, 222, .52);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, .68);
+  box-shadow: 0 28px 60px rgba(5, 31, 32, .1);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+}
+.auth-split-body input,
+.auth-split-body select,
+.auth-split-body textarea { border-color: var(--line); }
+.auth-submit-btn {
+  background: linear-gradient(110deg, var(--forest-mid), var(--primary));
+  box-shadow: 0 12px 26px rgba(5, 31, 32, .16);
+}
+.auth-submit-btn:hover:not(:disabled) { background: var(--primary-hover); }
+.auth-social-btn,
+.auth-secondary-btn { background: rgba(255, 255, 255, .74); border-color: var(--line); }
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-trust-badge-item,
+  .auth-left-brand { transition: none; }
+  .auth-trust-badge-item:hover,
+  .auth-left-brand:hover { transform: none; }
+}

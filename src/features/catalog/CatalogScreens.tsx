@@ -134,7 +134,7 @@ export function HomeScreen() {
   const products = useProducts();
   const auctions = useApiResource("/api/v1/auctions?page=1&pageSize=3", async (signal) => (await auctionService.list(1, 3, undefined, signal)).data.items);
   const categories = useApiResource("/api/v1/categories", loadCategories);
-  return <>
+  return <div className="buyer-home-glass">
     <div className="hero">
       <div className="hero-copy">
         <p className="overline">Nexus Marketplace</p>
@@ -164,7 +164,7 @@ export function HomeScreen() {
       <SectionHeading id="home-categories-title" title="Danh mục khám phá" hint="Tìm nhanh theo danh mục sản phẩm." action={<Link href={ROUTES.catalog.index}>Mở danh mục <Icon name="arrow" size={15}/></Link>} />
       {categories.error ? <p role="alert" className="notice">{problem(categories.error)}</p> : categories.data?.length ? <div className="category-rail">{categoryGroups(categories.data).map(({ parent, children }) => <div className="category-tile" key={parent.id}><span className="category-tile-mark"><Icon name="grid" size={20}/></span>{children.length ? <><strong>{parent.name}</strong><div className="category-tile-children">{children.map((child) => <Link key={child.id} href={`${ROUTES.catalog.index}?categoryId=${encodeURIComponent(child.id)}`}>{child.name}</Link>)}</div></> : <Link href={`${ROUTES.catalog.index}?categoryId=${encodeURIComponent(parent.id)}`}><strong>{parent.name}</strong></Link>}</div>)}</div> : <NoData className="empty-grid" title={categories.loading ? "Đang tải danh mục…" : "Chưa có danh mục"} />}
     </section>
-  </>;
+  </div>;
 }
 
 function CatalogFilters({ initialFilters, pageSize, categories, categoriesError, basePath }: {

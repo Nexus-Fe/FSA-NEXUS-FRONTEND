@@ -363,7 +363,7 @@ export function BuyerShell({ children }: { children: ReactNode }) {
   });
 
   return (
-    <div className="site-shell">
+    <div className="site-shell buyer-glass-shell">
       <header className="buyer-header">
         <div className="buyer-header-inner">
           <Link href={homeHref} aria-label={`NEXUS - ${homeLabel}`} title={homeLabel}>
