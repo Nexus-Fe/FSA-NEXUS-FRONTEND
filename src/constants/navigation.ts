@@ -23,7 +23,7 @@ export const sellerNavigation: NavigationItem[] = [
   { label: "Phiên đấu giá", href: ROUTES.seller.auctions, icon: "gavel" },
   { label: "Đơn đấu giá", href: ROUTES.seller.auctionOrders, icon: "gavel" },
   { label: "Doanh thu & ví", href: ROUTES.seller.wallet, icon: "wallet" },
-  { label: "Mã giảm giá", href: ROUTES.seller.coupons, icon: "orders" },
+  { label: "Mã giảm giá", href: ROUTES.seller.coupons, icon: "orders", feature: "vouchers" },
   { label: "Đánh giá & uy tín", href: ROUTES.seller.reviews, icon: "users" },
 ];
 
@@ -43,7 +43,7 @@ export const adminNavigation: NavigationItem[] = [
   { label: "Danh mục sản phẩm", href: ROUTES.admin.categories, icon: "grid" },
   { label: "Xử phạt vi phạm", href: ROUTES.admin.penalties, icon: "gavel" },
   { label: "Điều chỉnh số dư ví", href: ROUTES.admin.ledger, icon: "wallet" },
-  { label: "Mã giảm giá", href: ROUTES.admin.coupons, icon: "orders" },
+  { label: "Mã giảm giá", href: ROUTES.admin.coupons, icon: "orders", feature: "vouchers" },
   { label: "Cài đặt đấu giá", href: ROUTES.admin.auctionConfigs, icon: "gavel" },
   { label: "Quyết toán đấu giá", href: ROUTES.admin.auctionSettlements, icon: "orders" },
   { label: "Cài đặt hệ thống", href: ROUTES.admin.configs, icon: "shield" },

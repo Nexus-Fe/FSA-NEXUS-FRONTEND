@@ -7,7 +7,9 @@ import { createIntentKeyStore, isDefiniteOutcome } from "@/lib/idempotency/inten
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatMoney } from "@/lib/presentation";
 import { walletService } from "./services/wallet.service";
-import { withdrawalService, withdrawalStatus } from "./services/withdrawal.service";
+import { Modal } from "@/components/ui/Modal";
+import { describeError, formatError } from "@/lib/errors/error-messages";
+import { canCancelWithdrawal, withdrawalService, withdrawalStatus } from "./services/withdrawal.service";
 import type { WithdrawalResponse } from "./types";
 import { transactionDate } from "./WalletScreen";
 
@@ -22,6 +24,10 @@ export function SellerWithdrawalForm() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [created, setCreated] = useState<WithdrawalResponse | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<{ id: string; amount: number } | null>(null);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelMessage, setCancelMessage] = useState("");
+  const [cancelError, setCancelError] = useState("");
   // One key per intent: a retry after a timeout or a double click is the same request to the server, not a second one.
   const intent = useRef(createIntentKeyStore());
 
@@ -64,6 +70,25 @@ export function SellerWithdrawalForm() {
     } finally { setBusy(false); }
   }
 
+  async function confirmCancel() {
+    if (!cancelTarget || cancelling) return;
+    setCancelling(true);
+    setCancelMessage("");
+    setCancelError("");
+    try {
+      await withdrawalService.cancel(cancelTarget.id);
+      setCancelMessage("Đã hủy yêu cầu rút. Tiền đã trả lại số dư khả dụng.");
+    } catch (cause) {
+      // The request may have moved to another state in the meantime (or the answer was lost), so the list is reloaded either way.
+      setCancelError(formatError(describeError(cause, { operation: "write" })));
+    } finally {
+      setCancelling(false);
+      setCancelTarget(null);
+      requests.reload();
+      balance.reload();
+    }
+  }
+
   return <>
     <PageHeading title="Yêu cầu rút tiền" description="Staff sẽ duyệt yêu cầu và chuyển khoản thủ công. Đã duyệt chưa có nghĩa là đã chuyển tiền." />
     <div className="split"><Card className="card-pad"><h2>Tài khoản nhận tiền</h2>
@@ -82,9 +107,11 @@ export function SellerWithdrawalForm() {
     </Card></div>
 
     <h2 className="section-title">Yêu cầu rút của bạn</h2>
+    {cancelMessage && <p className="form-success" role="status">{cancelMessage}</p>}
+    {cancelError && <p className="notice" role="alert">{cancelError}</p>}
     {requests.error && <p className="notice" role="alert">{requests.error.message} <button type="button" className="button button-secondary" onClick={requests.reload}>Thử lại</button></p>}
     {requests.loading && !requests.data ? <NoData title="Đang tải yêu cầu rút…" /> : requests.data?.items.length ? <Card>
-      <div className="table-scroll"><table className="data-table"><thead><tr><th>Gửi lúc</th><th>Số tiền</th><th>Tài khoản nhận</th><th>Trạng thái</th><th>Ghi chú</th></tr></thead><tbody>
+      <div className="table-scroll"><table className="data-table"><thead><tr><th>Gửi lúc</th><th>Số tiền</th><th>Tài khoản nhận</th><th>Trạng thái</th><th>Ghi chú</th><th>Thao tác</th></tr></thead><tbody>
         {requests.data.items.map((item) => {
           const status = withdrawalStatus(item.status);
           return <tr key={item.withdrawalId}>
@@ -93,10 +120,15 @@ export function SellerWithdrawalForm() {
             <td>{item.bankName} · {item.maskedAccountNumber}<br /><small>{item.accountHolderName}</small></td>
             <td><Badge tone={status.tone}>{status.label}</Badge></td>
             <td>{item.statusReason ? <>Lý do: {item.statusReason}</> : status.hint}{item.completedAt && <><br /><small>Chuyển lúc {transactionDate(item.completedAt)}</small></>}</td>
+            <td>{canCancelWithdrawal(item.status) && <button type="button" className="button button-secondary button-small" disabled={cancelling} onClick={() => setCancelTarget({ id: item.withdrawalId, amount: item.amount })}>Hủy yêu cầu</button>}</td>
           </tr>;
         })}
       </tbody></table></div>
     </Card> : !requests.error && <NoData title="Bạn chưa có yêu cầu rút nào." />}
+    <Modal open={cancelTarget !== null} title="Hủy yêu cầu rút tiền?" busy={cancelling} onClose={() => setCancelTarget(null)}
+      footer={<><button type="button" className="button button-secondary" disabled={cancelling} onClick={() => setCancelTarget(null)}>Giữ yêu cầu</button><button type="button" className="button button-primary" disabled={cancelling} onClick={() => void confirmCancel()}>{cancelling ? "Đang hủy…" : "Hủy yêu cầu"}</button></>}>
+      <p>{cancelTarget ? `Yêu cầu rút ${formatMoney(cancelTarget.amount)} sẽ bị hủy và số tiền đang giữ trả lại số dư khả dụng.` : ""}</p>
+    </Modal>
     {requests.data && requests.data.pagination.totalPages > 1 && <div className="action-row">
       <button className="button button-secondary" type="button" disabled={!requests.data.pagination.hasPreviousPage || requests.loading} onClick={() => setPage(page - 1)}>Trang trước</button>
       <span>Trang {requests.data.pagination.pageIndex}/{requests.data.pagination.totalPages}</span>

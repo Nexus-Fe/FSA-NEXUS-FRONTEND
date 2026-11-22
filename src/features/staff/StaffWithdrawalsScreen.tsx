@@ -10,19 +10,16 @@ import { formatMoney } from "@/lib/presentation";
 import {
   WITHDRAWAL_ACTIONS,
   WITHDRAWAL_HISTORY_LABEL,
+  WITHDRAWAL_STATUS_ORDER,
   withdrawalService,
   withdrawalStatus,
 } from "@/features/wallet/services/withdrawal.service";
 import type { AdminWithdrawal, ProcessWithdrawalInput, WithdrawalAction } from "@/features/wallet/types";
 import { transactionDate } from "@/features/wallet/WalletScreen";
 
+// The same labels the seller sees, so a status never reads differently on the two sides.
 const FILTERS = [
-  { value: "Pending", label: "Chờ duyệt" },
-  { value: "Approved", label: "Chờ chuyển khoản" },
-  { value: "Processing", label: "Đang chuyển" },
-  { value: "Completed", label: "Đã chuyển" },
-  { value: "Rejected", label: "Từ chối" },
-  { value: "Failed", label: "Thất bại" },
+  ...WITHDRAWAL_STATUS_ORDER.map((value) => ({ value: value as string, label: withdrawalStatus(value).label })),
   { value: "", label: "Tất cả" },
 ];
 

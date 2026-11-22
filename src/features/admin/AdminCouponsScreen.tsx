@@ -1,7 +1,7 @@
 "use client";
 
-import { CouponDraftScreen } from "@/features/coupons/CouponDraftScreen";
+import { VoucherManager } from "@/features/coupons/VoucherManager";
 
 export function AdminCouponsScreen() {
-  return <CouponDraftScreen scope="admin" />;
+  return <VoucherManager scope="admin" />;
 }
