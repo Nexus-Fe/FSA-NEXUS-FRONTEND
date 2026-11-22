@@ -24,7 +24,7 @@ const labels: Record<string, string> = {
   "/admin/categories": "Danh mục sản phẩm", "/admin/ledger": "Điều chỉnh số dư ví",
   "/admin/configs": "Cài đặt hệ thống", "/admin/coupons": "Mã giảm giá",
   "/admin/notifications": "Nhật ký & Thông báo",
-  "/account/profile": "Hồ sơ cá nhân", "/account/change-password": "Đổi mật khẩu",
+  "/account/profile": "Hồ sơ cá nhân", "/account/addresses": "Sổ địa chỉ", "/account/change-password": "Đổi mật khẩu",
 };
 
 const terminalLabels: Record<string, string> = {

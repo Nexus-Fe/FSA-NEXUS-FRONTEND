@@ -230,6 +230,10 @@ function AccountNavigation() {
                 <Icon name="user" size={16} />
                 <span>Hồ sơ cá nhân</span>
               </Link>
+              <Link href={ROUTES.auth.addresses}>
+                <Icon name="warehouse" size={16} />
+                <span>Sổ địa chỉ</span>
+              </Link>
               <Link href={ROUTES.auth.changePassword}>
                 <Icon name="shield" size={16} />
                 <span>Đổi mật khẩu</span>
@@ -319,6 +323,10 @@ function PortalAccountMenu({ role }: { role: string }) {
             <Link href={ROUTES.auth.profile}>
               <Icon name="user" size={16} />
               <span>Hồ sơ cá nhân</span>
+            </Link>
+            <Link href={ROUTES.auth.addresses}>
+              <Icon name="warehouse" size={16} />
+              <span>Sổ địa chỉ</span>
             </Link>
             <Link href={ROUTES.auth.changePassword}>
               <Icon name="shield" size={16} />

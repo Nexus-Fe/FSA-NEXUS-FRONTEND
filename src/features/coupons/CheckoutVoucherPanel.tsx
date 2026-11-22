@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { useFeature } from "@/lib/features/FeatureProvider";
 import { formatMoney } from "@/lib/presentation";
@@ -9,7 +9,7 @@ import { discountService, type AvailableVoucher } from "./services/discount.serv
 import { canSelectVoucher } from "./voucher-rules";
 import { describeVoucherFailure, ineligibleText } from "./voucher-outcome";
 
-type PanelProps = { cartItemIds: string[]; selectedCodes: string[]; disabled?: boolean; onChange: (codes: string[]) => void };
+type PanelProps = { cartItemIds: string[]; selectedCodes: string[]; disabled?: boolean; cashOnDelivery?: boolean; onChange: (codes: string[]) => void };
 
 /** Real vouchers for the checkout. Shown only while the `vouchers` feature is on; the back end decides what is valid. */
 export function CheckoutVoucherPanel(props: PanelProps) {
@@ -18,16 +18,27 @@ export function CheckoutVoucherPanel(props: PanelProps) {
   return <PanelContent {...props} />;
 }
 
-function PanelContent({ cartItemIds, selectedCodes, disabled = false, onChange }: PanelProps) {
+function PanelContent({ cartItemIds, selectedCodes, disabled = false, cashOnDelivery = false, onChange }: PanelProps) {
   const [manualCode, setManualCode] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const available = useApiResource(`checkout-vouchers:${cartItemIds.join(",")}`, (signal) => discountService.available(cartItemIds, signal));
   const vouchers = available.data?.items ?? [];
   const locked = busy || disabled;
+  // Platform vouchers cannot be used with cash on delivery (the back end refuses them), so they are not offered then.
+  const systemCodes = vouchers.filter((voucher) => voucher.scopeType === "System").map((voucher) => voucher.code);
+  const heldSystemCodes = cashOnDelivery ? selectedCodes.filter((code) => systemCodes.includes(code)) : [];
+  useEffect(() => {
+    if (heldSystemCodes.length > 0) onChange(selectedCodes.filter((code) => !heldSystemCodes.includes(code)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [heldSystemCodes.join(",")]);
 
   function toggle(item: AvailableVoucher) {
     setError("");
+    if (cashOnDelivery && item.scopeType === "System") {
+      setError("Mã của sàn không dùng được khi thanh toán khi nhận hàng (COD).");
+      return;
+    }
     if (selectedCodes.includes(item.code)) {
       onChange(selectedCodes.filter((code) => code !== item.code));
       return;
@@ -97,7 +108,7 @@ function PanelContent({ cartItemIds, selectedCodes, disabled = false, onChange }
               <input
                 type="checkbox"
                 checked={selectedCodes.includes(voucher.code)}
-                disabled={locked || (!voucher.isEligible && !selectedCodes.includes(voucher.code))}
+                disabled={locked || (!voucher.isEligible && !selectedCodes.includes(voucher.code)) || (cashOnDelivery && voucher.scopeType === "System")}
                 onChange={() => toggle(voucher)}
               />
               <span>
@@ -107,6 +118,7 @@ function PanelContent({ cartItemIds, selectedCodes, disabled = false, onChange }
                   {voucher.minOrderAmount > 0 ? ` · Đơn từ ${formatMoney(voucher.minOrderAmount)}` : ""}
                 </small>
                 {!voucher.isEligible && <small className="form-error">{ineligibleText(voucher.ineligibleReason)}</small>}
+                {cashOnDelivery && voucher.scopeType === "System" && <small className="form-error">Không dùng được khi thanh toán khi nhận hàng.</small>}
               </span>
               <b>{voucher.estimatedDiscountAmount > 0 ? `−${formatMoney(voucher.estimatedDiscountAmount)}` : ""}</b>
             </label>

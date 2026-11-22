@@ -98,6 +98,17 @@ export const ERROR_DICTIONARY: Record<string, Entry> = {
   SELLER_WAREHOUSE_MISSING: { message: "Cửa hàng này chưa có kho gửi hàng nên chưa thể nhận đơn.", hint: "Bỏ sản phẩm của cửa hàng này khỏi đơn hoặc thử lại sau." },
   SELLER_WAREHOUSE_INCOMPLETE: { message: "Kho của cửa hàng này thiếu thông tin quận, phường gửi hàng nên chưa thể nhận đơn.", hint: "Bỏ sản phẩm của cửa hàng này khỏi đơn hoặc thử lại sau." },
 
+  SYSTEM_VOUCHER_NOT_ALLOWED_FOR_COD: { message: "Mã giảm giá của sàn không dùng được khi thanh toán khi nhận hàng (COD).", hint: "Bỏ mã của sàn hoặc chọn thanh toán bằng ví." },
+  ORDER_NOT_FOUND: { message: "Không tìm thấy đơn hàng." },
+  SUB_ORDER_NOT_FOUND: { message: "Không tìm thấy đơn của gian hàng." },
+  ORDER_EMPTY: { message: "Đơn hàng không còn sản phẩm nào đang hoạt động." },
+  INVALID_STATUS: { message: "Đơn hàng không ở trạng thái cho phép thao tác này.", hint: RELOAD },
+  ORDER_PAYMENT_DEADLINE_EXPIRED: { message: "Đơn hàng đã quá hạn thanh toán.", hint: "Đặt lại đơn mới từ giỏ hàng." },
+  INVALID_PAYMENT_METHOD: { message: "Đơn thanh toán khi nhận hàng (COD) không thanh toán online được." },
+  WALLET_PAYMENT_FAILED: { message: "Ví chưa thanh toán được đơn hàng này.", hint: "Kiểm tra số dư ví rồi thử lại.", kind: "unavailable" },
+  CANNOT_CHANGE_ADDRESS_AFTER_SHIPPING: { message: "Không thể đổi địa chỉ vì đơn hàng đã được giao đi hoặc đã hoàn tất." },
+  SHIPPING_FEE_INCREASED: { message: "Phí giao hàng tới địa chỉ mới cao hơn số tiền đã thanh toán.", hint: "Hủy đơn và đặt lại với địa chỉ mới." },
+
   // ---- vouchers and subsidy
   VOUCHER_NOT_FOUND: { message: "Không tìm thấy mã giảm giá." },
   VOUCHER_EXPIRED: { message: "Mã giảm giá đã hết hạn." },
