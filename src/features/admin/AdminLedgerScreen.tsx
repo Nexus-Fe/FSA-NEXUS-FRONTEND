@@ -7,8 +7,8 @@ import { ROUTES } from "@/constants/routes";
 import { ApiError } from "@/lib/api/client";
 import { formatMoney } from "@/lib/presentation";
 import { adminLedgerService, type BalanceAdjustmentResponse } from "./services/admin-ledger.service";
+import { isWalletId } from "./wallet-id";
 
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function AdminLedgerScreen() {
   const [walletId, setWalletId] = useState("");
@@ -25,7 +25,7 @@ export function AdminLedgerScreen() {
     if (busy) return;
     const id = walletId.trim();
     const value = Number(amount);
-    if (!UUID_REGEX.test(id)) { setError("Mã ví điện tử phải đúng định dạng UUID."); return; }
+    if (!isWalletId(id)) { setError("Mã ví điện tử phải đúng định dạng UUID."); return; }
     if (!Number.isSafeInteger(value) || value <= 0) { setError("Số tiền điều chỉnh phải là số nguyên dương."); return; }
     if (!reason.trim()) { setError("Vui lòng nhập lý do hoặc căn cứ đối soát."); return; }
     setBusy(true); setError(""); setSuccess("");
