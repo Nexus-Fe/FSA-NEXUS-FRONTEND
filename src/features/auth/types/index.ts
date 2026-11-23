@@ -3,6 +3,11 @@ export type LoginRequest = {
   password: string;
 };
 
+export type GoogleLoginRequest = {
+  idToken: string;
+  deviceInfo?: string;
+};
+
 export type RegisterRequest = {
   username?: string;
   email: string;
