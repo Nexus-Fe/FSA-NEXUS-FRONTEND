@@ -6,13 +6,13 @@ import { ROUTES } from "@/constants/routes";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatMoney } from "@/lib/presentation";
 import { walletService } from "./services/wallet.service";
+import { transactionDirection, transactionTypeLabel } from "./transaction-display";
 import { WalletTopUpForm } from "./WalletTopUpFlow";
 import { SellerWithdrawalForm } from "./SellerWithdrawalForm";
 
 
 function sellerTransactionType(type: string): string {
-  return ({ ESCROWRELEASE: "Doanh thu đơn hàng", WITHDRAWAL: "Rút tiền", WITHDRAWALDEBIT: "Rút tiền",
-    REFUND: "Hoàn tiền", REFUNDCREDIT: "Hoàn tiền" } as Record<string, string>)[type.toUpperCase()] ?? type;
+  return transactionTypeLabel(type);
 }
 
 function sellerTransactionStatus(status: string): string {
@@ -20,13 +20,7 @@ function sellerTransactionStatus(status: string): string {
     CANCELLED: "Đã hủy" } as Record<string, string>)[status.toUpperCase()] ?? status;
 }
 
-function sellerTransactionDirection(type: string, status: string, amount: number): "credit" | "debit" | null {
-  if (!Number.isFinite(amount) || amount === 0 || !["SUCCESS", "COMPLETED"].includes(status.toUpperCase())) return null;
-  const normalizedType = type.toUpperCase();
-  if (["ESCROWRELEASE", "REFUNDCREDIT", "WITHDRAWALREVERSAL", "TRANSFERIN", "ADJUSTMENTCREDIT", "TOPUPVNPAY"].includes(normalizedType)) return "credit";
-  if (["WITHDRAWALDEBIT", "PURCHASEDEBIT", "DIRECTGATEWAYPAYMENT", "TRANSFEROUT", "ADJUSTMENTDEBIT"].includes(normalizedType)) return "debit";
-  return null;
-}
+const sellerTransactionDirection = transactionDirection;
 
 function SellerTransactionAmount({ type, status, amount }: { type: string; status: string; amount: number }) {
   const direction = sellerTransactionDirection(type, status, amount);

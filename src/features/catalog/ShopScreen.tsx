@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { SellerAuctionStats } from "@/features/auction/SellerAuctionStats";
 import { useParams } from "next/navigation";
 import { BackendImage } from "@/components/ui/BackendImage";
 import { Card } from "@/components/ui/Primitives";
@@ -15,6 +16,8 @@ type PublicSellerProfile = {
   logoUrl?: string | null;
   description?: string | null;
   hotline?: string | null;
+  ratingAvg?: number | null;
+  totalProducts?: number | null;
 };
 
 export function ShopScreen() {
@@ -45,6 +48,11 @@ export function ShopScreen() {
           <p className="overline">Gian hàng trên Nexus</p>
           <h1>{shopName}</h1>
           <p>{profile.data?.description || "Khám phá các sản phẩm đang được bán tại gian hàng này."}</p>
+          <div className="product-detail-seller-facts">
+            {typeof profile.data?.ratingAvg === "number" && profile.data.ratingAvg > 0 && <span>★ {profile.data.ratingAvg.toFixed(1)}/5</span>}
+            {typeof profile.data?.totalProducts === "number" && <span>{profile.data.totalProducts} sản phẩm</span>}
+          </div>
+          <SellerAuctionStats sellerId={sellerId} />
           {profile.data?.hotline && <p className="public-shop-contact">Liên hệ gian hàng: <strong>{profile.data.hotline}</strong></p>}
         </div>
         <a className="button button-primary public-shop-action" href="#catalog-results">Xem sản phẩm</a>

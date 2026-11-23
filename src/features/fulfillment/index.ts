@@ -1,2 +1,12 @@
 export { fulfillmentService } from "./services/fulfillment.service";
-export type { Shipment, ShippingAddress } from "./types";
+export { countFailedAttempts, hasShipmentToTrack, shipmentStatusLabel } from "./shipment-labels";
+export type {
+  OrderShipmentTracking,
+  Shipment,
+  ShipmentDetail,
+  ShipmentEvent,
+  ShipmentTimeline,
+  ShippingAddress,
+  SubOrderShipment,
+  TimelineEvent,
+} from "./types";

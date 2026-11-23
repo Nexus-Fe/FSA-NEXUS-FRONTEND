@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { ApiError } from "@/lib/api/client";
 import { auctionOrderService } from "./services/auction-order.service";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatMoney } from "@/lib/presentation";
-import { SellerBuyerReview } from "@/features/seller/SellerBuyerReview";
+import { PartnerReviewCard } from "@/features/reviews/PartnerReviewCard";
 
 export function AuctionOrderSellerActions({ orderId }: { orderId: string }) {
   const order = useApiResource(`seller-auction-order:${orderId}`, (signal) => auctionOrderService.detail(orderId, signal));
@@ -24,7 +25,12 @@ export function AuctionOrderSellerActions({ orderId }: { orderId: string }) {
       else await auctionOrderService.reject(orderId, reason.trim());
       setNotice(accept ? "Đã tiếp nhận đơn đấu giá." : "Đã từ chối đơn. Hệ thống sẽ cập nhật hoàn tiền.");
       setRejecting(false); order.reload();
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Không thể xử lý đơn đấu giá."); }
+    } catch (cause) {
+      // Commerce refuses until the buyer's deposit is captured for this order, so the seller only needs to wait and retry.
+      const pendingCapture = cause instanceof ApiError && cause.errorCode === "DEPOSIT_RECONCILIATION_PENDING";
+      setError(pendingCapture ? "Tiền cọc của người mua đang được đối soát với Ví Nexus. Hãy thử lại sau ít phút." : cause instanceof Error ? cause.message : "Không thể xử lý đơn đấu giá.");
+      order.reload();
+    }
     finally { setBusy(false); }
   }
 
@@ -33,9 +39,9 @@ export function AuctionOrderSellerActions({ orderId }: { orderId: string }) {
     {order.error && <div className="notice" role="alert">{order.error.message} <button type="button" className="button button-secondary button-small" onClick={order.reload}>Tải lại</button></div>}
     {error && <p className="notice" role="alert">{error}</p>}{notice && <p className="form-success" role="status">{notice}</p>}
     {order.loading && !order.data && <p>Đang tải đơn hàng…</p>}
-    {order.data && <><div className="info-row"><span>Mã đơn</span><strong>{order.data.orderNo}</strong></div><div className="info-row"><span>Giá trúng</span><strong>{formatMoney(order.data.winningAmount)}</strong></div><div className="info-row"><span>Trạng thái</span><strong>{order.data.status}</strong></div>{order.data.sellerRespondDeadlineAt && <div className="info-row"><span>Hạn phản hồi</span><strong>{new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(order.data.sellerRespondDeadlineAt))}</strong></div>}
+    {order.data && <><div className="info-row"><span>Mã đơn</span><strong>{order.data.orderNo}</strong></div><div className="info-row"><span>Giá trúng</span><strong>{formatMoney(order.data.winningAmount)}</strong></div><div className="info-row"><span>Cọc áp dụng</span><strong>{formatMoney(order.data.depositAmount)}</strong></div><div className="info-row"><span>Phí giao hàng</span><strong>{formatMoney(order.data.shippingFeeAmount)}</strong></div><div className="info-row"><span>Buyer đã trả thêm</span><strong>{formatMoney(order.data.totalAmount)}</strong></div><div className="info-row"><span>Trạng thái</span><strong>{order.data.status}</strong></div>{order.data.sellerRespondDeadlineAt && <div className="info-row"><span>Hạn phản hồi</span><strong>{new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(order.data.sellerRespondDeadlineAt))}</strong></div>}
       {status === "PAID" && <><div className="action-row"><button type="button" className="button button-primary" disabled={busy} onClick={() => void respond(true)}>{busy ? "Đang xử lý…" : "Tiếp nhận đơn"}</button><button type="button" className="button button-secondary" disabled={busy} onClick={() => setRejecting((value) => !value)}>Từ chối đơn</button></div>{rejecting && <div className="auction-reject-form"><label className="field-wrap">Lý do từ chối<input className="field" value={reason} onChange={(event) => setReason(event.target.value)} /></label><button type="button" className="button auction-danger-button" disabled={busy || !reason.trim()} onClick={() => void respond(false)}>Xác nhận từ chối</button></div>}</>}
-      {status === "COMPLETED" && order.data.buyerId && <SellerBuyerReview buyerId={order.data.buyerId} subOrderId={order.data.id} />}
+      {status === "COMPLETED" && <PartnerReviewCard referenceType="Auction" referenceId={orderId} title="Đánh giá người mua" counterpart="người mua" />}
     </>}
   </section>;
 }

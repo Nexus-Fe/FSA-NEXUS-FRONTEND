@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   distDir: process.env.NEXUS_DEV_PREVIEW === "1" ? "build" : undefined,
+  devIndicators: false,
   output: "standalone",
   productionBrowserSourceMaps: false,
   compiler: {

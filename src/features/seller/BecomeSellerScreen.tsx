@@ -741,6 +741,10 @@ export function BecomeSellerScreen() {
                 <strong>{registrationId || "Đã ghi nhận"}</strong>
               </div>
               <div className="info-row">
+                <span>Giấy tờ (căn cước, giấy phép)</span>
+                <strong><ButtonLink href={ROUTES.auth.sellerDocuments} variant="secondary">Tải giấy tờ lên</ButtonLink></strong>
+              </div>
+              <div className="info-row">
                 <span>Tên gian hàng</span>
                 <strong>{shopForm.shopName || "—"}</strong>
               </div>

@@ -63,9 +63,11 @@ export const productModerationService = {
       page: String(query.page ?? 1),
       pageSize: String(query.pageSize ?? 20),
     });
+    const mappedStatus = query.status === "Suspended" ? "Inactive" : query.status === "Rejected" ? "Draft" : query.status;
+    const mappedReason = query.status === "Suspended" ? "AdminLocked" : query.status === "Rejected" ? "Rejected" : query.statusReason;
     if (query.keyword) params.set("keyword", query.keyword.trim());
-    if (query.status) params.set("status", query.status);
-    if (query.statusReason) params.set("statusReason", query.statusReason);
+    if (mappedStatus) params.set("status", mappedStatus);
+    if (mappedReason) params.set("statusReason", mappedReason);
     if (query.categoryId) params.set("categoryId", query.categoryId);
     if (query.sellerId) params.set("sellerId", query.sellerId);
     if (query.saleType) params.set("saleType", query.saleType);

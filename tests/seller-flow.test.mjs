@@ -134,7 +134,7 @@ test("seller product creation payload links initial inventory to active warehous
   assert.deepEqual(capturedBody.specifications, [{ name: "Xuất xứ", value: "Việt Nam" }]);
 });
 
-test("listWarehouses fetches seller-specific and platform warehouses seamlessly", async () => {
+test("listWarehouses returns only the seller own warehouse, never the platform or another seller one", async () => {
   browserSession();
   saveSessionTokens("test-access", "test-refresh");
 
@@ -171,11 +171,9 @@ test("listWarehouses fetches seller-specific and platform warehouses seamlessly"
   };
 
   const warehouses = await sellerCatalogService.listWarehouses("seller-123");
-  assert.equal(warehouses.length, 2);
-  const ids = warehouses.map((w) => w.id);
-  assert.ok(ids.includes("wh-seller-1"));
-  assert.ok(ids.includes("wh-plat-1"));
-  assert.ok(!ids.includes("wh-other-seller"));
+  assert.equal(warehouses.length, 1);
+  assert.equal(warehouses[0].id, "wh-seller-1");
+  assert.equal(warehouses[0].type, "SellerWarehouse");
 });
 
 test("inventory batch query and warehouse filtering isolate products correctly", async () => {

@@ -1,0 +1,46 @@
+"use client";
+
+import Link from "next/link";
+import { useState } from "react";
+import { Badge, Card, NoData, PageHeading } from "@/components/ui/Primitives";
+import { ROUTES } from "@/constants/routes";
+import { useApiResource } from "@/lib/api/use-api-resource";
+import { describeError, formatError } from "@/lib/errors/error-messages";
+import { formatMoney } from "@/lib/presentation";
+import { depositStatusLabel } from "./auction-outcome";
+import { auctionService } from "./services/auction.service";
+
+const DATE = new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium", timeStyle: "short" });
+const when = (value: string | null) => (value ? DATE.format(new Date(value)) : "—");
+const FILTERS = [["", "Tất cả"], ["Authorized", "Đang giữ"], ["Captured", "Đã tính vào đơn"], ["Released", "Đã hoàn lại"], ["Failed", "Chưa giữ được"]] as const;
+
+/** The deposits the buyer has put on auctions, with their state. View only. */
+export function MyDepositsScreen() {
+  const [page, setPage] = useState(1);
+  const [status, setStatus] = useState("");
+  const deposits = useApiResource(`my-deposits:${page}:${status}`, (signal) => auctionService.myDeposits(page, status, signal));
+  return <div className="auction-surface">
+    <PageHeading title="Cọc của tôi" description="Khoản cọc giữ trong Ví Nexus cho từng phiên đấu giá. Màn này chỉ để xem." />
+    <div className="action-row" role="tablist" aria-label="Lọc theo trạng thái cọc">
+      {FILTERS.map(([value, label]) => <button key={value || "all"} type="button" role="tab" aria-selected={status === value} className={"button " + (status === value ? "button-primary" : "button-secondary")} onClick={() => { setStatus(value); setPage(1); }}>{label}</button>)}
+    </div>
+    {deposits.error && <p className="notice" role="alert">{formatError(describeError(deposits.error, { operation: "read" }))} <button type="button" className="button button-secondary" onClick={deposits.reload}>Thử lại</button></p>}
+    {deposits.loading && !deposits.data ? <NoData title="Đang tải danh sách cọc…" /> : deposits.data?.items.length ? <Card>
+      <div className="table-scroll"><table className="data-table"><thead><tr><th>Phiên</th><th>Số tiền</th><th>Tỷ lệ</th><th>Trạng thái</th><th>Mục đích trừ cọc</th><th>Mốc thời gian</th></tr></thead><tbody>
+        {deposits.data.items.map((item) => <tr key={item.depositId}>
+          <td><Link href={ROUTES.auction.room(item.auctionId)}>{item.auctionTitle || item.auctionId}</Link></td>
+          <td>{formatMoney(item.amount)}</td>
+          <td>{item.ratePercent}%</td>
+          <td><Badge tone="slate">{depositStatusLabel(item.status)}</Badge></td>
+          <td>{item.capturePurpose ?? "—"}</td>
+          <td><small>Giữ: {when(item.authorizedAt)}<br />Hoàn: {when(item.releasedAt)}<br />Trừ: {when(item.capturedAt)}</small></td>
+        </tr>)}
+      </tbody></table></div>
+    </Card> : !deposits.error && <NoData title="Bạn chưa có khoản cọc nào." />}
+    {deposits.data && deposits.data.pagination.totalPages > 1 && <div className="action-row">
+      <button className="button button-secondary" type="button" disabled={!deposits.data.pagination.hasPreviousPage || deposits.loading} onClick={() => setPage(page - 1)}>Trang trước</button>
+      <span>Trang {deposits.data.pagination.pageIndex}/{deposits.data.pagination.totalPages}</span>
+      <button className="button button-secondary" type="button" disabled={!deposits.data.pagination.hasNextPage || deposits.loading} onClick={() => setPage(page + 1)}>Trang sau</button>
+    </div>}
+  </div>;
+}

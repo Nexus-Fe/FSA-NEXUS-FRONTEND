@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Suspense, useState, type ReactNode } from "react";
+import { Suspense, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import type { NavigationItem } from "@/constants/navigation";
 import { buyerNavigation } from "@/constants/navigation";
 import { ROUTES } from "@/constants/routes";
@@ -10,9 +10,13 @@ import { Icon } from "@/components/ui/Icon";
 import { useSession } from "@/components/auth/SessionProvider";
 import { authService } from "@/features/auth";
 import { NotificationBell } from "@/features/notification";
+import { notificationService, notificationsChangedEvent } from "@/features/notification/services/notification.service";
 import { NexusBrandHeader } from "@/components/ui/NexusLogo";
+import { useEnabledNavigation } from "@/lib/features/use-enabled-navigation";
 import { NavLinks } from "./NavLinks";
 import { Breadcrumbs } from "./Breadcrumbs";
+import { useApiResource } from "@/lib/api/use-api-resource";
+import { categoryGroups, loadCategories } from "@/features/catalog/categories";
 
 const roleDashboardLinks = [
   { role: "admin", label: "Quản trị hệ thống", href: ROUTES.admin.overview, icon: "shield" },
@@ -229,7 +233,27 @@ function AccountNavigation() {
                 <Icon name="user" size={16} />
                 <span>Hồ sơ cá nhân</span>
               </Link>
-              <Link href={ROUTES.auth.changePassword}>
+              <Link href={ROUTES.auth.addresses}>
+                <Icon name="warehouse" size={16} />
+                <span>Sổ địa chỉ</span>
+              </Link>
+              <Link href={ROUTES.auth.sessions}>
+                <Icon name="shield" size={16} />
+                <span>Phiên đăng nhập</span>
+              </Link>
+              <Link href={ROUTES.auth.notificationPreferences}>
+                <Icon name="flag" size={16} />
+                <span>Tuỳ chọn thông báo</span>
+              </Link>
+              <Link href={ROUTES.auth.sessions}>
+              <Icon name="shield" size={16} />
+              <span>Phiên đăng nhập</span>
+            </Link>
+            <Link href={ROUTES.auth.notificationPreferences}>
+              <Icon name="flag" size={16} />
+              <span>Tuỳ chọn thông báo</span>
+            </Link>
+            <Link href={ROUTES.auth.changePassword}>
                 <Icon name="shield" size={16} />
                 <span>Đổi mật khẩu</span>
               </Link>
@@ -265,6 +289,27 @@ function PortalAccountMenu({ role }: { role: string }) {
   const { user, clearSession } = useSession();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const isSeller = role === "Người bán";
+  const [accountOpen, setAccountOpen] = useState(false);
+  const accountMenuRef = useRef<HTMLDivElement>(null);
+  const accountMenuId = useId();
+  const notifications = useApiResource(isSeller && user?.id ? `notifications:portal:${user.id}` : null,
+    async (signal) => (await notificationService.getNotifications(1, 1, false, signal)).pagination.totalCount);
+  useEffect(() => {
+    if (!isSeller) return;
+    window.addEventListener(notificationsChangedEvent, notifications.reload);
+    return () => window.removeEventListener(notificationsChangedEvent, notifications.reload);
+  }, [isSeller, notifications.reload]);
+  useEffect(() => {
+    if (!accountOpen) return;
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      if (!accountMenuRef.current?.contains(event.target as Node)) setAccountOpen(false);
+    };
+    document.addEventListener("pointerdown", closeOnOutsideClick);
+    return () => document.removeEventListener("pointerdown", closeOnOutsideClick);
+  }, [accountOpen]);
+  const unreadCount = notifications.data ?? 0;
+  const unreadLabel = unreadCount > 99 ? "99+" : unreadCount;
   const roleInfo = resolveUserRole(user, role);
   const displayRole = roleInfo?.label ?? role;
   const normalizedRoles = getNormalizedRoles(user);
@@ -294,9 +339,7 @@ function PortalAccountMenu({ role }: { role: string }) {
     router.replace(ROUTES.auth.login);
   }
 
-  return (
-    <details className="portal-account-menu">
-      <summary className="sidebar-bottom">
+  const accountTrigger = <>
         <div className="avatar" aria-hidden="true">
           {displayName.charAt(0).toLocaleUpperCase("vi-VN")}
         </div>
@@ -304,9 +347,11 @@ function PortalAccountMenu({ role }: { role: string }) {
           <strong title={displayName}>{displayName}</strong>
           <span>{displayRole}</span>
         </div>
-        <Icon name="chevronDown" size={16} />
-      </summary>
-      <div className="account-menu-panel portal-account-menu-panel">
+        {unreadCount > 0 && <span className="notification-count portal-account-unread" aria-label={`${unreadCount} thông báo chưa đọc`}>{unreadLabel}</span>}
+        {unreadCount === 0 && <Icon name="chevronDown" size={16} />}
+  </>;
+  const accountPanel = <div id={accountMenuId} className="account-menu-panel portal-account-menu-panel"
+    onClickCapture={(event) => { if ((event.target as HTMLElement).closest("a")) setAccountOpen(false); }}>
         {canAccessMarketplace && (
           <Link className="portal-marketplace-link" href={ROUTES.home}>
             <Icon name="bag" size={16} />
@@ -319,10 +364,19 @@ function PortalAccountMenu({ role }: { role: string }) {
               <Icon name="user" size={16} />
               <span>Hồ sơ cá nhân</span>
             </Link>
+            <Link href={ROUTES.auth.addresses}>
+              <Icon name="warehouse" size={16} />
+              <span>Sổ địa chỉ</span>
+            </Link>
             <Link href={ROUTES.auth.changePassword}>
               <Icon name="shield" size={16} />
               <span>Đổi mật khẩu</span>
             </Link>
+            {isSeller && <Link href={ROUTES.seller.notifications} aria-label={unreadCount ? `Thông báo, ${unreadCount} chưa đọc` : "Thông báo"}>
+              <Icon name="bell" size={16} />
+              <span>Thông báo</span>
+              {unreadCount > 0 && <span className="notification-count portal-notification-unread" aria-hidden="true">{unreadLabel}</span>}
+            </Link>}
             <button
               type="button"
               className="portal-logout-btn"
@@ -339,13 +393,21 @@ function PortalAccountMenu({ role }: { role: string }) {
             <span>Đăng nhập</span>
           </Link>
         )}
-      </div>
-    </details>
-  );
+  </div>;
+
+  return <div ref={accountMenuRef} className="portal-account-menu portal-account-menu-animated" data-open={accountOpen}
+    onKeyDown={(event) => { if (event.key === "Escape") { setAccountOpen(false); accountMenuRef.current?.querySelector<HTMLButtonElement>("button.sidebar-bottom")?.focus(); } }}>
+    <button type="button" className="sidebar-bottom" aria-expanded={accountOpen} aria-controls={accountMenuId}
+      onClick={() => { if (!accountOpen && isSeller) notifications.reload(); setAccountOpen((open) => !open); }}>
+      {accountTrigger}
+    </button>
+    {accountPanel}
+  </div>;
 }
 
 export function BuyerShell({ children }: { children: ReactNode }) {
   const { user } = useSession();
+  const categories = useApiResource("/api/v1/categories", loadCategories);
   const userRoles = user?.roles ?? (user?.role ? [user.role] : []);
   const dashboardLinks = dashboardsForRoles(userRoles);
   const hasPrivilegedRole = dashboardLinks.length > 0;
@@ -353,7 +415,8 @@ export function BuyerShell({ children }: { children: ReactNode }) {
   const homeLabel = getRoleHomeLabel(user);
   const isSeller = getNormalizedRoles(user).includes("seller");
 
-  const dynamicBuyerNav = buyerNavigation.filter((item) => {
+  const enabledBuyerNav = useEnabledNavigation(buyerNavigation);
+  const dynamicBuyerNav = enabledBuyerNav.filter((item) => {
     // Nếu người dùng đã là người bán, họ đã có nút "Kênh người bán" ở góc phải header-actions.
     // Ẩn tab đăng ký bán hàng khỏi thanh nav mua sắm để tránh trùng lặp.
     if (item.href === ROUTES.buyer.becomeSeller && isSeller) {
@@ -363,7 +426,7 @@ export function BuyerShell({ children }: { children: ReactNode }) {
   });
 
   return (
-    <div className="site-shell">
+    <div className="site-shell buyer-glass-shell">
       <header className="buyer-header">
         <div className="buyer-header-inner">
           <Link href={homeHref} aria-label={`NEXUS - ${homeLabel}`} title={homeLabel}>
@@ -412,7 +475,13 @@ export function BuyerShell({ children }: { children: ReactNode }) {
         </div>
         <div className="buyer-nav-wrap">
           <Suspense fallback={null}>
-            <NavLinks items={dynamicBuyerNav} variant="top" />
+            <NavLinks items={dynamicBuyerNav} variant="top" ariaLabel="Điều hướng mua sắm" catalogMenu={<nav aria-label="Danh mục sản phẩm" className="buyer-category-menu">
+              <div className="buyer-category-menu-head"><strong>Khám phá danh mục</strong><Link href={ROUTES.catalog.index}>Tất cả sản phẩm <Icon name="arrow" size={14} /></Link></div>
+              {categories.error ? <div className="buyer-category-menu-state" role="alert">Không tải được danh mục. <button type="button" onClick={categories.reload}>Thử lại</button></div> : categories.loading ? <p className="buyer-category-menu-state" role="status">Đang tải danh mục…</p> : categories.data?.length ? <div className="buyer-category-menu-grid">{categoryGroups(categories.data).map(({ parent, children }) => <section className="buyer-category-menu-group" key={parent.id}>
+                <Link className="buyer-category-menu-parent" href={`${ROUTES.catalog.index}?categoryId=${encodeURIComponent(parent.id)}`}>{parent.name}</Link>
+                {children.length > 0 && <div className="buyer-category-menu-children">{children.map((child) => <Link key={child.id} href={`${ROUTES.catalog.index}?categoryId=${encodeURIComponent(child.id)}`}>{child.name}</Link>)}</div>}
+              </section>)}</div> : <p className="buyer-category-menu-state">Chưa có danh mục.</p>}
+            </nav>} />
           </Suspense>
         </div>
       </header>
@@ -449,10 +518,9 @@ export function PortalShell({
   const displayRole = roleInfo?.label ?? role;
   const portalHomeHref = getRoleHomeRoute(user, role);
   const portalHomeLabel = getRoleHomeLabel(user, role);
-  const isSellerPortal = role === "Người bán";
 
   return (
-    <div className="portal-shell">
+    <div className={`portal-shell${role === "Nhân viên" || role === "Quản trị viên" ? " portal-shell-operations" : ""}`}>
       <aside className="portal-sidebar">
         <div className="sidebar-brand">
           <Link
@@ -468,7 +536,6 @@ export function PortalShell({
         <Suspense fallback={null}>
           <NavLinks items={items} />
         </Suspense>
-        {isSellerPortal && <NotificationBell href={ROUTES.seller.notifications} portal />}
         <PortalAccountMenu role={role} />
       </aside>
       <div className="portal-column">
@@ -482,7 +549,6 @@ export function PortalShell({
             <Suspense fallback={null}>
               <NavLinks items={items} />
             </Suspense>
-            {isSellerPortal && <NotificationBell href={ROUTES.seller.notifications} portal />}
             <PortalAccountMenu role={role} />
           </div>
         </details>

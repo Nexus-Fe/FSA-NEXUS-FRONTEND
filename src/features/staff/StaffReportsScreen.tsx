@@ -8,10 +8,13 @@ import {
   NoData,
   PageHeading,
 } from "@/components/ui/Primitives";
+import { ErrorState } from "@/components/ui/States";
+import { REPORT_REFUND_STATUS, statusLabel } from "@/lib/status-labels";
 import { ApiError } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import {
   adminReportsService,
+  canRetryReportRefund,
   reportStatusLabel,
   reportStatusTone,
   reportViolationTypeLabel,
@@ -34,6 +37,8 @@ export function StaffReportsScreen() {
   const [violationType, setViolationType] = useState("");
   const [page, setPage] = useState(1);
   const [selectedReport, setSelectedReport] = useState<AdminReportItem | null>(null);
+  const [refundBusy, setRefundBusy] = useState(false);
+  const [refundFailure, setRefundFailure] = useState<unknown>(null);
 
   // Actions
   const [actionType, setActionType] = useState<ActionType>(null);
@@ -171,6 +176,21 @@ export function StaffReportsScreen() {
       handleError(cause, "Không thể ẩn đánh giá vi phạm.");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function retryRefund() {
+    if (!selectedReport || refundBusy) return;
+    setRefundBusy(true);
+    setRefundFailure(null);
+    try {
+      await adminReportsService.retryRefund(selectedReport.reportId);
+      setSelectedReport(null);
+      reports.reload();
+    } catch (cause) {
+      setRefundFailure(cause);
+    } finally {
+      setRefundBusy(false);
     }
   }
 
@@ -415,6 +435,18 @@ export function StaffReportsScreen() {
                   {reportStatusLabel(selectedReport.status)}
                 </Badge>
               </div>
+              {selectedReport.refundStatus && selectedReport.refundStatus !== "None" && (
+                <div className="info-row" style={{ gridColumn: "span 2" }}>
+                  <span>Hoàn tiền sau xử lý:</span>
+                  <strong>{statusLabel(REPORT_REFUND_STATUS, selectedReport.refundStatus)}</strong>
+                  {canRetryReportRefund(selectedReport.refundStatus) && (
+                    <button type="button" className="button button-secondary button-small" disabled={refundBusy} onClick={() => void retryRefund()}>
+                      {refundBusy ? "Đang thử lại…" : "Thử hoàn tiền lại"}
+                    </button>
+                  )}
+                  {refundFailure != null && <ErrorState cause={refundFailure} operation="write" />}
+                </div>
+              )}
               {selectedReport.referenceId && (
                 <div className="info-row" style={{ gridColumn: "span 2" }}>
                   <span>Tham chiếu liên quan ({selectedReport.referenceType || "Đối tượng"}):</span>

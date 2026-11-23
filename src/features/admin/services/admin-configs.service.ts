@@ -4,6 +4,8 @@ export type SystemConfigItem = {
   key: string;
   value: string;
   description?: string | null;
+  minValue?: number | null;
+  maxValue?: number | null;
   dataType: string;
   updatedAt?: string;
 };
@@ -32,6 +34,12 @@ export type ConfigListPage = {
 };
 
 export const adminConfigsService = {
+  async history(key: string, signal?: AbortSignal): Promise<Array<{ id: string; oldValue?: string | null; newValue?: string | null; reason?: string | null; changedBy?: string | null; changedAt: string }>> {
+    const result = unwrap(await api.get<ApiResponse<Array<{ id: string; oldValue?: string | null; newValue?: string | null; reason?: string | null; changedBy?: string | null; changedAt: string }>> | Array<{ id: string; oldValue?: string | null; newValue?: string | null; reason?: string | null; changedBy?: string | null; changedAt: string }>>(`/api/v1/admin/configs/${encodeURIComponent(key)}/history?page=1&pageSize=50`, { signal }));
+    // The server answers a page `{ items, pagination }`; a bare array is accepted too.
+    const rows = Array.isArray(result) ? result : (result as { items?: unknown } | null)?.items;
+    return Array.isArray(rows) ? rows : [];
+  },
   async list(page: number, pageSize: number = 50, signal?: AbortSignal): Promise<ConfigListPage> {
     const res = await api.get<ApiResponse<PagedConfigsPayload> | PagedConfigsPayload>(
       `/api/v1/admin/configs?page=${page}&pageSize=${pageSize}`,

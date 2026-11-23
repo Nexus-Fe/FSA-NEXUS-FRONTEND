@@ -1,5 +1,3 @@
-import { WalletTopUpHistory } from "@/features/wallet/WalletTopUpFlow";
+import { WalletTopUpHistory } from "@/features/wallet/WalletTopUpHistory";
 
-export default function BuyerTopUpsPage() {
-  return <WalletTopUpHistory />;
-}
+export default function TopUpsPage() { return <WalletTopUpHistory />; }

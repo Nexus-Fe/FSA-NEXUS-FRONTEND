@@ -1,21 +1,12 @@
+import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { WalletTopUpResult } from "@/features/wallet/WalletTopUpFlow";
+import { ROUTES } from "@/constants/routes";
 
-async function PaymentCancelContent({
-  searchParams,
-}: {
-  searchParams: Promise<{ transactionId?: string | string[] }>;
-}) {
+async function RedirectToResult({ searchParams }: { searchParams: Promise<{ transactionId?: string }> }) {
   const { transactionId } = await searchParams;
-  return <WalletTopUpResult transactionId={typeof transactionId === "string" ? transactionId : ""} cancelled />;
+  return redirect(`${ROUTES.buyer.topUpResult}?checkout=cancel${transactionId ? `&transactionId=${encodeURIComponent(transactionId)}` : ""}`);
 }
 
-export default function PaymentCancelPage(props: {
-  searchParams: Promise<{ transactionId?: string | string[] }>;
-}) {
-  return (
-    <Suspense fallback={null}>
-      <PaymentCancelContent searchParams={props.searchParams} />
-    </Suspense>
-  );
+export default function PaymentCancelPage({ searchParams }: { searchParams: Promise<{ transactionId?: string }> }) {
+  return <Suspense fallback={<p>Đang mở kết quả thanh toán…</p>}><RedirectToResult searchParams={searchParams} /></Suspense>;
 }

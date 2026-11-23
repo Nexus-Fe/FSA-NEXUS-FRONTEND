@@ -1,5 +1,5 @@
 import { api, unwrap, type ApiResponse } from "@/lib/api/client";
-import type { DepositRequest, TopupPage, TopupResponse, TopupResumeResponse, TopupStatus, WalletBalance, WalletTransactionPage, WithdrawalRequest, WithdrawalResponse } from "../types";
+import type { DepositRequest, ResumeTopupResponse, TopupPage, TopupResponse, TopupStatus, WalletBalance, WalletHoldPage, WalletTransactionPage } from "../types";
 
 export const walletService = {
   async getBalance(signal?: AbortSignal): Promise<WalletBalance> {
@@ -10,16 +10,17 @@ export const walletService = {
     const response = await api.get<ApiResponse<WalletTransactionPage> | WalletTransactionPage>("/api/v1/wallets/transactions?page=1&pageSize=10", { signal });
     return "data" in response ? response.data : response;
   },
+  async getHolds(signal?: AbortSignal): Promise<WalletHoldPage> {
+    return unwrap(await api.get<ApiResponse<WalletHoldPage> | WalletHoldPage>("/api/v1/wallets/me/holds?status=Held&page=1&pageSize=50", { signal }));
+  },
   deposit: async (input: DepositRequest, idempotencyKey: string): Promise<TopupResponse> =>
     unwrap(await api.post<ApiResponse<TopupResponse> | TopupResponse>("/api/v1/wallets/topups/stripe", input, { headers: { "Idempotency-Key": idempotencyKey } })),
   topupStatus: async (id: string, signal?: AbortSignal): Promise<TopupStatus> =>
     unwrap(await api.get<ApiResponse<TopupStatus> | TopupStatus>(`/api/v1/wallets/topups/${encodeURIComponent(id)}`, { signal })),
-  listTopups: async (page: number, signal?: AbortSignal): Promise<TopupPage> =>
-    unwrap(await api.get<ApiResponse<TopupPage> | TopupPage>(`/api/v1/wallets/topups?page=${page}&pageSize=10`, { signal })),
-  resumeTopup: async (id: string): Promise<TopupResumeResponse> =>
-    unwrap(await api.post<ApiResponse<TopupResumeResponse> | TopupResumeResponse>(`/api/v1/wallets/topups/${encodeURIComponent(id)}/resume`)),
-  withdraw: async (input: WithdrawalRequest): Promise<WithdrawalResponse> =>
-    unwrap(await api.post<ApiResponse<WithdrawalResponse> | WithdrawalResponse>("/api/v1/wallets/withdrawals", input)),
+  topups: async (page = 1, pageSize = 10, signal?: AbortSignal): Promise<TopupPage> =>
+    unwrap(await api.get<ApiResponse<TopupPage> | TopupPage>(`/api/v1/wallets/topups?page=${page}&pageSize=${pageSize}`, { signal })),
+  resumeTopup: async (id: string): Promise<ResumeTopupResponse> =>
+    unwrap(await api.post<ApiResponse<ResumeTopupResponse> | ResumeTopupResponse>(`/api/v1/wallets/topups/${encodeURIComponent(id)}/resume`, {})),
   createDirectCheckout: (input: { orderId: string; amount: number; gateway: "VNPAY"; bankCode?: string; returnUrl: string }) =>
     api.post<ApiResponse<{ transactionId: string; orderId: string; amount: number; paymentUrl: string; status: string }>>("/api/v1/wallets/checkout/direct", input),
 };

@@ -1,5 +1,5 @@
-import { ReputationScreen } from "@/features/profile/ReputationScreen";
+import { MyReputationScreenClient } from "@/components/client/ClientScreens";
 
 export default function BuyerReputationPage() {
-  return <ReputationScreen />;
+  return <div className="buyer-glass-page"><MyReputationScreenClient /></div>;
 }

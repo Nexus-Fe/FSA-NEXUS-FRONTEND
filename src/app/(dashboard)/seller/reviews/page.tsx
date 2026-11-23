@@ -1,5 +1,5 @@
-import { SellerReviewsScreen } from "@/features/profile/SellerReviewsScreen";
+import { SellerReviewsScreenClient } from "@/components/client/ClientScreens";
 
 export default function SellerReviewsPage() {
-  return <SellerReviewsScreen />;
+  return <SellerReviewsScreenClient />;
 }

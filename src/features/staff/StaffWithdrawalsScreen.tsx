@@ -1,336 +1,156 @@
 "use client";
 
-import { useState, useEffect, type FormEvent } from "react";
-import { Badge, Card, PageHeading } from "@/components/ui/Primitives";
+import { Fragment, useState, type FormEvent } from "react";
+import { Badge, Card, NoData, PageHeading } from "@/components/ui/Primitives";
 import { CopyableId } from "@/components/ui/CopyableId";
+import { useSession } from "@/components/auth/SessionProvider";
 import { ApiError } from "@/lib/api/client";
+import { useApiResource } from "@/lib/api/use-api-resource";
+import { formatMoney } from "@/lib/presentation";
 import {
-  adminLedgerService,
-  type ProcessWithdrawalResponse,
-} from "@/features/admin/services/admin-ledger.service";
-import { extractAdminError } from "@/features/admin/services/admin-helpers";
+  WITHDRAWAL_ACTIONS,
+  WITHDRAWAL_HISTORY_LABEL,
+  WITHDRAWAL_STATUS_ORDER,
+  withdrawalService,
+  withdrawalStatus,
+} from "@/features/wallet/services/withdrawal.service";
+import type { AdminWithdrawal, ProcessWithdrawalInput, WithdrawalAction } from "@/features/wallet/types";
+import { transactionDate } from "@/features/wallet/WalletScreen";
 
-type ProcessedItem = {
-  withdrawalId: string;
-  action: "Approve" | "Reject";
-  adminNote?: string;
-  processedAt: string;
-  status: string;
+// The same labels the seller sees, so a status never reads differently on the two sides.
+const FILTERS = [
+  ...WITHDRAWAL_STATUS_ORDER.map((value) => ({ value: value as string, label: withdrawalStatus(value).label })),
+  { value: "", label: "Tất cả" },
+];
+
+const ERRORS: Record<string, string> = {
+  WITHDRAWAL_INVALID_TRANSITION: "Yêu cầu đã được xử lý hoặc đổi trạng thái. Danh sách sẽ được tải lại.",
+  TRANSFER_REFERENCE_ALREADY_USED: "Mã tham chiếu này đã xác nhận cho một yêu cầu rút khác.",
+  FORBIDDEN: "Chỉ admin được thực hiện thao tác này.",
 };
 
+type Panel = { id: string; action: WithdrawalAction } | null;
+
 export function StaffWithdrawalsScreen() {
-  const [withdrawalId, setWithdrawalId] = useState("");
-  const [action, setAction] = useState<"Approve" | "Reject">("Approve");
-  const [adminNote, setAdminNote] = useState("");
+  const { user } = useSession();
+  const isAdmin = (user?.roles ?? [user?.role]).some((role) => String(role ?? "").toLowerCase() === "admin");
+  const [status, setStatus] = useState("Pending");
+  const [page, setPage] = useState(1);
+  const list = useApiResource(`staff-withdrawals:${status}:${page}`, (signal) => withdrawalService.adminList(page, 20, status || undefined, signal));
+  const [panel, setPanel] = useState<Panel>(null);
+  const [historyId, setHistoryId] = useState("");
+  const [success, setSuccess] = useState("");
+
+  function choose(next: string) { setStatus(next); setPage(1); setPanel(null); setHistoryId(""); }
+
+  return <>
+    <PageHeading title="Duyệt rút tiền ví" description="Duyệt yêu cầu, chuyển khoản thủ công rồi xác nhận. Đã duyệt nghĩa là đã trừ ví, chưa phải đã chuyển tiền." />
+    <div className="action-row" role="tablist" aria-label="Lọc theo trạng thái">
+      {FILTERS.map((filter) => <button key={filter.value || "all"} type="button" role="tab" aria-selected={status === filter.value}
+        className={"button " + (status === filter.value ? "button-primary" : "button-secondary")} onClick={() => choose(filter.value)}>{filter.label}</button>)}
+    </div>
+    {success && <p className="form-success" role="status">{success}</p>}
+    {list.error && <p className="notice" role="alert">{list.error.message} <button type="button" className="button button-secondary" onClick={list.reload}>Thử lại</button></p>}
+    {list.loading && !list.data ? <NoData title="Đang tải yêu cầu rút…" /> : list.data?.items.length ? <Card>
+      <div className="table-scroll"><table className="data-table"><thead><tr><th>Gửi lúc</th><th>Số tiền</th><th>Chuyển tới</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>
+        {list.data.items.map((item) => {
+          const state = withdrawalStatus(item.status);
+          const actions = (WITHDRAWAL_ACTIONS[item.status] ?? []).filter((entry) => !entry.adminOnly || isAdmin);
+          return <Fragment key={item.withdrawalId}>
+            <tr>
+              <td>{transactionDate(item.requestedAt)}<br /><CopyableId id={item.withdrawalId} /></td>
+              <td><strong>{formatMoney(item.amount)}</strong></td>
+              <td>{item.bankName}<br /><CopyableId id={item.bankAccountNumber} length={20} showFull /><br /><small>{item.accountHolderName}</small></td>
+              <td><Badge tone={state.tone}>{state.label}</Badge>{item.statusReason && <><br /><small>Lý do: {item.statusReason}</small></>}{item.transferReference && <><br /><small>Mã CK: {item.transferReference}</small></>}</td>
+              <td><div className="action-row">
+                {actions.map((entry) => <button key={entry.action} type="button" className="button button-secondary" onClick={() => { setPanel({ id: item.withdrawalId, action: entry.action }); setSuccess(""); }}>{entry.label}</button>)}
+                <button type="button" className="button button-secondary" aria-expanded={historyId === item.withdrawalId} onClick={() => setHistoryId(historyId === item.withdrawalId ? "" : item.withdrawalId)}>Lịch sử</button>
+              </div></td>
+            </tr>
+            {panel?.id === item.withdrawalId && <tr><td colSpan={5}><ActionPanel item={item} action={panel.action} onCancel={() => setPanel(null)}
+              onDone={(message) => { setPanel(null); setSuccess(message); list.reload(); }} onConflict={() => { setPanel(null); list.reload(); }} /></td></tr>}
+            {historyId === item.withdrawalId && <tr><td colSpan={5}><History id={item.withdrawalId} /></td></tr>}
+          </Fragment>;
+        })}
+      </tbody></table></div>
+    </Card> : !list.error && <NoData title="Không có yêu cầu nào ở trạng thái này." />}
+    {list.data && list.data.pagination.totalPages > 1 && <div className="action-row">
+      <button className="button button-secondary" type="button" disabled={!list.data.pagination.hasPreviousPage || list.loading} onClick={() => setPage(page - 1)}>Trang trước</button>
+      <span>Trang {list.data.pagination.pageIndex}/{list.data.pagination.totalPages}</span>
+      <button className="button button-secondary" type="button" disabled={!list.data.pagination.hasNextPage || list.loading} onClick={() => setPage(page + 1)}>Trang sau</button>
+    </div>}
+  </>;
+}
+
+function History({ id }: { id: string }) {
+  const history = useApiResource(`withdrawal-history:${id}`, (signal) => withdrawalService.adminHistory(id, signal));
+  if (history.loading) return <p>Đang tải lịch sử…</p>;
+  if (history.error) return <p className="notice" role="alert">{history.error.message}</p>;
+  if (!history.data?.length) return <p>Chưa có lịch sử.</p>;
+  return <ol className="timeline">
+    {history.data.map((entry, index) => <li key={index}>
+      <strong>{WITHDRAWAL_HISTORY_LABEL[entry.action] ?? entry.action}</strong> · {withdrawalStatus(entry.toStatus).label} · {transactionDate(entry.occurredAt)}
+      {entry.actorId && <><br /><small>Người thực hiện: {entry.actorId}</small></>}
+      {entry.reason && <><br /><small>Lý do: {entry.reason}</small></>}
+      {entry.transferReference && <><br /><small>Mã chuyển khoản: {entry.transferReference}</small></>}
+      {entry.verificationEvidence && <><br /><small>Bằng chứng xác minh ngân hàng: {entry.verificationEvidence}</small></>}
+    </li>)}
+  </ol>;
+}
+
+const TITLES: Record<WithdrawalAction, string> = {
+  Approve: "Duyệt yêu cầu",
+  Reject: "Từ chối yêu cầu",
+  StartProcessing: "Đánh dấu đang chuyển khoản",
+  Complete: "Xác nhận đã chuyển tiền",
+  Fail: "Chuyển khoản thất bại, hoàn tiền vào ví",
+  ResolveFailed: "Xử lý thất bại cho yêu cầu đang chuyển (admin)",
+};
+
+function ActionPanel({ item, action, onCancel, onDone, onConflict }: {
+  item: AdminWithdrawal; action: WithdrawalAction; onCancel: () => void; onDone: (message: string) => void; onConflict: () => void;
+}) {
+  const [note, setNote] = useState("");
+  const [reference, setReference] = useState("");
+  const [evidence, setEvidence] = useState("");
+  const [confirmed, setConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<{ message: string; traceId?: string } | null>(null);
-  const [success, setSuccess] = useState<string>("");
-  const [history, setHistory] = useState<ProcessedItem[]>([]);
+  const [error, setError] = useState("");
+  const needsReason = action === "Reject" || action === "Fail" || action === "ResolveFailed";
+  const reversal = action === "Fail" || action === "ResolveFailed";
 
-  useEffect(() => {
-    if (!success) return;
-    const timer = setTimeout(() => setSuccess(""), 4000);
-    return () => clearTimeout(timer);
-  }, [success]);
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    if (busy) return;
+    if (needsReason && note.trim().length < 3) { setError("Nhập lý do (ít nhất 3 ký tự)."); return; }
+    if (action === "Complete" && (!confirmed || !reference.trim())) { setError("Tick xác nhận đã chuyển khoản và nhập mã tham chiếu của ngân hàng."); return; }
+    if (reversal && !confirmed) { setError("Chỉ hoàn tiền sau khi đã xác minh với ngân hàng là tiền CHƯA được chuyển."); return; }
+    if (action === "ResolveFailed" && evidence.trim().length < 3) { setError("Nhập bằng chứng đã xác minh với ngân hàng."); return; }
 
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    const trimmedId = withdrawalId.trim();
+    const input: ProcessWithdrawalInput = { action, adminNote: note.trim() || undefined };
+    if (action === "Complete") { input.transferConfirmed = true; input.transferReference = reference.trim(); }
+    if (reversal) input.bankVerifiedNotTransferred = true;
+    if (action === "ResolveFailed") input.verificationEvidence = evidence.trim();
 
-    if (!trimmedId) {
-      setError({ message: "Vui lòng nhập mã yêu cầu rút tiền." });
-      return;
-    }
-
-    if (action === "Reject" && !adminNote.trim()) {
-      setError({ message: "Vui lòng nhập lý do từ chối để thông báo cho người dùng." });
-      return;
-    }
-
-    setBusy(true);
-    setError(null);
-    setSuccess("");
-
+    setBusy(true); setError("");
     try {
-      const result: ProcessWithdrawalResponse = await adminLedgerService.processWithdrawal(trimmedId, {
-        action,
-        adminNote: adminNote.trim() || undefined,
-      });
-
-      const message =
-        action === "Approve"
-          ? `Đã duyệt yêu cầu ${trimmedId.slice(0, 8)}…. Yêu cầu đang chờ chuyển khoản.`
-          : `Đã từ chối lệnh ${trimmedId.slice(0, 8)}… và hoàn tiền lại vào ví.`;
-
-      setSuccess(message);
-      setHistory((prev) => [
-        {
-          withdrawalId: trimmedId,
-          action,
-          adminNote: adminNote.trim() || undefined,
-          processedAt: result.processedAt || new Date().toISOString(),
-          status: result.status,
-        },
-        ...prev,
-      ]);
-
-      setWithdrawalId("");
-      setAdminNote("");
+      await withdrawalService.process(item.withdrawalId, input);
+      onDone(`${TITLES[action]}: đã thực hiện cho yêu cầu ${item.withdrawalId.slice(0, 8)}…`);
     } catch (cause) {
-      if (cause instanceof ApiError) {
-        setError({ message: cause.message, traceId: cause.traceId });
-      } else {
-        setError(extractAdminError(cause, "Không thể xử lý yêu cầu rút tiền."));
-      }
-    } finally {
-      setBusy(false);
-    }
+      const code = cause instanceof ApiError ? cause.errorCode : undefined;
+      setError((code && ERRORS[code]) || (cause instanceof Error ? cause.message : "Không thể xử lý yêu cầu."));
+      if (code === "WITHDRAWAL_INVALID_TRANSITION") onConflict();
+    } finally { setBusy(false); }
   }
 
-  return (
-    <>
-      <PageHeading
-        title="Duyệt rút tiền ví"
-        description="Duyệt hoặc từ chối yêu cầu rút tiền. Đã duyệt chưa có nghĩa là đã chuyển khoản."
-      />
-
-      <div className="staff-withdrawals-layout">
-        {/* Khung xử lý rút tiền */}
-        <Card className="card-pad" style={{ borderRadius: "10px" }}>
-          <h2 style={{ fontSize: "16px", fontWeight: 700, margin: "0 0 4px 0" }}>
-            Xử lý yêu cầu rút tiền
-          </h2>
-          <p style={{ fontSize: "13px", color: "var(--muted)", margin: "0 0 20px 0" }}>
-            Nhập mã yêu cầu cần đối soát từ thông báo để thực hiện quyết định.
-          </p>
-
-          {error && (
-            <div role="alert" className="notice" style={{ marginBottom: "16px" }}>
-              <p style={{ margin: 0 }}>{error.message}</p>
-              {error.traceId && (
-                <small style={{ display: "block", marginTop: "4px", color: "var(--muted)" }}>
-                  Mã lỗi: {error.traceId}
-                </small>
-              )}
-            </div>
-          )}
-
-          {success && (
-            <div role="status" className="form-success" style={{ marginBottom: "16px" }}>
-              {success}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit}>
-            {/* Mã yêu cầu rút tiền */}
-            <div style={{ marginBottom: "18px" }}>
-              <label
-                htmlFor="withdrawal-id"
-                style={{ display: "block", fontSize: "13px", fontWeight: 600, marginBottom: "6px" }}
-              >
-                Mã yêu cầu rút tiền <span style={{ color: "var(--red)" }}>*</span>
-              </label>
-              <input
-                id="withdrawal-id"
-                className="field"
-                placeholder="Ví dụ: 3fa85f64-5717-4562-b3fc-2c963f66afa6"
-                value={withdrawalId}
-                onChange={(e) => setWithdrawalId(e.target.value)}
-                required
-                style={{
-                  width: "100%",
-                  fontFamily: "monospace",
-                  fontSize: "13px",
-                  padding: "10px 12px",
-                }}
-              />
-            </div>
-
-            {/* Quyết định: 2 nút bấm gọn gàng */}
-            <div style={{ marginBottom: "18px" }}>
-              <span style={{ display: "block", fontSize: "13px", fontWeight: 600, marginBottom: "6px" }}>
-                Quyết định xử lý <span style={{ color: "var(--red)" }}>*</span>
-              </span>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "10px",
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={() => setAction("Approve")}
-                  style={{
-                    height: "42px",
-                    padding: "0 14px",
-                    borderRadius: "8px",
-                    border: "2px solid",
-                    borderColor: action === "Approve" ? "#16a34a" : "var(--line)",
-                    background: action === "Approve" ? "#f0fdf4" : "var(--surface)",
-                    color: action === "Approve" ? "#15803d" : "var(--muted)",
-                    fontWeight: 600,
-                    fontSize: "13px",
-                    cursor: "pointer",
-                    textAlign: "center",
-                    boxSizing: "border-box",
-                    transition: "background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease",
-                  }}
-                >
-                  Duyệt yêu cầu
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setAction("Reject")}
-                  style={{
-                    height: "42px",
-                    padding: "0 14px",
-                    borderRadius: "8px",
-                    border: "2px solid",
-                    borderColor: action === "Reject" ? "#dc2626" : "var(--line)",
-                    background: action === "Reject" ? "#fef2f2" : "var(--surface)",
-                    color: action === "Reject" ? "#b91c1c" : "var(--muted)",
-                    fontWeight: 600,
-                    fontSize: "13px",
-                    cursor: "pointer",
-                    textAlign: "center",
-                    boxSizing: "border-box",
-                    transition: "background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease",
-                  }}
-                >
-                  Từ chối & hoàn tiền
-                </button>
-              </div>
-            </div>
-
-            {/* Ghi chú hoặc Lý do */}
-            <div style={{ marginBottom: "20px" }}>
-              <label
-                htmlFor="admin-note"
-                style={{
-                  display: "block",
-                  fontSize: "13px",
-                  fontWeight: 600,
-                  marginBottom: "6px",
-                  lineHeight: "20px",
-                }}
-              >
-                <span>
-                  {action === "Reject" ? "Lý do từ chối" : "Ghi chú đối soát"}{" "}
-                  <span style={{ color: action === "Reject" ? "var(--red)" : "var(--muted)", fontWeight: 400 }}>
-                    {action === "Reject" ? "* (Bắt buộc)" : "(Tùy chọn)"}
-                  </span>
-                </span>
-              </label>
-              <textarea
-                id="admin-note"
-                className="textarea-field"
-                rows={2}
-                placeholder={
-                  action === "Reject"
-                    ? "Nhập lý do từ chối (sai tên chủ tài khoản, số tài khoản không đúng...)"
-                    : "Ghi chú đối soát..."
-                }
-                value={adminNote}
-                onChange={(e) => setAdminNote(e.target.value)}
-                required={action === "Reject"}
-                style={{ width: "100%", fontSize: "13px", padding: "10px 12px" }}
-              />
-            </div>
-
-            {/* Nút hành động */}
-            <button
-              type="submit"
-              className="button"
-              disabled={busy || !withdrawalId.trim() || (action === "Reject" && !adminNote.trim())}
-              style={{
-                width: "100%",
-                padding: "11px",
-                fontSize: "14px",
-                fontWeight: 600,
-                backgroundColor: action === "Approve" ? "#16a34a" : "#dc2626",
-                borderColor: action === "Approve" ? "#16a34a" : "#dc2626",
-                color: "#ffffff",
-                cursor: busy || !withdrawalId.trim() || (action === "Reject" && !adminNote.trim()) ? "not-allowed" : "pointer",
-              }}
-            >
-              {busy
-                ? "Đang xử lý…"
-                : action === "Approve"
-                ? "Xác nhận duyệt yêu cầu"
-                : "Xác nhận từ chối yêu cầu"}
-            </button>
-          </form>
-        </Card>
-
-        {/* Khung nhật ký trong phiên */}
-        <Card className="card-pad" style={{ borderRadius: "10px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-            <div>
-              <h3 style={{ fontSize: "16px", fontWeight: 700, margin: 0 }}>
-                Nhật ký xử lý trong phiên
-              </h3>
-              <p style={{ fontSize: "13px", color: "var(--muted)", margin: "4px 0 0" }}>
-                Các yêu cầu đã thao tác trong phiên làm việc hiện tại.
-              </p>
-            </div>
-            {history.length > 0 && (
-              <Badge tone="slate">{history.length} lệnh</Badge>
-            )}
-          </div>
-
-          {history.length === 0 ? (
-            <div
-              style={{
-                padding: "48px 16px",
-                textAlign: "center",
-                color: "var(--muted)",
-                fontSize: "13px",
-              }}
-            >
-              Chưa có lệnh rút tiền nào được xử lý trong phiên này.
-            </div>
-          ) : (
-            <div className="table-scroll">
-              <table className="data-table" style={{ width: "100%", tableLayout: "fixed" }}>
-                <thead>
-                  <tr>
-                    <th style={{ width: "40%", padding: "8px 10px" }}>Mã yêu cầu</th>
-                    <th style={{ width: "30%", padding: "8px 10px" }}>Quyết định</th>
-                    <th style={{ width: "30%", padding: "8px 10px", textAlign: "right" }}>Thời gian</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {history.map((item, idx) => (
-                    <tr key={`${item.withdrawalId}-${idx}`}>
-                      <td style={{ padding: "8px 10px", wordBreak: "break-all" }}>
-                        <CopyableId id={item.withdrawalId} />
-                        {item.adminNote && (
-                          <div style={{ fontSize: "11px", color: "var(--muted)", marginTop: "2px" }}>
-                            {item.adminNote}
-                          </div>
-                        )}
-                      </td>
-                      <td style={{ padding: "8px 10px" }}>
-                        <Badge tone={item.action === "Approve" ? "green" : "red"}>
-                          {item.action === "Approve" ? "Đã duyệt" : "Từ chối"}
-                        </Badge>
-                      </td>
-                      <td style={{ padding: "8px 10px", fontSize: "12px", color: "var(--muted)", textAlign: "right" }}>
-                        {new Date(item.processedAt).toLocaleTimeString("vi-VN", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </Card>
-      </div>
-    </>
-  );
+  return <form className="auth-fields" onSubmit={(event) => void submit(event)} aria-label={TITLES[action]}>
+    <h3>{TITLES[action]} · {formatMoney(item.amount)} · {item.bankName} {item.bankAccountNumber}</h3>
+    {reversal && <p className="notice">Hoàn tiền vào ví seller chỉ khi chắc chắn ngân hàng chưa chuyển. Nếu đã chuyển hoặc chưa rõ kết quả, không dùng thao tác này.</p>}
+    {action === "Complete" && <label className="field-wrap">Mã tham chiếu chuyển khoản<input className="field" maxLength={100} value={reference} onChange={(event) => setReference(event.target.value)} /></label>}
+    {(action === "Complete" || reversal) && <label><input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} /> {action === "Complete" ? "Tôi xác nhận ngân hàng đã chuyển tiền thành công." : "Tôi đã xác minh với ngân hàng: tiền CHƯA được chuyển."}</label>}
+    {action === "ResolveFailed" && <label className="field-wrap">Bằng chứng xác minh với ngân hàng<input className="field" maxLength={500} value={evidence} onChange={(event) => setEvidence(event.target.value)} /></label>}
+    <label className="field-wrap">{needsReason ? "Lý do (bắt buộc, seller sẽ thấy)" : "Ghi chú (không bắt buộc)"}<textarea className="field" rows={2} maxLength={500} value={note} onChange={(event) => setNote(event.target.value)} /></label>
+    {error && <p className="notice" role="alert">{error}</p>}
+    <div className="action-row"><button className="button button-primary" type="submit" disabled={busy}>{busy ? "Đang xử lý…" : "Xác nhận"}</button><button className="button button-secondary" type="button" onClick={onCancel} disabled={busy}>Hủy</button></div>
+  </form>;
 }

@@ -10,6 +10,8 @@ export type SystemConfigItem = {
   key: string;
   value: string;
   description?: string | null;
+  minValue?: number | null;
+  maxValue?: number | null;
   dataType: string;
   updatedAt?: string;
 };
@@ -85,6 +87,10 @@ export function AdminConfigsScreen() {
   const [form, setForm] = useState({ key: "", value: "", reason: "" });
   const [selectedDesc, setSelectedDesc] = useState<string>("");
   const [selectedType, setSelectedType] = useState<string>("String");
+  const [selectedRange, setSelectedRange] = useState<{ min?: number | null; max?: number | null }>({});
+  const [historyKey, setHistoryKey] = useState("");
+  const [history, setHistory] = useState<Array<{ id: string; oldValue?: string | null; newValue?: string | null; reason?: string | null; changedBy?: string | null; changedAt: string }> | null>(null);
+  const [historyError, setHistoryError] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<{ message: string; traceId?: string } | null>(null);
   const [saved, setSaved] = useState("");
@@ -122,6 +128,7 @@ export function AdminConfigsScreen() {
     });
     setSelectedDesc(formatConfigDescription(item.key, item.description));
     setSelectedType(itemType);
+    setSelectedRange({ min: item.minValue, max: item.maxValue });
     setError(null);
     setModalOpen(true);
   }
@@ -149,6 +156,13 @@ export function AdminConfigsScreen() {
     if (!reason || reason.length > 500) {
       setError({ message: "Vui lòng nhập lý do thay đổi (tối đa 500 ký tự) để lưu nhật ký kiểm toán." });
       return;
+    }
+    if (["int", "integer", "decimal", "number", "float", "double"].includes(selectedType.toLowerCase())) {
+      const numeric = Number(value);
+      if (!Number.isFinite(numeric) || (selectedRange.min != null && numeric < selectedRange.min) || (selectedRange.max != null && numeric > selectedRange.max)) {
+        setError({ message: `Giá trị phải là số${selectedRange.min != null ? ` từ ${selectedRange.min}` : ""}${selectedRange.max != null ? ` đến ${selectedRange.max}` : ""}.` });
+        return;
+      }
     }
 
     setBusy(true);
@@ -178,6 +192,11 @@ export function AdminConfigsScreen() {
     } catch {
       // Ignore clipboard error
     }
+  }
+  async function openHistory(key: string) {
+    setHistoryKey(key); setHistory(null); setHistoryError("");
+    try { setHistory(await adminConfigsService.history(key)); }
+    catch { setHistoryError("Không tải được lịch sử cấu hình. Hãy thử lại sau."); }
   }
 
   return (
@@ -290,6 +309,7 @@ export function AdminConfigsScreen() {
                       >
                         Chỉnh sửa
                       </button>
+                      <button type="button" className="button button-secondary button-small" onClick={(e) => { e.stopPropagation(); void openHistory(item.key); }}>Lịch sử</button>
                     </td>
                   </tr>
                 ))}
@@ -389,6 +409,7 @@ export function AdminConfigsScreen() {
                   {selectedType} {selectedDesc ? `· ${selectedDesc}` : ""}
                 </strong>
               </div>
+              {(selectedRange.min != null || selectedRange.max != null) && <p>Khoảng hợp lệ: {selectedRange.min ?? "không giới hạn"} – {selectedRange.max ?? "không giới hạn"}</p>}
 
               <label className="field-wrap">
                 Giá trị cấu hình mới <span style={{ color: "var(--red)" }}>*</span>
@@ -455,6 +476,7 @@ export function AdminConfigsScreen() {
           </section>
         </div>
       )}
+      {historyKey && <Card className="card-pad"><div className="ops-section-head"><h2>Lịch sử · {historyKey}</h2><button type="button" className="button button-secondary button-small" onClick={() => setHistoryKey("")}>Đóng</button></div>{historyError && <p role="alert">{historyError}</p>}{history === null && !historyError ? <p>Đang tải…</p> : history?.length === 0 ? <NoData title="Chưa có lịch sử thay đổi" /> : history?.map((item) => <div className="info-row" key={item.id}><span>{new Date(item.changedAt).toLocaleString("vi-VN")} · {item.changedBy ?? "Hệ thống"}</span><strong>{item.oldValue ?? "—"} → {item.newValue ?? "—"}<small>{item.reason}</small></strong></div>)}</Card>}
     </>
   );
 }

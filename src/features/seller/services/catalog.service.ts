@@ -48,6 +48,8 @@ export type ProductVariant = {
   isActive: boolean;
   hasOrder?: boolean;
   weightGrams?: number | null;
+  /** Whether Fulfillment already has this SKU's inventory row. Pending is retried in the background by Catalog. */
+  inventoryInitState?: "NotRequired" | "Pending" | "Done" | "NeedsAttention";
   attributes: Array<{ attrName: string; attrValue: string }>;
 };
 
@@ -92,13 +94,17 @@ export type WarehouseInfo = {
   name: string;
   type?: string;
   address?: string | null;
+  contactPhone?: string | null;
+  provinceName?: string | null;
+  districtId?: number | null;
+  wardCode?: string | null;
   isDisabled?: boolean;
   sellerId?: string | null;
 };
 
 export function isPlatformWarehouse(warehouse: WarehouseInfo): boolean {
   const type = String(warehouse.type ?? "").toLowerCase();
-  return type === "platformwarehouse" || type === "1" || warehouse.code?.toUpperCase() === "WH-CENTRAL-01";
+  return !warehouse.sellerId || type === "platformwarehouse" || type === "1" || ["WH-CENTRAL-01", "WH-DEFAULT-01"].includes(warehouse.code?.toUpperCase() ?? "");
 }
 
 export function isSellerWarehouse(warehouse: WarehouseInfo, sellerId?: string): boolean {
@@ -382,6 +388,23 @@ export const sellerCatalogService = {
     );
   },
 
+  async lowStockAlerts(warehouseId?: string, signal?: AbortSignal): Promise<unknown> {
+    const query = warehouseId ? `?warehouseId=${encodeURIComponent(warehouseId)}` : "";
+    return unwrap(await api.get<unknown>(`/api/v1/inventories/alerts/low-stock${query}`, { signal }));
+  },
+
+  async deadStockAlerts(days: number, warehouseId?: string, signal?: AbortSignal): Promise<unknown> {
+    const query = `?days=${days}${warehouseId ? `&warehouseId=${encodeURIComponent(warehouseId)}` : ""}`;
+    return unwrap(await api.get<unknown>(`/api/v1/inventories/alerts/dead-stock${query}`, { signal }));
+  },
+
+  async updateThreshold(skuId: string, minStockThreshold: number, isLowStockAlertEnabled?: boolean) {
+    return api.put<unknown>(`/api/v1/inventories/${encodeURIComponent(skuId)}/threshold`, {
+      minStockThreshold,
+      ...(isLowStockAlertEnabled === undefined ? {} : { isLowStockAlertEnabled }),
+    });
+  },
+
   async declareInventory(input: {
     skuId: string;
     warehouseId?: string;
@@ -390,7 +413,7 @@ export const sellerCatalogService = {
   }) {
     return unwrap(
       await api.post<ApiResponse<InventoryAdjustmentResponse> | InventoryAdjustmentResponse>(
-        "/api/v1/inventories",
+        "/api/v1/inventories/initialize",
         {
           skuId: input.skuId,
           ...(input.warehouseId ? { warehouseId: input.warehouseId } : {}),
@@ -428,18 +451,13 @@ export const sellerCatalogService = {
 
     // 1. Primary: GET /api/v1/warehouses/me
     try {
-      const query = new URLSearchParams();
-      if (options?.sellerId) query.set("sellerId", options.sellerId);
-      if (options?.shopName) query.set("shopName", options.shopName);
-      if (options?.pickupAddress) query.set("address", options.pickupAddress);
-      const qs = query.toString();
       const meResult = unwrap(
         await api.get<ApiResponse<WarehouseInfo> | WarehouseInfo>(
-          `/api/v1/warehouses/me${qs ? `?${qs}` : ""}`,
+          "/api/v1/warehouses/me",
           { signal },
         ),
       );
-      if (meResult?.id && !isPlatformWarehouse(meResult)) {
+      if (meResult?.id && isSellerWarehouse(meResult, userId)) {
         return [{ ...meResult, type: "SellerWarehouse" }];
       }
     } catch {
@@ -457,7 +475,7 @@ export const sellerCatalogService = {
         );
         const warehouses = Array.isArray(result) ? result : result ? [result] : [];
         const personal = warehouses
-          .filter((warehouse) => warehouse?.id && !isPlatformWarehouse(warehouse))
+          .filter((warehouse) => warehouse?.id && isSellerWarehouse(warehouse, userId))
           .slice(0, 1)
           .map((warehouse) => ({ ...warehouse, type: "SellerWarehouse" }));
         if (personal.length > 0) return personal;
@@ -470,15 +488,13 @@ export const sellerCatalogService = {
     return [];
   },
 
-  async createWarehouse(input: { code: string; name: string; address: string; sellerId?: string }) {
+  /** Completes the seller's own warehouse. The server needs only the name; the other fields are updated when sent. */
+  async updateWarehouse(
+    id: string,
+    input: { name: string; address?: string; contactPhone?: string; provinceName?: string; districtId?: number; wardCode?: string },
+  ) {
     return unwrap(
-      await api.post<ApiResponse<WarehouseInfo> | WarehouseInfo>("/api/v1/warehouses", {
-        code: input.code.trim().toUpperCase(),
-        name: input.name.trim(),
-        type: "SellerWarehouse",
-        address: input.address.trim(),
-        sellerId: input.sellerId,
-      }),
+      await api.put<ApiResponse<WarehouseInfo> | WarehouseInfo>(`/api/v1/warehouses/${encodeURIComponent(id)}`, input),
     );
   },
 };

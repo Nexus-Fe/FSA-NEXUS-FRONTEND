@@ -388,6 +388,25 @@ async function requestWithMetadata<T>(path: string, method: string, options: Api
   }
 }
 
+/** Fetches a binary answer (such as a spreadsheet) with the signed-in token. One refresh is tried on 401. */
+export async function fetchBlob(path: string, signal?: AbortSignal): Promise<{ blob: Blob; fileName: string | null }> {
+  async function attempt(): Promise<Response> {
+    const headers = requestHeaders({});
+    headers.set("Accept", "*/*");
+    return fetch(makeUrl(path), { method: "GET", headers, signal, cache: "no-store" });
+  }
+  let response = await attempt();
+  if (response.status === 401 && (await refreshAccessToken())) response = await attempt();
+  if (!response.ok) {
+    let payload: unknown;
+    try { payload = await response.json(); } catch { payload = undefined; }
+    throw toError(response, payload);
+  }
+  const disposition = response.headers.get("content-disposition") ?? "";
+  const match = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(disposition);
+  return { blob: await response.blob(), fileName: match ? decodeURIComponent(match[1]) : null };
+}
+
 export const api = {
   request,
   get<T>(path: string, options?: ApiRequestOptions) {

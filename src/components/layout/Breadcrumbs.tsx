@@ -7,16 +7,14 @@ import { ROUTES } from "@/constants/routes";
 const labels: Record<string, string> = {
   "/catalog": "Sản phẩm", "/shops": "Gian hàng", "/auctions": "Đấu giá trực tiếp",
   "/buyer/cart": "Giỏ hàng", "/buyer/checkout": "Thông tin giao hàng",
-  "/buyer/orders": "Đơn mua", "/buyer/notifications": "Thông báo", "/buyer/auctions": "Đấu giá của tôi", "/buyer/wallet": "Ví của tôi",
-  "/buyer/wallet/top-up": "Nạp tiền", "/buyer/wallet/top-ups": "Lịch sử nạp tiền",
-  "/buyer/wallet/top-up/result": "Kết quả nạp", "/buyer/reports": "Báo cáo", "/buyer/become-seller": "Đăng ký bán hàng", "/buyer/reputation": "Uy tín của tôi",
-  "/payments/success": "Kết quả thanh toán", "/payments/cancel": "Kết quả thanh toán",
+  "/buyer/orders": "Đơn mua", "/buyer/notifications": "Thông báo", "/buyer/auctions": "Đấu giá của tôi", "/buyer/deposits": "Cọc của tôi", "/buyer/watchlist": "Theo dõi phiên", "/buyer/wallet": "Ví của tôi",
+  "/buyer/wallet/top-up": "Nạp tiền", "/buyer/wallet/transfer": "Chuyển tiền", "/buyer/reputation": "Uy tín của tôi", "/buyer/reports": "Báo cáo", "/buyer/become-seller": "Đăng ký bán hàng",
   "/buyer/payment": "Thanh toán", "/buyer/payment/result": "Kết quả thanh toán",
   "/seller": "Kênh người bán", "/seller/products": "Quản lý sản phẩm", "/seller/products/new": "Tạo sản phẩm",
   "/seller/shop": "Hồ sơ gian hàng", "/seller/notifications": "Thông báo", "/seller/inventory": "Quản lý kho", "/seller/orders": "Đơn bán",
   "/seller/shipments": "Vận chuyển", "/seller/auctions": "Phiên đấu giá", "/seller/auctions/new": "Tạo phiên đấu giá",
-  "/seller/wallet": "Doanh thu & ví", "/seller/withdrawals": "Yêu cầu rút tiền", "/seller/reviews": "Đánh giá & uy tín",
-  "/staff": "Vận hành sàn", "/staff/auctions": "Giám sát đấu giá", "/staff/sellers": "Duyệt người bán",
+  "/seller/wallet": "Doanh thu & ví", "/seller/withdrawals": "Yêu cầu rút tiền", "/seller/reviews": "Đánh giá & uy tín", "/seller/coupons": "Mã giảm giá",
+  "/staff": "Vận hành sàn", "/staff/auctions": "Giám sát đấu giá", "/staff/auction-ops": "Vận hành đấu giá", "/admin/auction-ops": "Vận hành đấu giá", "/staff/sellers": "Duyệt người bán",
   "/staff/product-moderation": "Duyệt sản phẩm", "/staff/withdrawals": "Duyệt rút tiền",
   "/staff/reports": "Khiếu nại & Vi phạm", "/staff/penalties": "Xử phạt vi phạm",
   "/staff/transactions/discrepancies": "Đối soát giao dịch",
@@ -24,9 +22,9 @@ const labels: Record<string, string> = {
   "/admin/auction-configs": "Cài đặt đấu giá", "/admin/users": "Tài khoản & Phân quyền", "/admin/roles": "Phân quyền & vai trò",
   "/admin/penalties": "Xử phạt vi phạm", "/admin/reports": "Khiếu nại & Vi phạm",
   "/admin/categories": "Danh mục sản phẩm", "/admin/ledger": "Điều chỉnh số dư ví", "/admin/withdrawals": "Duyệt rút tiền",
-  "/admin/configs": "Cài đặt hệ thống", "/admin/coupons": "Mã giảm giá",
+  "/admin/configs": "Cài đặt hệ thống", "/admin/coupons": "Mã giảm giá", "/admin/platform-fee": "Phí nền tảng", "/admin/wallet-tools": "Công cụ ví", "/admin/subsidy-budgets": "Ngân sách trợ giá",
   "/admin/notifications": "Nhật ký & Thông báo",
-  "/account/profile": "Hồ sơ cá nhân", "/account/change-password": "Đổi mật khẩu",
+  "/account/profile": "Hồ sơ cá nhân", "/account/addresses": "Sổ địa chỉ", "/account/change-password": "Đổi mật khẩu", "/account/sessions": "Phiên đăng nhập", "/account/notification-preferences": "Tuỳ chọn thông báo", "/account/seller-documents": "Giấy tờ đăng ký bán hàng",
 };
 
 const terminalLabels: Record<string, string> = {
