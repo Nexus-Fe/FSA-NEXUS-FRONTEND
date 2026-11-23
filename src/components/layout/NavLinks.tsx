@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { NavigationItem } from "@/constants/navigation";
 import { ROUTES } from "@/constants/routes";
 import { Icon } from "@/components/ui/Icon";
@@ -10,9 +10,52 @@ import { Icon } from "@/components/ui/Icon";
 export function NavLinks({ items, variant = "side", ariaLabel = "Điều hướng", catalogMenu }: { items: NavigationItem[]; variant?: "side" | "top"; ariaLabel?: string; catalogMenu?: ReactNode }) {
   const pathname = usePathname();
   const [catalogOpen, setCatalogOpen] = useState(false);
-  return <nav aria-label={ariaLabel} className={variant === "side" ? "side-nav" : "top-nav"}>{items.map((item) => {
+  const navRef = useRef<HTMLElement>(null);
+  const indicatorRef = useRef<HTMLSpanElement>(null);
+  const initializedRef = useRef(false);
+
+  const moveIndicator = (link: HTMLElement, animate: boolean) => {
+    const nav = navRef.current;
+    const indicator = indicatorRef.current;
+    if (!nav || !indicator) return;
+    const target = link.closest<HTMLElement>(".buyer-nav-catalog") ?? link;
+    const navBounds = nav.getBoundingClientRect();
+    const bounds = target.getBoundingClientRect();
+    indicator.style.transitionDuration = animate ? "" : "0ms";
+    indicator.style.left = `${bounds.left - navBounds.left + nav.scrollLeft}px`;
+    indicator.style.top = `${bounds.top - navBounds.top}px`;
+    indicator.style.width = `${bounds.width}px`;
+    indicator.style.height = `${bounds.height}px`;
+    indicator.dataset.visible = "true";
+  };
+
+  useLayoutEffect(() => {
+    if (variant !== "top") return;
+    const activeLink = navRef.current?.querySelector<HTMLElement>('.nav-link[aria-current="page"]');
+    if (!activeLink) return;
+    moveIndicator(activeLink, initializedRef.current);
+    initializedRef.current = true;
+  }, [pathname, variant, items]);
+
+  useEffect(() => {
+    if (variant !== "top" || !navRef.current) return;
+    const nav = navRef.current;
+    const observer = new ResizeObserver(() => {
+      const activeLink = nav.querySelector<HTMLElement>('.nav-link[aria-current="page"]');
+      if (activeLink) moveIndicator(activeLink, false);
+    });
+    observer.observe(nav);
+    nav.querySelectorAll<HTMLElement>(".nav-link").forEach((link) => observer.observe(link.closest<HTMLElement>(".buyer-nav-catalog") ?? link));
+    return () => observer.disconnect();
+  }, [items, variant]);
+
+  return <nav ref={navRef} aria-label={ariaLabel} className={variant === "side" ? "side-nav" : "top-nav fluid-nav"}>
+    {variant === "top" && <span ref={indicatorRef} className="fluid-nav-indicator" aria-hidden="true" />}
+    {items.map((item) => {
     const active = item.href === "/" ? pathname === "/" : pathname === item.href || pathname.startsWith(item.href + "/");
-    const link = <Link className={active ? "nav-link active" : "nav-link"} href={item.href} aria-current={active ? "page" : undefined}><Icon name={item.icon} size={18} /><span>{item.label}</span></Link>;
+    const link = <Link className={active ? "nav-link active" : "nav-link"} href={item.href} aria-current={active ? "page" : undefined} onClick={(event) => {
+      if (variant === "top") moveIndicator(event.currentTarget, true);
+    }}><Icon name={item.icon} size={18} /><span>{item.label}</span></Link>;
     if (variant === "top" && catalogMenu && item.href === ROUTES.catalog.index) {
       return <div key={item.href} className="buyer-nav-catalog" onMouseEnter={() => setCatalogOpen(true)} onMouseLeave={() => setCatalogOpen(false)} onFocusCapture={() => setCatalogOpen(true)} onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setCatalogOpen(false); }} onKeyDown={(event) => { if (event.key === "Escape") setCatalogOpen(false); }}>
         {link}
