@@ -93,6 +93,7 @@ export const ROUTES = {
     refunds: "/admin/refunds",
     configs: "/admin/configs",
     ledger: "/admin/ledger",
+    withdrawals: "/admin/withdrawals",
     ledgerTransactions: "/admin/ledger/transactions",
     ledgerBalances: "/admin/ledger/balances",
     ledgerJournal: "/admin/ledger/journal",

@@ -21,7 +21,7 @@ const labels: Record<string, string> = {
   "/admin": "Quản trị hệ thống", "/admin/overview": "Tổng quan hệ thống", "/admin/auctions": "Giám sát đấu giá",
   "/admin/auction-configs": "Cài đặt đấu giá", "/admin/users": "Tài khoản & Phân quyền", "/admin/roles": "Phân quyền & vai trò",
   "/admin/penalties": "Xử phạt vi phạm", "/admin/reports": "Khiếu nại & Vi phạm",
-  "/admin/categories": "Danh mục sản phẩm", "/admin/ledger": "Điều chỉnh số dư ví",
+  "/admin/categories": "Danh mục sản phẩm", "/admin/ledger": "Điều chỉnh số dư ví", "/admin/withdrawals": "Duyệt rút tiền",
   "/admin/configs": "Cài đặt hệ thống", "/admin/coupons": "Mã giảm giá", "/admin/platform-fee": "Phí nền tảng", "/admin/wallet-tools": "Công cụ ví", "/admin/subsidy-budgets": "Ngân sách trợ giá",
   "/admin/notifications": "Nhật ký & Thông báo",
   "/account/profile": "Hồ sơ cá nhân", "/account/addresses": "Sổ địa chỉ", "/account/change-password": "Đổi mật khẩu", "/account/sessions": "Phiên đăng nhập", "/account/notification-preferences": "Tuỳ chọn thông báo", "/account/seller-documents": "Giấy tờ đăng ký bán hàng",
@@ -33,7 +33,7 @@ const terminalLabels: Record<string, string> = {
 
 export function Breadcrumbs({ portal = false }: { portal?: boolean }) {
   const pathname = usePathname();
-  if (!pathname || pathname === "/" || pathname.startsWith("/catalog/") || pathname === ROUTES.buyer.cart || pathname === ROUTES.buyer.checkout) return null;
+  if (!pathname || pathname === "/" || pathname.startsWith("/catalog/") || pathname.startsWith("/shops/") || pathname === ROUTES.buyer.cart || pathname === ROUTES.buyer.checkout) return null;
 
   const pieces = pathname.split("/").filter(Boolean);
   const root = portal ? `/${pieces[0]}` : ROUTES.home;

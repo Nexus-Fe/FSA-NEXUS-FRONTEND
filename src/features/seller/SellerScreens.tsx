@@ -3,7 +3,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ROUTES } from "@/constants/routes";
 import { useSession } from "@/components/auth/SessionProvider";
 import { Icon } from "@/components/ui/Icon";
@@ -83,6 +83,71 @@ export function SellerProductsScreen() {
     `seller-products:${page}:${pageSize}:${keyword}`,
     (signal) => sellerCatalogService.list(page, keyword, signal, pageSize),
   );
+
+  // Live auto-search with debounce; clearing immediately resets list
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const trimmed = q.trim();
+      setKeyword(trimmed);
+      setPage(1);
+    }, q.trim() ? 300 : 0);
+    return () => clearTimeout(timer);
+  }, [q]);
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = q.trim();
+    setPage(1);
+    setKeyword(trimmed);
+    if (keyword === trimmed && page === 1) resource.reload();
+  };
+
+  const handleClear = () => {
+    setQ("");
+    setKeyword("");
+    setPage(1);
+  };
+
+  // Sort items prioritizing matches starting with keyword (prefix) then word prefix then contains
+  const sortedItems = useMemo(() => {
+    if (!resource.data?.items) return [];
+    const items = [...resource.data.items];
+    const kw = keyword.trim().toLowerCase();
+    if (!kw) return items;
+
+    const normalize = (str: string) =>
+      str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/Đ/g, "d");
+    const normKw = normalize(kw);
+
+    return items.sort((a, b) => {
+      const aName = (a.name || "").trim().toLowerCase();
+      const bName = (b.name || "").trim().toLowerCase();
+      const aNorm = normalize(aName);
+      const bNorm = normalize(bName);
+
+      // Ưu tiên 1: Tên sản phẩm bắt đầu bằng từ khóa (ví dụ "t" ở đầu tên)
+      const aStarts = aName.startsWith(kw) || aNorm.startsWith(normKw);
+      const bStarts = bName.startsWith(kw) || bNorm.startsWith(normKw);
+      if (aStarts && !bStarts) return -1;
+      if (!aStarts && bStarts) return 1;
+
+      // Ưu tiên 2: Có từ trong tên bắt đầu bằng từ khóa (ví dụ: "Áo Thun" có từ "Thun" bắt đầu bằng "t")
+      const aWordStarts = aNorm.split(/\s+/).some((w) => w.startsWith(normKw));
+      const bWordStarts = bNorm.split(/\s+/).some((w) => w.startsWith(normKw));
+      if (aWordStarts && !bWordStarts) return -1;
+      if (!aWordStarts && bWordStarts) return 1;
+
+      // Ưu tiên 3: Từ khóa xuất hiện càng sớm trong tên càng tốt
+      const aIdx = aNorm.indexOf(normKw);
+      const bIdx = bNorm.indexOf(normKw);
+      if (aIdx !== -1 && bIdx !== -1 && aIdx !== bIdx) {
+        return aIdx - bIdx;
+      }
+
+      return aName.localeCompare(bName, "vi");
+    });
+  }, [resource.data, keyword]);
+
   return (
     <>
       <PageHeading
@@ -101,19 +166,40 @@ export function SellerProductsScreen() {
       <Card className="seller-products-list">
         <form
           className="toolbar seller-products-search"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setPage(1);
-            setKeyword(q.trim());
-            if (keyword === q.trim() && page === 1) resource.reload();
-          }}
+          onSubmit={handleSearchSubmit}
         >
-          <input
-            className="field"
-            placeholder="Tìm theo tên sản phẩm"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
+          <div style={{ position: "relative", flex: 1, display: "flex", alignItems: "center" }}>
+            <input
+              className="field"
+              placeholder="Tìm theo tên sản phẩm"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              style={{ width: "100%", paddingRight: q ? 32 : undefined }}
+            />
+            {q && (
+              <button
+                type="button"
+                onClick={handleClear}
+                style={{
+                  position: "absolute",
+                  right: 8,
+                  background: "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "var(--muted)",
+                  padding: "4px 8px",
+                  display: "flex",
+                  alignItems: "center",
+                  fontSize: 14,
+                  lineHeight: 1,
+                }}
+                title="Xóa tìm kiếm"
+                aria-label="Xóa tìm kiếm"
+              >
+                ✕
+              </button>
+            )}
+          </div>
           <button type="submit" className="button button-secondary">Tìm kiếm</button>
         </form>
         {resource.error && (
@@ -121,7 +207,7 @@ export function SellerProductsScreen() {
             {msg(resource.error)}
           </p>
         )}
-        {resource.data?.items.length ? (
+        {sortedItems.length ? (
           <div className="table-scroll">
             <table className="data-table seller-products-table">
               <thead>
@@ -135,7 +221,7 @@ export function SellerProductsScreen() {
                 </tr>
               </thead>
               <tbody>
-                {resource.data.items.map((p) => (
+                {sortedItems.map((p) => (
                   <tr key={p.productId}>
                     <td>
                       <Link href={ROUTES.seller.product(p.productId)}>
@@ -2195,6 +2281,8 @@ export function SellerOrderDetailScreen() {
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [actionError, setActionError] = useState("");
+  const [rejecting, setRejecting] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
   const resource = useApiResource(
     subOrderId ? `seller-sub-order-detail:${subOrderId}` : null,
     (signal) =>
@@ -2249,15 +2337,17 @@ export function SellerOrderDetailScreen() {
   }
 
   async function handleReject() {
-    if (!sub) return;
+    if (!sub || !canAccept || busy || !rejectReason.trim()) return;
     setBusy(true);
     setFeedback("");
     setActionError("");
     try {
-      await sellerOrdersService.reject(sub.orderId, sub.subOrderId, "Gian hàng tạm hết tồn kho cho đơn hàng này.");
+      await sellerOrdersService.reject(sub.orderId, sub.subOrderId, rejectReason.trim());
       setFeedback(
         "Đã từ chối đơn hàng. Vui lòng kiểm tra trạng thái hoàn tiền trên ví của người mua.",
       );
+      setRejecting(false);
+      setRejectReason("");
       resource.reload();
     } catch (reason) {
       setActionError(msg(reason as Error));
@@ -2394,7 +2484,12 @@ export function SellerOrderDetailScreen() {
                     type="button"
                     className="button button-secondary"
                     disabled={busy}
-                    onClick={() => void handleReject()}
+                    aria-expanded={rejecting}
+                    aria-controls="seller-order-reject-form"
+                    onClick={() => {
+                      setRejecting((value) => !value);
+                      setActionError("");
+                    }}
                   >
                     Từ chối đơn
                   </button>
@@ -2414,6 +2509,44 @@ export function SellerOrderDetailScreen() {
                 Quay lại đơn hàng
               </ButtonLink>
             </div>
+            {canAccept && rejecting && (
+              <div id="seller-order-reject-form" className="seller-order-reject-form">
+                <label className="field-wrap">
+                  <span>Lý do từ chối đơn</span>
+                  <textarea
+                    className="textarea-field"
+                    value={rejectReason}
+                    onChange={(event) => setRejectReason(event.target.value)}
+                    placeholder="Nêu rõ lý do để người mua biết vì sao đơn bị từ chối"
+                    disabled={busy}
+                    required
+                  />
+                </label>
+                <p>Đơn sẽ bị hủy. Nếu đã thanh toán, hệ thống sẽ xử lý hoàn tiền cho người mua.</p>
+                <div className="action-row">
+                  <button
+                    type="button"
+                    className="button auction-danger-button"
+                    disabled={busy || !rejectReason.trim()}
+                    onClick={() => void handleReject()}
+                  >
+                    {busy ? "Đang xử lý…" : "Xác nhận từ chối"}
+                  </button>
+                  <button
+                    type="button"
+                    className="button button-secondary"
+                    disabled={busy}
+                    onClick={() => {
+                      setRejecting(false);
+                      setRejectReason("");
+                      setActionError("");
+                    }}
+                  >
+                    Hủy
+                  </button>
+                </div>
+              </div>
+            )}
               </aside>
             </div>
           </>

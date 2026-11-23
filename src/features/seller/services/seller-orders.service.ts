@@ -26,7 +26,7 @@ export const sellerOrdersService = {
   async reject(orderId: string, subOrderId: string, reasonText: string): Promise<void> {
     await api.post("/api/v1/orders/" + encodeURIComponent(orderId) + "/reject", {
       subOrderId,
-      reasonCode: "OutOfStock",
+      reasonCode: "SellerRejected",
       reasonText,
     });
   },

@@ -50,6 +50,7 @@ export const adminNavigation: NavigationItem[] = [
   { label: "Danh mục sản phẩm", href: ROUTES.admin.categories, icon: "grid" },
   { label: "Xử phạt vi phạm", href: ROUTES.admin.penalties, icon: "gavel" },
   { label: "Điều chỉnh số dư ví", href: ROUTES.admin.ledger, icon: "wallet" },
+  { label: "Duyệt rút tiền", href: ROUTES.admin.withdrawals, icon: "wallet" },
   { label: "Sổ giao dịch", href: ROUTES.admin.ledgerTransactions, icon: "wallet", feature: "ledger" },
   { label: "Đối soát số dư ví", href: ROUTES.admin.ledgerBalances, icon: "wallet", feature: "ledger" },
   { label: "Đối soát tiền", href: ROUTES.admin.reconciliation, icon: "wallet", feature: "reconciliation" },

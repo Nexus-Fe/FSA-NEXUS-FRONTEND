@@ -2,10 +2,10 @@
  * =========================================================================
  * BẢNG MÀU CHỦ ĐẠO TOÀN TRANG WEB NEXUS (THEME CONFIGURATION)
  * =========================================================================
- * 
+ *
  * Bạn có thể tự chỉnh sửa các mã màu trực tiếp tại file:
  *   src/styles/theme.css
- * 
+ *
  * Mọi thay đổi ở theme.css sẽ ngay lập tức được áp dụng cho toàn bộ:
  * - Nút bấm (buttons, submit, actions)
  * - Tabs, danh mục, menu bên
@@ -28,4 +28,3 @@ export const themeColors = {
 } as const;
 
 export type ThemeColors = typeof themeColors;
-

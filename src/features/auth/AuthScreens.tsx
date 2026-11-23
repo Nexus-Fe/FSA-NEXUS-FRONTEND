@@ -10,6 +10,7 @@ import { useApiResource } from "@/lib/api/use-api-resource";
 import { authService } from "./services/auth.service";
 import { ApiError } from "@/lib/api/client";
 import { profileService } from "@/features/profile";
+import { ReputationScore } from "@/features/profile/ReputationScore";
 import type { AuthUser } from "./types";
 import { ShopRegistrationForm, ShopRegistrationReview, emptyShopRegistrationFields, validateShopRegistrationFields, type ShopRegistrationFields } from "@/features/seller/components/ShopRegistrationForm";
 import { keepSellerRegistrationHandoff } from "@/features/seller/services/seller-registration-handoff";
@@ -922,16 +923,7 @@ export function AccountProfileScreen() {
           </form>}
         </section>
         {!isStaffOrAdmin && profile.data && (
-          <section id="profile-reputation" className="profile-panel profile-reputation">
-            <div>
-              <h2>Điểm uy tín</h2>
-              <p>Điểm hiện tại của tài khoản</p>
-            </div>
-            <div className="profile-reputation-value">
-              <strong>{p.reputationScore}</strong>
-              <span>{p.trustLevel}</span>
-            </div>
-          </section>
+          <div id="profile-reputation"><ReputationScore score={p.reputationScore} level={p.trustLevel} /></div>
         )}
         {!isSeller && !isStaffOrAdmin && (
           <section id="profile-selling" className="profile-panel">

@@ -147,6 +147,9 @@ export function WalletScreen() {
         <Link className="button button-secondary" href={ROUTES.buyer.topUp}>
           Nạp tiền vào ví
         </Link>
+        <Link className="button button-secondary" href={ROUTES.buyer.topUps}>
+          Lịch sử nạp tiền
+        </Link>
       </div>
     </div>
   );
