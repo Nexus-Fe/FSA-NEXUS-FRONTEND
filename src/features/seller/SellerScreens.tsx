@@ -758,9 +758,33 @@ export function SellerProductEditorScreen({ initialProduct }: { initialProduct?:
                     key={img.id}
                     className={`seller-image-preview-card${img.isPrimary ? " is-primary" : ""}`}
                   >
-                    <div className="seller-image-preview-thumb">
+                    <div
+                      className="seller-image-preview-thumb"
+                      style={{
+                        position: "relative",
+                        width: "100%",
+                        aspectRatio: "1",
+                        background: "#f8fafc",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        padding: 4,
+                        overflow: "hidden",
+                      }}
+                    >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={img.previewUrl} alt={img.altText || `Ảnh ${index + 1}`} />
+                      <img
+                        src={img.previewUrl}
+                        alt={img.altText || `Ảnh ${index + 1}`}
+                        style={{
+                          maxWidth: "100%",
+                          maxHeight: "100%",
+                          width: "auto",
+                          height: "auto",
+                          objectFit: "contain",
+                          display: "block",
+                        }}
+                      />
                       {img.isPrimary && <span className="seller-image-cover-pill">★ Ảnh bìa chính</span>}
                     </div>
                     <input
@@ -1064,10 +1088,33 @@ export function SellerProductEditorScreen({ initialProduct }: { initialProduct?:
           <Card className="card-pad">
             <SectionHeading title="Xem trước" />
             <div className="seller-preview-card">
-              <div className="seller-preview-media">
+              <div
+                className="seller-preview-media"
+                style={{
+                  minHeight: 180,
+                  maxHeight: 360,
+                  height: "auto",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: "#f8fafc",
+                  padding: 8,
+                }}
+              >
                 {primaryPreviewImage ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={primaryPreviewImage.previewUrl} alt={name || "Preview"} />
+                  <img
+                    src={primaryPreviewImage.previewUrl}
+                    alt={name || "Preview"}
+                    style={{
+                      maxWidth: "100%",
+                      maxHeight: 340,
+                      width: "auto",
+                      height: "auto",
+                      objectFit: "contain",
+                      display: "block",
+                    }}
+                  />
                 ) : (
                   <span style={{ color: "var(--muted)", fontSize: 12 }}>Chưa chọn ảnh bìa</span>
                 )}
