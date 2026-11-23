@@ -7,6 +7,7 @@ import { ROUTES } from "@/constants/routes";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { ReputationScore } from "./ReputationScore";
 import { profileService } from "./services/profile.service";
+import { ErrorState, LoadingState } from "@/components/ui/States";
 
 export function SellerReviewsScreen() {
   const [rating, setRating] = useState<number | null>(null);
@@ -18,8 +19,8 @@ export function SellerReviewsScreen() {
 
   return <div className="seller-reviews-page">
     <PageHeading title="Đánh giá & uy tín" description="Theo dõi uy tín Seller và các đánh giá khách hàng đã gửi cho bạn." action={<Link className="button button-secondary" href={ROUTES.buyer.reputation}>Xem chính sách uy tín</Link>} />
-    {profile.error && <p className="notice" role="alert">Không tải được hồ sơ: {profile.error.message} <button type="button" className="button button-secondary button-small" onClick={profile.reload}>Thử lại</button></p>}
-    {reputation.error && <p className="notice" role="alert">Không tải được điểm Seller: {reputation.error.message} <button type="button" className="button button-secondary button-small" onClick={reputation.reload}>Thử lại</button></p>}
+    {profile.error && <ErrorState title="Không tải được hồ sơ" cause={profile.error} onRetry={profile.reload} />}
+    {reputation.error && <ErrorState title="Không tải được điểm Seller" cause={reputation.error} onRetry={reputation.reload} />}
     {reputation.data && <ReputationScore score={reputation.data.sellerScore} level={reputation.data.sellerTrustLevel} heading="Điểm uy tín Seller" description="Điểm dành cho vai trò người bán" />}
     <Card className="card-pad">
       <div className="section-heading"><div><h2>Đánh giá nhận được</h2><p>{reviews.data ? `${reviews.data.pagination.totalCount} đánh giá` : "Đánh giá từ giao dịch đã hoàn tất"}</p></div>
@@ -29,8 +30,8 @@ export function SellerReviewsScreen() {
           </select>
         </label>
       </div>
-      {reviews.error && <p className="notice" role="alert">Không tải được đánh giá: {reviews.error.message} <button type="button" className="button button-secondary button-small" onClick={reviews.reload}>Thử lại</button></p>}
-      {reviews.loading && <NoData title="Đang tải đánh giá…" />}
+      {reviews.error && <ErrorState title="Không tải được đánh giá" cause={reviews.error} onRetry={reviews.reload} />}
+      {reviews.loading && <LoadingState label="Đang tải đánh giá…" />}
       {reviews.data && (reviews.data.items.length ? <div className="received-review-list">{reviews.data.items.map((review) => <article className="received-review" key={review.reviewId}>
         <div><strong>{review.reviewerDisplayNameMasked || "Người mua"}</strong><span aria-label={`${review.rating} trên 5 sao`}> · {"★".repeat(review.rating)}{"☆".repeat(5 - review.rating)}</span></div>
         <p>{review.comment || "Không có nhận xét"}</p>

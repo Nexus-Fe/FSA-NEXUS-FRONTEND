@@ -7,6 +7,8 @@ import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatMoney } from "@/lib/presentation";
 import { offerStatusLabel } from "./auction-outcome";
 import { auctionService } from "./services/auction.service";
+import { describeError, formatError } from "@/lib/errors/error-messages";
+import { ErrorState } from "@/components/ui/States";
 
 export function BuyerAuctionOffers() {
   const [page, setPage] = useState(1);
@@ -31,13 +33,13 @@ export function BuyerAuctionOffers() {
       pendingActions.current.delete(action);
       setNotice(accept ? "Đã chấp nhận lời mời. Xem kết quả phiên để theo dõi đơn." : "Đã từ chối lời mời.");
       offers.reload();
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Không thể phản hồi lời mời."); }
+    } catch (cause) { setError(formatError(describeError(cause, { operation: "write" }))); }
     finally { setBusy(null); }
   }
 
   return <section className="auction-offers" aria-labelledby="auction-offers-title">
     <div className="auction-section-heading"><div><h2 id="auction-offers-title">Lời mời tiếp nhận kết quả</h2><p>Hệ thống có thể mời bạn khi người thắng trước không hoàn tất.</p></div><button type="button" className="button button-secondary button-small" onClick={offers.reload}>Làm mới</button></div>
-    {offers.error && <p className="notice" role="alert">{offers.error.message}</p>}{error && <p className="notice" role="alert">{error}</p>}{notice && <p className="form-success" role="status">{notice}</p>}
+    {offers.error && <ErrorState cause={offers.error} onRetry={offers.reload} />}{error && <p className="notice" role="alert">{error}</p>}{notice && <p className="form-success" role="status">{notice}</p>}
     {offers.loading && !offers.data ? <NoData title="Đang tải lời mời…" /> : offers.data?.items.length ? <div className="auction-offer-list">{offers.data.items.map((offer) => {
       const expired = offer.isExpired || Boolean(now && new Date(offer.expiresAt).getTime() <= now);
       const pending = offer.status.toUpperCase() === "PENDING" && !expired;

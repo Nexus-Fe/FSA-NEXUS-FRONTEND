@@ -1,9 +1,10 @@
 "use client";
 
-import { Card, NoData, PageHeading } from "@/components/ui/Primitives";
+import { Card, PageHeading } from "@/components/ui/Primitives";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { ReputationHistoryBlock, ReputationPolicyBlock } from "@/features/account/ReputationDetails";
 import { reviewService } from "./services/review.service";
+import { ErrorState, LoadingState } from "@/components/ui/States";
 
 const TRUST_LEVEL: Record<string, string> = { untrusted: "Chưa tin cậy", probation: "Đang thử thách", standard: "Tiêu chuẩn", trusted: "Tin cậy", verified: "Đã xác minh", premium: "Cao cấp" };
 const trustLabel = (level: string) => TRUST_LEVEL[level.trim().toLowerCase()] ?? level;
@@ -29,8 +30,8 @@ export function MyReputationScreen() {
   const data = reputation.data;
   return <>
     <PageHeading title="Uy tín của tôi" description="Điểm uy tín thay đổi theo đánh giá từ các đơn đã hoàn tất và theo chế tài. Mỗi vai trò có điểm riêng." />
-    {reputation.error && <p className="notice" role="alert">{reputation.error.message} <button type="button" className="button button-secondary" onClick={reputation.reload}>Thử lại</button></p>}
-    {reputation.loading && !data && <NoData title="Đang tải điểm uy tín…" />}
+    {reputation.error && <ErrorState cause={reputation.error} onRetry={reputation.reload} />}
+    {reputation.loading && !data && <LoadingState label="Đang tải điểm uy tín…" />}
     {data && <>
       <div className="split">
         <Track title="Với vai trò người mua" score={data.currentScore} level={trustLabel(data.trustLevel)} positive={data.totalPositiveReviews}

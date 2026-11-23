@@ -7,6 +7,8 @@ import { useApiResource } from "@/lib/api/use-api-resource";
 import { useSession } from "@/components/auth/SessionProvider";
 import { ProductReviewCard } from "@/features/reviews/ProductReviewCard";
 import { reviewService } from "@/features/reviews/services/review.service";
+import { ErrorState } from "@/components/ui/States";
+import { describeError, formatError } from "@/lib/errors/error-messages";
 
 type Review = { id: string; rating: number; comment: string | null; createdAt: string };
 type ReviewPage = { items: Review[]; pagination: { hasNextPage: boolean } };
@@ -39,15 +41,15 @@ export function ProductFeedback({ productId, canReport }: { productId: string; c
       const body = new FormData(); body.append("reason", reason.trim()); body.append("description", description.trim()); images.forEach((file) => body.append("evidenceFiles", file));
       await api.post(`/api/v1/products/${encodeURIComponent(productId)}/reports`, body);
       setSent(true);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Không gửi được báo cáo sản phẩm."); }
+    } catch (cause) { setError(formatError(describeError(cause, { operation: "write" }))); }
     finally { setBusy(false); }
   }
 
   return <>
     <section className="product-detail-section" aria-labelledby="product-feedback-title"><SectionHeading id="product-feedback-title" title="Đánh giá sản phẩm" />
       <Card className="card-pad"><p>{rating.data ? `${rating.data.avgRating?.toFixed(1) ?? "—"}/5 · ${rating.data.reviewCount} đánh giá` : rating.loading ? "Đang tải điểm đánh giá…" : "Chưa có điểm đánh giá"}</p>
-        {rating.error && <p className="notice" role="alert">{rating.error.message}</p>}
-        {reviews.error && <p className="notice" role="alert">{reviews.error.message}</p>}
+        {rating.error && <ErrorState cause={rating.error} onRetry={rating.reload} />}
+        {reviews.error && <ErrorState cause={reviews.error} onRetry={reviews.reload} />}
         {reviews.data?.items.length ? reviews.data.items.map((review) => <div className="info-row" key={review.id}><span>{review.rating}/5 · {new Date(review.createdAt).toLocaleDateString("vi-VN")}</span><strong>{review.comment || "Không có nhận xét"}</strong></div>) : !reviews.error && <p>Chưa có nhận xét công khai.</p>}
         <div className="action-row"><button type="button" className="button button-secondary button-small" disabled={page <= 1} onClick={() => setPage(page - 1)}>Trang trước</button><span>Trang {page}</span><button type="button" className="button button-secondary button-small" disabled={!reviews.data?.pagination.hasNextPage} onClick={() => setPage(page + 1)}>Trang sau</button></div>
       </Card>

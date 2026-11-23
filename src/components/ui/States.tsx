@@ -2,7 +2,9 @@
 
 import type { ReactNode } from "react";
 import { describeError, type ErrorOperation, type ErrorScope } from "@/lib/errors/error-messages";
-import { NoData } from "./Primitives";
+import { EmptyState } from "./EmptyState";
+
+export { EmptyState } from "./EmptyState";
 
 /** Placeholder rows while data loads. Announced once to assistive technology; the rows themselves are decoration. */
 export function LoadingState({ rows = 3, label = "Đang tải dữ liệu…" }: { rows?: number; label?: string }) {
@@ -63,6 +65,10 @@ export function DataState({
   empty,
   onRetry,
   emptyTitle,
+  emptyDescription,
+  emptyActionLabel,
+  emptyActionHref,
+  skeleton,
   children,
 }: {
   loading: boolean;
@@ -70,10 +76,15 @@ export function DataState({
   empty: boolean;
   onRetry?: () => void;
   emptyTitle?: string;
+  emptyDescription?: string;
+  emptyActionLabel?: string;
+  emptyActionHref?: string;
+  /** Shown while loading, shaped like the content. Defaults to a few placeholder rows. */
+  skeleton?: ReactNode;
   children: ReactNode;
 }) {
-  if (loading) return <LoadingState />;
+  if (loading) return <>{skeleton ?? <LoadingState />}</>;
   if (error) return <ErrorState cause={error} onRetry={onRetry} />;
-  if (empty) return <NoData title={emptyTitle} />;
+  if (empty) return <EmptyState title={emptyTitle} description={emptyDescription} actionLabel={emptyActionLabel} actionHref={emptyActionHref} />;
   return <>{children}</>;
 }

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Badge, Card, NoData, PageHeading } from "@/components/ui/Primitives";
 import { FluidChoiceBar } from "@/components/ui/FluidChoiceBar";
-import { ErrorState } from "@/components/ui/States";
+import { ErrorState, LoadingState } from "@/components/ui/States";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatMoney } from "@/lib/presentation";
 import { REFUND_STATUS, statusLabel } from "@/lib/status-labels";
@@ -60,7 +60,7 @@ export function RefundsScreen({ role }: { role: Role }) {
     <FluidChoiceBar mode="filter" ariaLabel="Lọc theo trạng thái hoàn tiền" options={REFUND_FILTERS.map(([value, label]) => ({ value, label }))} value={status} onChange={(next) => { setStatus(next); setPage(1); }} />
     {notice && <p className="form-success" role="status">{notice}</p>}
     {refunds.error != null && <ErrorState cause={refunds.error} operation="read" onRetry={refunds.reload} />}
-    {refunds.loading && !data ? <NoData title="Đang tải yêu cầu hoàn tiền…" /> : data?.items.length ? <Card>
+    {refunds.loading && !data ? <LoadingState label="Đang tải yêu cầu hoàn tiền…" /> : data?.items.length ? <Card>
       <div className="table-scroll"><table className="data-table">
         <thead><tr><th>Đơn con</th><th>Số tiền</th><th>Lý do</th><th>Trạng thái</th><th>Thời gian</th>{role !== "buyer" && <th>Xử lý</th>}</tr></thead>
         <tbody>{data.items.map((row) => <tr key={row.id}>

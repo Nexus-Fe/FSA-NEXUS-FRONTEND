@@ -10,7 +10,7 @@ const DATE = new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium" });
 
 export function reviewErrorText(cause: unknown, fallback: string): string {
   if (cause instanceof ApiError && cause.errorCode && REVIEW_ERROR_TEXT[cause.errorCode]) return REVIEW_ERROR_TEXT[cause.errorCode];
-  return cause instanceof Error && cause.message ? cause.message : fallback;
+  return cause instanceof Error && !(cause instanceof ApiError) && cause.message ? cause.message : fallback;
 }
 
 /**

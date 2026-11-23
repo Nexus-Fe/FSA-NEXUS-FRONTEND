@@ -5,7 +5,10 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useSession } from "@/components/auth/SessionProvider";
 import { BackendImage } from "@/components/ui/BackendImage";
-import { Badge, Card, NoData, PageHeading, SectionHeading } from "@/components/ui/Primitives";
+import { Badge, Card, PageHeading, SectionHeading } from "@/components/ui/Primitives";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { ErrorState } from "@/components/ui/States";
+import { SkeletonPage } from "@/components/ui/Skeletons";
 import { ROUTES } from "@/constants/routes";
 import { commerceService } from "@/features/commerce";
 import { ApiError, api, unwrap, type ApiResponse } from "@/lib/api/client";
@@ -13,6 +16,7 @@ import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatMoney, resolveImageUrl } from "@/lib/presentation";
 import type { ProductSpecification } from "./types/product-specification";
 import { ProductFeedback } from "./ProductFeedback";
+import { describeError, formatError } from "@/lib/errors/error-messages";
 
 type ProductImage = {
   url: string;
@@ -178,12 +182,13 @@ export function ProductDetailScreen() {
   }, [cartNotice]);
 
   if (!product) {
+    if (productResource.loading) return <SkeletonPage variant="detail" label="Đang tải sản phẩm…" />;
+    const missing = !productResource.error || (productResource.error instanceof ApiError && productResource.error.status === 404);
     return <>
       <PageHeading title="Chi tiết sản phẩm" />
-      {productResource.error ? <div className="notice" role="alert">
-        <p>{productResource.error.message}</p>
-        <button type="button" className="button button-secondary button-small" onClick={productResource.reload}>Tải lại sản phẩm</button>
-      </div> : <NoData title={productResource.loading ? "Đang tải sản phẩm…" : "Không tìm thấy sản phẩm"} />}
+      {missing
+        ? <EmptyState title="Không tìm thấy sản phẩm" description="Sản phẩm có thể đã bị gỡ hoặc đường dẫn không đúng." actionLabel="Xem danh mục sản phẩm" actionHref={ROUTES.catalog.index} />
+        : <ErrorState cause={productResource.error} onRetry={productResource.reload} retryLabel="Tải lại sản phẩm" />}
     </>;
   }
 
@@ -238,7 +243,7 @@ export function ProductDetailScreen() {
         ? "Kho hiện không đủ số lượng bạn chọn. Hãy giảm số lượng và thử lại."
         : cause instanceof ApiError && cause.status >= 500
           ? "Giỏ hàng đang gặp lỗi hệ thống. Vui lòng thử lại sau."
-        : cause instanceof Error ? cause.message : "Không thêm được sản phẩm vào giỏ hàng.");
+        : formatError(describeError(cause, { operation: "write" })));
     } finally {
       setAdding(false);
     }

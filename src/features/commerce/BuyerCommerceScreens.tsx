@@ -5,7 +5,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useSession } from "@/components/auth/SessionProvider";
 import { BackendImage } from "@/components/ui/BackendImage";
-import { Badge, Card, NoData, PageHeading } from "@/components/ui/Primitives";
+import { Badge, Card, PageHeading } from "@/components/ui/Primitives";
 import { ROUTES } from "@/constants/routes";
 import { ApiError, api, unwrap, type ApiResponse } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
@@ -25,6 +25,8 @@ import { GhnLocationSelect } from "@/features/shipping/GhnLocationSelect";
 import { SavedAddressPicker } from "@/features/profile/SavedAddressPicker";
 import { toGhnSelection } from "@/features/profile/address-rules";
 import { EMPTY_GHN_SELECTION, buildShippingAddress, formatAddressLine, parseGhnSelection, validateGhnSelection, type GhnSelection } from "@/features/shipping/ghn-address";
+import { ErrorState, LoadingState } from "@/components/ui/States";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 
 type CartItem = { id: string; productId: string; skuId: string; sellerId: string; productName: string; quantity: number; unitPriceSnapshot: number };
@@ -398,7 +400,9 @@ export function CartScreen() {
   return <>
     <nav className="checkout-breadcrumb" aria-label="Đường dẫn"><Link href={ROUTES.home}>Trang chủ</Link><span aria-hidden="true">›</span><span aria-current="page">Giỏ hàng</span></nav>
     <div className="cart-page-heading"><div><h1>Giỏ hàng</h1><p>{items.length ? `${items.length} sản phẩm trong giỏ` : "Chọn sản phẩm cần mua trước khi đặt hàng."}</p></div><Link className="cart-continue-link" href={ROUTES.catalog.index}>Tiếp tục mua sắm</Link></div>
-    {(cart.error || stock.error || actionError) && <p className="notice" role="alert">{actionError || cart.error?.message || stock.error?.message}</p>}
+    {actionError && <p className="notice" role="alert">{actionError}</p>}
+    {cart.error && <ErrorState cause={cart.error} onRetry={cart.reload} />}
+    {stock.error && <ErrorState cause={stock.error} onRetry={stock.reload} />}
     <div className="buyer-cart-layout">
       <div className="buyer-cart-items">
         {items.length ? <>
@@ -444,7 +448,7 @@ export function CartScreen() {
               </article>;
             })}
           </section>)}
-        </> : <div className="cart-empty"><NoData title={cart.loading ? "Đang tải giỏ hàng…" : cart.error ? "Không tải được giỏ hàng" : "Giỏ hàng đang trống"} />{!cart.loading && !cart.error && <Link className="button button-primary" href={ROUTES.catalog.index}>Khám phá sản phẩm</Link>}</div>}
+        </> : <div className="cart-empty">{cart.loading ? <LoadingState rows={4} label="Đang tải giỏ hàng…" /> : cart.error ? null : <EmptyState title="Giỏ hàng đang trống" description="Thêm sản phẩm để bắt đầu đặt hàng." actionLabel="Khám phá sản phẩm" actionHref={ROUTES.catalog.index} />}</div>}
       </div>
       <aside className="buyer-cart-summary"><h2>Tóm tắt đơn hàng</h2><div className="cart-summary-line"><span>Sản phẩm đã chọn ({selectedItems.length})</span><strong>{formatMoney(selectedTotal)}</strong></div><div className="cart-summary-line"><span>Phí vận chuyển</span><strong>{selectedItems.length ? "Tính khi báo giá" : "—"}</strong></div><div className="cart-summary-total"><span>Tạm tính tiền hàng</span><strong>{formatMoney(selectedTotal)}</strong></div><button className="button button-primary" type="button" disabled={!selectedItems.length || hasQuantityError || stock.loading || Boolean(stock.error) || busyId !== null || validating} onClick={() => void continueToCheckout()}>{validating ? "Đang kiểm tra giỏ hàng…" : "Tiếp tục đặt hàng"}</button><p>{stock.error ? "Chưa kiểm tra được tồn kho. Vui lòng tải lại trang." : hasQuantityError ? "Điều chỉnh số lượng theo tồn kho trước khi tiếp tục." : selectedItems.length ? "Bước tiếp theo nhập địa chỉ nhận hàng và thanh toán bằng Ví Nexus." : "Chọn ít nhất một sản phẩm để tiếp tục."}</p></aside>
     </div>
@@ -746,7 +750,7 @@ export function CheckoutScreen() {
   return <>
     <nav className="checkout-breadcrumb" aria-label="Đường dẫn"><Link href={ROUTES.buyer.cart}>Giỏ hàng</Link><span aria-hidden="true">›</span><span aria-current="page">Thông tin giao hàng &amp; Thanh toán</span></nav>
     <ol className="checkout-progress" aria-label="Tiến trình đặt hàng"><li className="is-complete"><span aria-hidden="true">✓</span>Giỏ hàng</li><li className="is-current" aria-current="step"><span aria-hidden="true">2</span>Giao hàng &amp; thanh toán</li><li><span aria-hidden="true">3</span>Xác nhận</li></ol>
-    {cart.error && <p className="notice" role="alert">{cart.error.message}</p>}
+    {cart.error && <ErrorState cause={cart.error} onRetry={cart.reload} />}
     <div className="checkout-layout"><div className="checkout-main">
       <section className="checkout-panel" aria-labelledby="checkout-address-heading"><div className="checkout-panel-heading"><div><h1 id="checkout-address-heading">Địa chỉ nhận hàng</h1><p>Điền thông tin để xem tổng thanh toán trước khi đặt hàng.</p></div></div>
         {quoteReady && !editingShipping && <div className="checkout-address-review"><div><span>Liên hệ</span><strong>{form.receiverName} · {form.phone}</strong>{extra.email && <small>{extra.email}</small>}</div><div><span>Giao tới</span><strong>{formatAddressLine(form.address, ghn)}</strong></div><button className="button button-secondary" type="button" onClick={() => { setEditingShipping(true); setSubmitError(""); }}>Sửa thông tin</button></div>}
@@ -784,7 +788,7 @@ export function CheckoutScreen() {
       const variant = detail?.variants?.find((entry) => entry.variantId === item.skuId);
       const image = variant?.primaryImageUrl ?? variant?.images?.find((entry) => entry.isActive !== false)?.url ?? detail?.images?.find((entry) => entry.isActive !== false)?.url ?? null;
       return <div className="checkout-item" key={item.id}><span className="checkout-item-image"><BackendImage src={resolveImageUrl(image)} alt="" compact /><span className="checkout-item-count">{item.quantity}</span></span><div><strong>{item.productName}</strong><span>{variant?.name ?? `Số lượng: ${item.quantity}`}</span></div><strong>{formatMoney(item.unitPriceSnapshot * item.quantity)}</strong></div>;
-    })}</div> : <NoData title={cart.loading ? "Đang tải giỏ hàng…" : "Chưa có sản phẩm được chọn"} />}
+    })}</div> : cart.loading ? <LoadingState rows={2} label="Đang tải giỏ hàng…" /> : <EmptyState compact title="Chưa có sản phẩm được chọn" actionLabel="Về giỏ hàng" actionHref={ROUTES.buyer.cart} />}
       <div className="checkout-summary-line"><span>Tiền hàng</span><strong>{items.length ? formatMoney(activeQuote ? quotedItemsAmount : subtotal) : "—"}</strong></div>
       <div className="checkout-summary-line"><span>Phí giao hàng</span><strong>{activeQuote ? formatMoney(quotedShippingFee) : items.length ? "Theo báo giá" : "—"}</strong></div>
       {items.length > 0 && <CheckoutVoucherPanel cartItemIds={items.map((item) => item.id)} selectedCodes={voucherCodes} cashOnDelivery={paymentMethod === "Cod"} disabled={unknownOutcome || quoting || submitting} onChange={setVoucherCodes} />}
@@ -814,7 +818,7 @@ export function OrdersScreen() {
       title="Đơn mua của tôi"
       description="Theo dõi trạng thái người bán xác nhận và bấm xác nhận khi bạn đã nhận được hàng."
     />
-    {orders.error && <p className="notice" role="alert">{orders.error.message}</p>}
+    {orders.error && <ErrorState cause={orders.error} onRetry={orders.reload} />}
     <Card className="card-pad">
       {orders.data?.items.length ? (
         orders.data.items.map((order) => {
@@ -841,7 +845,7 @@ export function OrdersScreen() {
           );
         })
       ) : (
-        <NoData title={orders.loading ? "Đang tải đơn hàng…" : orders.error ? "Không tải được đơn hàng" : "Bạn chưa có đơn hàng"} />
+        orders.loading ? <LoadingState rows={4} label="Đang tải đơn hàng…" /> : orders.error ? null : <EmptyState title="Bạn chưa có đơn hàng" description="Đơn hàng sau khi đặt sẽ xuất hiện tại đây." actionLabel="Bắt đầu mua sắm" actionHref={ROUTES.catalog.index} />
       )}
       {orders.data && orders.data.pagination.totalPages > 1 && <div className="action-row"><button type="button" className="button button-secondary" disabled={page <= 1} onClick={() => setPage((value) => value - 1)}>Trang trước</button><span>Trang {page}/{orders.data.pagination.totalPages}</span><button type="button" className="button button-secondary" disabled={!orders.data.pagination.hasNextPage} onClick={() => setPage((value) => value + 1)}>Trang sau</button></div>}
     </Card>
@@ -940,7 +944,8 @@ export function OrderDetailScreen() {
         ) : undefined
       }
     />
-    {(order.error || confirmError) && <p className="notice" role="alert">{confirmError || order.error?.message}</p>}
+    {confirmError && <p className="notice" role="alert">{confirmError}</p>}
+    {order.error && <ErrorState cause={order.error} onRetry={order.reload} />}
     {confirmMessage && <p className="form-success" role="status">{confirmMessage}</p>}
     <div className="order-detail-layout">
       {subOrders.map((sub) => {
@@ -1085,7 +1090,7 @@ export function OrderDetailScreen() {
               ))}
             </>
           ) : (
-            <NoData title={order.loading ? "Đang tải đơn hàng…" : "Không có dữ liệu đơn hàng"} />
+            order.loading ? <LoadingState rows={5} label="Đang tải đơn hàng…" /> : order.error ? null : <EmptyState title="Không có dữ liệu đơn hàng" />
           )}
         </Card>
         <OrderShipmentsCard key={shipmentRefresh} orderId={orderId} />

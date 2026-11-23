@@ -10,6 +10,7 @@ import { describeError, formatError } from "@/lib/errors/error-messages";
 import { formatMoney } from "@/lib/presentation";
 import { depositStatusLabel } from "./auction-outcome";
 import { auctionService } from "./services/auction.service";
+import { LoadingState } from "@/components/ui/States";
 
 const DATE = new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium", timeStyle: "short" });
 /** The auction service names why a deposit was taken in English; the buyer reads it in Vietnamese. */
@@ -33,7 +34,7 @@ export function MyDepositsScreen() {
     <PageHeading title="Cọc của tôi" description="Khoản cọc giữ trong Ví Nexus cho từng phiên đấu giá. Màn này chỉ để xem." />
     <FluidChoiceBar mode="filter" ariaLabel="Lọc theo trạng thái cọc" options={FILTERS.map(([value, label]) => ({ value, label }))} value={status} onChange={(next) => { setStatus(next); setPage(1); }} />
     {deposits.error && <p className="notice" role="alert">{formatError(describeError(deposits.error, { operation: "read" }))} <button type="button" className="button button-secondary" onClick={deposits.reload}>Thử lại</button></p>}
-    {deposits.loading && !deposits.data ? <NoData title="Đang tải danh sách cọc…" /> : deposits.data?.items.length ? <Card>
+    {deposits.loading && !deposits.data ? <LoadingState label="Đang tải danh sách cọc…" /> : deposits.data?.items.length ? <Card>
       <div className="table-scroll"><table className="data-table"><thead><tr><th>Phiên</th><th>Số tiền</th><th>Tỷ lệ</th><th>Trạng thái</th><th>Mục đích trừ cọc</th><th>Mốc thời gian</th></tr></thead><tbody>
         {deposits.data.items.map((item) => <tr key={item.depositId}>
           <td><Link href={ROUTES.auction.room(item.auctionId)}>{item.auctionTitle || item.auctionId}</Link></td>

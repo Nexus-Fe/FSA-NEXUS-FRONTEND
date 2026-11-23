@@ -8,9 +8,9 @@ import { Badge, Card, NoData, PageHeading } from "@/components/ui/Primitives";
 import { api, type ApiResponse } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { REPORT_REFUND_STATUS, REPORT_STATUS, statusLabel } from "@/lib/status-labels";
+import { ErrorState } from "@/components/ui/States";
 
 const unwrap = <T,>(value: ApiResponse<T> | T): T => value && typeof value === "object" && "data" in value ? value.data : value;
-const errorText = (error: Error | null) => error?.message ?? "";
 
 type UserReport = { reportId?: string; reportedUserId?: string; targetRole?: string; referenceType?: string | null; referenceId?: string | null; violationType?: string; description?: string; status?: string; resolutionNote?: string | null; refundStatus?: string; refundAmount?: number | null; createdAt?: string };
 const VIOLATION_LABEL: Record<string, string> = { Fraud: "Gian lận", Harassment: "Quấy rối", Counterfeit: "Hàng giả", Spam: "Spam", Other: "Khác" };
@@ -42,7 +42,7 @@ export function BuyerReportsScreen() {
       </Card>
       <Card className="buyer-report-history-card">
         <div className="card-header"><h2>Báo cáo đã gửi</h2></div>
-        {reports.error&&<p className="notice" role="alert">{errorText(reports.error)}</p>}
+        {reports.error&&<ErrorState cause={reports.error} onRetry={reports.reload} />}
         {reports.data?.length?reports.data.map((report,index)=><div className="buyer-report-item" key={report.reportId??index}>
           <div className="buyer-report-item-content">
             <strong>{VIOLATION_LABEL[report.violationType??""]??report.violationType??"Báo cáo"}{report.targetRole?` · ${report.targetRole==="Seller"?"Người bán":report.targetRole==="Buyer"?"Người mua":"Tài khoản"}`:""}</strong>

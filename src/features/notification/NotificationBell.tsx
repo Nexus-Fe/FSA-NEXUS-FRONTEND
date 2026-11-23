@@ -7,6 +7,7 @@ import { useSession } from "@/components/auth/SessionProvider";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { NotificationAction } from "./NotificationAction";
 import { notificationService } from "./services/notification.service";
+import { describeError, formatError } from "@/lib/errors/error-messages";
 
 export function NotificationBell({ href, portal = false }: { href: string; portal?: boolean }) {
   // The seller portal links to the seller's pages; every other bell is the buyer's.
@@ -31,7 +32,7 @@ export function NotificationBell({ href, portal = false }: { href: string; porta
       setActionError("");
       resource.reload();
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : "Không cập nhật được thông báo.");
+      setActionError(formatError(describeError(error, { operation: "write" })));
     } finally {
       setBusyId(null);
     }

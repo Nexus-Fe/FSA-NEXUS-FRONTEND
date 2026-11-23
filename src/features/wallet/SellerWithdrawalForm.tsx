@@ -13,6 +13,7 @@ import { describeError, formatError } from "@/lib/errors/error-messages";
 import { canCancelWithdrawal, withdrawalService, withdrawalStatus } from "./services/withdrawal.service";
 import type { WithdrawalResponse } from "./types";
 import { transactionDate } from "./WalletScreen";
+import { ErrorState, LoadingState } from "@/components/ui/States";
 
 export function SellerWithdrawalForm() {
   const balance = useApiResource("seller-withdrawal-balance", (signal) => walletService.getBalance(signal));
@@ -63,7 +64,7 @@ export function SellerWithdrawalForm() {
       const status = cause instanceof ApiError ? cause.status : undefined;
       if (isDefiniteOutcome(status)) {
         intent.current.settle();
-        setError(cause instanceof Error ? cause.message : "Không thể gửi yêu cầu rút tiền.");
+        setError(formatError(describeError(cause, { operation: "write" })));
       } else {
         // The outcome is unknown: the key is kept, so sending again cannot lock the money twice.
         setError("Chưa rõ yêu cầu đã được ghi nhận hay chưa. Bạn có thể bấm gửi lại: hệ thống sẽ không tạo yêu cầu thứ hai.");
@@ -103,7 +104,7 @@ export function SellerWithdrawalForm() {
         <button className="button button-primary" type="submit" disabled={busy || !balance.data || balance.data.status.toUpperCase() !== "ACTIVE"}>{busy ? "Đang gửi…" : "Gửi yêu cầu rút"}</button>
       </form>
     </Card><Card className="card-pad seller-withdrawal-balance"><h2>Số dư có thể rút</h2>
-      {balance.error && <p className="notice" role="alert">{balance.error.message}</p>}
+      {balance.error && <ErrorState cause={balance.error} onRetry={balance.reload} />}
       {balance.data ? <strong className="seller-money-amount">{formatMoney(balance.data.availableBalance)}</strong> : !balance.error && <NoData title={balance.loading ? "Đang tải số dư…" : "Chưa có dữ liệu"} />}
       {created && <div className="wallet-withdrawal-result" role="status"><h3>{created.status.toUpperCase() === "PENDING" ? "Đang chờ staff xử lý" : "Đã ghi nhận yêu cầu rút"}</h3><p>Mã yêu cầu: <strong>{created.withdrawalId}</strong></p><p>Số tiền: <strong>{formatMoney(created.amount)}</strong></p><p>Phí: {formatMoney(created.fee)}</p><p>Staff sẽ chuyển khoản thủ công sau khi duyệt. Trạng thái đã duyệt chưa xác nhận tiền đã được chuyển.</p></div>}
     </Card></div>
@@ -111,8 +112,8 @@ export function SellerWithdrawalForm() {
     <h2 className="section-title">Yêu cầu rút của bạn</h2>
     {cancelMessage && <p className="form-success" role="status">{cancelMessage}</p>}
     {cancelError && <p className="notice" role="alert">{cancelError}</p>}
-    {requests.error && <p className="notice" role="alert">{requests.error.message} <button type="button" className="button button-secondary" onClick={requests.reload}>Thử lại</button></p>}
-    {requests.loading && !requests.data ? <NoData title="Đang tải yêu cầu rút…" /> : requests.data?.items.length ? <Card>
+    {requests.error && <ErrorState cause={requests.error} onRetry={requests.reload} />}
+    {requests.loading && !requests.data ? <LoadingState label="Đang tải yêu cầu rút…" /> : requests.data?.items.length ? <Card>
       <div className="table-scroll"><table className="data-table"><thead><tr><th>Gửi lúc</th><th>Số tiền</th><th>Tài khoản nhận</th><th>Trạng thái</th><th>Ghi chú</th><th>Thao tác</th></tr></thead><tbody>
         {requests.data.items.map((item) => {
           const status = withdrawalStatus(item.status);
