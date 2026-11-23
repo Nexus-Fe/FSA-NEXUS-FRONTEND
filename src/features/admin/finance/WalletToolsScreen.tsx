@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { AdminPagination, Badge, Card, PageHeading } from "@/components/ui/Primitives";
+import { FluidChoiceBar } from "@/components/ui/FluidChoiceBar";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { DataState, ErrorState } from "@/components/ui/States";
 import { useApiResource } from "@/lib/api/use-api-resource";
@@ -22,11 +23,7 @@ export function WalletToolsScreen() {
   return (
     <>
       <PageHeading title="Công cụ ví" description="Tra cứu ví, khoản giữ cọc đấu giá và thanh toán Stripe cần đối soát." />
-      <div className="action-row" role="tablist" aria-label="Công cụ ví">
-        {TABS.map((item) => (
-          <button key={item.key} type="button" role="tab" aria-selected={tab === item.key} className={`button ${tab === item.key ? "button-primary" : "button-secondary"} button-small`} onClick={() => setTab(item.key)}>{item.label}</button>
-        ))}
-      </div>
+      <FluidChoiceBar compact ariaLabel="Công cụ ví" options={TABS.map((item) => ({ value: item.key, label: item.label }))} value={tab} onChange={setTab} />
       {tab === "wallets" && <WalletsTab />}
       {tab === "holds" && <HoldsTab />}
       {tab === "stripe" && <StripeTab />}

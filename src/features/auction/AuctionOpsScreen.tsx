@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { AdminPagination, Badge, Card, PageHeading } from "@/components/ui/Primitives";
+import { FluidChoiceBar } from "@/components/ui/FluidChoiceBar";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { DataState } from "@/components/ui/States";
 import { useApiResource } from "@/lib/api/use-api-resource";
@@ -18,10 +19,7 @@ export function AuctionOpsScreen({ role }: { role: "admin" | "staff" }) {
   return (
     <>
       <PageHeading title="Vận hành đấu giá" description="Phiên cần chú ý và báo cáo từ người dùng." />
-      <div className="action-row" role="tablist" aria-label="Vận hành đấu giá">
-        <button type="button" role="tab" aria-selected={tab === "attention"} className={`button ${tab === "attention" ? "button-primary" : "button-secondary"} button-small`} onClick={() => setTab("attention")}>Cần chú ý</button>
-        <button type="button" role="tab" aria-selected={tab === "reports"} className={`button ${tab === "reports" ? "button-primary" : "button-secondary"} button-small`} onClick={() => setTab("reports")}>Báo cáo đấu giá</button>
-      </div>
+      <FluidChoiceBar compact ariaLabel="Vận hành đấu giá" options={[{ value: "attention", label: "Cần chú ý" }, { value: "reports", label: "Báo cáo đấu giá" }]} value={tab} onChange={setTab} />
       {tab === "attention" ? <AttentionTab role={role} /> : <ReportsTab />}
     </>
   );

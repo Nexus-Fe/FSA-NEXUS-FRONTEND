@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import { useSession } from "@/components/auth/SessionProvider";
 import { BackendImage } from "@/components/ui/BackendImage";
+import { FluidChoiceBar } from "@/components/ui/FluidChoiceBar";
 
 import { AdminPagination, Badge, ButtonLink, Card, NoData, PageHeading, SectionHeading } from "@/components/ui/Primitives";
 import { ROUTES } from "@/constants/routes";
@@ -51,7 +52,7 @@ export function PaginationBar({ pagination, page, setPage }: { pagination?: Pagi
 }
 
 export function StatusFilter({ status, setStatus, options = auctionStatuses }: { status: AuctionStatus | "ALL"; setStatus: (status: AuctionStatus | "ALL") => void; options?: (AuctionStatus | "ALL")[] }) {
-  return <div className="auction-filters" role="group" aria-label="Lọc trạng thái phiên">{options.map((option) => <button key={option} type="button" className={status === option ? "active" : ""} aria-pressed={status === option} onClick={() => setStatus(option)}>{statusLabel(option)}</button>)}</div>;
+  return <FluidChoiceBar mode="filter" ariaLabel="Lọc trạng thái phiên" options={options.map((option) => ({ value: option, label: statusLabel(option) }))} value={status} onChange={setStatus} />;
 }
 
 export function AuctionTile({ auction, href }: { auction: AuctionSummary; href: string }) {

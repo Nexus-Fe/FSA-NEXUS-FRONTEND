@@ -2,6 +2,7 @@
 
 import { Fragment, useState, type FormEvent } from "react";
 import { Badge, Card, NoData, PageHeading } from "@/components/ui/Primitives";
+import { FluidChoiceBar } from "@/components/ui/FluidChoiceBar";
 import { CopyableId } from "@/components/ui/CopyableId";
 import { useSession } from "@/components/auth/SessionProvider";
 import { ApiError } from "@/lib/api/client";
@@ -45,10 +46,7 @@ export function StaffWithdrawalsScreen() {
 
   return <>
     <PageHeading title="Duyệt rút tiền ví" description="Duyệt yêu cầu, chuyển khoản thủ công rồi xác nhận. Đã duyệt nghĩa là đã trừ ví, chưa phải đã chuyển tiền." />
-    <div className="action-row" role="tablist" aria-label="Lọc theo trạng thái">
-      {FILTERS.map((filter) => <button key={filter.value || "all"} type="button" role="tab" aria-selected={status === filter.value}
-        className={"button " + (status === filter.value ? "button-primary" : "button-secondary")} onClick={() => choose(filter.value)}>{filter.label}</button>)}
-    </div>
+    <FluidChoiceBar mode="filter" ariaLabel="Lọc theo trạng thái" options={FILTERS} value={status} onChange={choose} />
     {success && <p className="form-success" role="status">{success}</p>}
     {list.error && <p className="notice" role="alert">{list.error.message} <button type="button" className="button button-secondary" onClick={list.reload}>Thử lại</button></p>}
     {list.loading && !list.data ? <NoData title="Đang tải yêu cầu rút…" /> : list.data?.items.length ? <Card>

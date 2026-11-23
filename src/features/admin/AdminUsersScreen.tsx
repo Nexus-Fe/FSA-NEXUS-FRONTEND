@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { AdminPagination, Badge, Card, NoData, PageHeading, SectionHeading } from "@/components/ui/Primitives";
 import { CopyableId } from "@/components/ui/CopyableId";
+import { FluidChoiceBar } from "@/components/ui/FluidChoiceBar";
 import { ApiError } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { adminUsersService, type AdminUserReputationLog } from "./services/admin-users.service";
@@ -405,57 +406,7 @@ export function AdminUsersScreen() {
         }
       />
 
-      {/* Thanh Tabs chuẩn phân tách giao diện */}
-      <div
-        role="tablist"
-        aria-label="Phân hệ người dùng và phân quyền"
-        style={{
-          display: "flex",
-          gap: "24px",
-          borderBottom: "1px solid var(--line, #e2e8f0)",
-          marginBottom: "20px",
-          marginTop: "-8px",
-        }}
-      >
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === "users"}
-          onClick={() => setActiveTab("users")}
-          style={{
-            background: "none",
-            border: "none",
-            borderBottom: activeTab === "users" ? "2px solid var(--primary)" : "2px solid transparent",
-            padding: "8px 4px 12px",
-            fontSize: "14px",
-            fontWeight: 600,
-            color: activeTab === "users" ? "var(--primary)" : "var(--muted, #64748b)",
-            cursor: "pointer",
-            transition: "border-color 0.12s ease, color 0.12s ease",
-          }}
-        >
-          Danh sách tài khoản
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === "roles"}
-          onClick={() => setActiveTab("roles")}
-          style={{
-            background: "none",
-            border: "none",
-            borderBottom: activeTab === "roles" ? "2px solid var(--primary)" : "2px solid transparent",
-            padding: "8px 4px 12px",
-            fontSize: "14px",
-            fontWeight: 600,
-            color: activeTab === "roles" ? "var(--primary)" : "var(--muted, #64748b)",
-            cursor: "pointer",
-            transition: "border-color 0.12s ease, color 0.12s ease",
-          }}
-        >
-          Vai trò & Bổ nhiệm
-        </button>
-      </div>
+      <FluidChoiceBar ariaLabel="Phân hệ người dùng và phân quyền" options={[{ value: "users", label: "Danh sách tài khoản" }, { value: "roles", label: "Vai trò & Bổ nhiệm" }]} value={activeTab} onChange={setActiveTab} />
 
       {activeTab === "roles" ? (
         <AdminRolesScreen embedded />

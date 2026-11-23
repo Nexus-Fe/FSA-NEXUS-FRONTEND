@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Badge, Card, NoData, PageHeading } from "@/components/ui/Primitives";
+import { FluidChoiceBar } from "@/components/ui/FluidChoiceBar";
 import { ErrorState } from "@/components/ui/States";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { notificationAdminService } from "./notification-admin.service";
@@ -17,9 +18,7 @@ export function NotificationCenterScreen({ canWrite }: { canWrite: boolean }) {
   const [tab, setTab] = useState<Tab>("deliveries");
   return <div className="page-stack">
     <PageHeading title="Trung tâm thông báo" description="Theo dõi lượt gửi, sửa mẫu và bật tắt kênh. Nội dung gửi tới người dùng không hiển thị ở đây." />
-    <div className="action-row" role="tablist" aria-label="Mục quản trị thông báo">
-      {TABS.map(([key, label]) => <button key={key} type="button" role="tab" aria-selected={tab === key} className={"button " + (tab === key ? "button-primary" : "button-secondary")} onClick={() => setTab(key)}>{label}</button>)}
-    </div>
+    <FluidChoiceBar ariaLabel="Mục quản trị thông báo" options={TABS.map(([value, label]) => ({ value, label }))} value={tab} onChange={setTab} />
     {tab === "deliveries" && <Deliveries canWrite={canWrite} />}
     {tab === "templates" && <Templates canWrite={canWrite} />}
     {tab === "channels" && <Channels canWrite={canWrite} />}

@@ -621,6 +621,11 @@
   animation: buyer-home-rise .6s cubic-bezier(.22, 1, .36, 1) both;
 }
 
+/* Keep the shared auction shell visible while switching between its two pages. */
+.buyer-glass-page.auction-switch-page {
+  animation-duration: .18s;
+}
+
 .buyer-glass-page .auction-surface {
   background: transparent;
 }
@@ -1111,6 +1116,60 @@ body,
 .auth-submit-btn:hover:not(:disabled) { background: var(--primary-hover); }
 .auth-social-btn,
 .auth-secondary-btn { background: var(--surface); border-color: var(--glass-border); }
+
+/* Shared segmented filter and content tabs. */
+.fluid-choice-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: fit-content;
+  max-width: 100%;
+  margin: 20px 0 22px;
+  padding: 5px;
+  overflow-x: auto;
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--glass-surface) 78%, transparent);
+  box-shadow: inset 0 1px rgba(255, 255, 255, .8), 0 7px 18px rgba(5, 31, 32, .09);
+  -webkit-backdrop-filter: blur(7px);
+  backdrop-filter: blur(7px);
+  scrollbar-width: none;
+}
+.fluid-choice-bar::-webkit-scrollbar { display: none; }
+.fluid-choice-indicator {
+  position: absolute;
+  z-index: 0;
+  border-radius: 999px;
+  background: linear-gradient(115deg, var(--hero-bg-deep), var(--forest-mid));
+  box-shadow: 0 3px 10px rgba(5, 31, 32, .18);
+  opacity: 0;
+  pointer-events: none;
+  transition: left .34s cubic-bezier(.2, .8, .2, 1), top .34s cubic-bezier(.2, .8, .2, 1), width .34s cubic-bezier(.2, .8, .2, 1), height .34s cubic-bezier(.2, .8, .2, 1);
+}
+.fluid-choice-indicator[data-visible="true"] { opacity: 1; }
+.fluid-choice-bar .fluid-choice {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  min-height: 38px;
+  padding: 8px 15px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.fluid-choice-bar .fluid-choice[data-active="true"] { color: #fff; }
+.fluid-choice-bar .fluid-choice:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.fluid-choice-bar-compact .fluid-choice { min-height: 34px; padding: 6px 12px; }
+@media (prefers-reduced-motion: reduce) {
+  .fluid-choice-indicator { transition: none; }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .auth-trust-badge-item,

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { FluidChoiceBar } from "@/components/ui/FluidChoiceBar";
 import {
   AdminPagination,
   Badge,
@@ -138,57 +139,7 @@ export function AdminNotificationsScreen() {
         }
       />
 
-      {/* Thanh Tabs chuẩn phân tách giao diện */}
-      <div
-        role="tablist"
-        aria-label="Phân hệ thông báo và nhật ký sự kiện"
-        style={{
-          display: "flex",
-          gap: "24px",
-          borderBottom: "1px solid var(--line, #e2e8f0)",
-          marginBottom: "20px",
-          marginTop: "-8px",
-        }}
-      >
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === "notifications"}
-          onClick={() => setActiveTab("notifications")}
-          style={{
-            background: "none",
-            border: "none",
-            borderBottom: activeTab === "notifications" ? "2px solid var(--primary)" : "2px solid transparent",
-            padding: "8px 4px 12px",
-            fontSize: "14px",
-            fontWeight: 600,
-            color: activeTab === "notifications" ? "var(--primary)" : "var(--muted, #64748b)",
-            cursor: "pointer",
-            transition: "border-color 0.12s ease, color 0.12s ease",
-          }}
-        >
-          Lịch sử thông báo
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === "event-logs"}
-          onClick={() => setActiveTab("event-logs")}
-          style={{
-            background: "none",
-            border: "none",
-            borderBottom: activeTab === "event-logs" ? "2px solid var(--primary)" : "2px solid transparent",
-            padding: "8px 4px 12px",
-            fontSize: "14px",
-            fontWeight: 600,
-            color: activeTab === "event-logs" ? "var(--primary)" : "var(--muted, #64748b)",
-            cursor: "pointer",
-            transition: "border-color 0.12s ease, color 0.12s ease",
-          }}
-        >
-          Nhật ký sự kiện (Event Logs)
-        </button>
-      </div>
+      <FluidChoiceBar ariaLabel="Phân hệ thông báo và nhật ký sự kiện" options={[{ value: "notifications", label: "Lịch sử thông báo" }, { value: "event-logs", label: "Nhật ký sự kiện (Event Logs)" }]} value={activeTab} onChange={setActiveTab} />
 
       {/* TAB 1: LỊCH SỬ THÔNG BÁO */}
       {activeTab === "notifications" && (

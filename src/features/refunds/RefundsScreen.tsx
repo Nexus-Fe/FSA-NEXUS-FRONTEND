@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Badge, Card, NoData, PageHeading } from "@/components/ui/Primitives";
+import { FluidChoiceBar } from "@/components/ui/FluidChoiceBar";
 import { ErrorState } from "@/components/ui/States";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatMoney } from "@/lib/presentation";
@@ -56,9 +57,7 @@ export function RefundsScreen({ role }: { role: Role }) {
   const data = refunds.data;
   return <div>
     <PageHeading title="Yêu cầu hoàn tiền" description={role === "buyer" ? "Các yêu cầu hoàn tiền của đơn bạn đã mua." : "Duyệt hoặc từ chối yêu cầu hoàn tiền. Duyệt sẽ hoàn tiền vào ví người mua."} />
-    <div className="action-row" role="tablist" aria-label="Lọc theo trạng thái hoàn tiền">
-      {REFUND_FILTERS.map(([value, label]) => <button key={value || "all"} type="button" role="tab" aria-selected={status === value} className={"button " + (status === value ? "button-primary" : "button-secondary")} onClick={() => { setStatus(value); setPage(1); }}>{label}</button>)}
-    </div>
+    <FluidChoiceBar mode="filter" ariaLabel="Lọc theo trạng thái hoàn tiền" options={REFUND_FILTERS.map(([value, label]) => ({ value, label }))} value={status} onChange={(next) => { setStatus(next); setPage(1); }} />
     {notice && <p className="form-success" role="status">{notice}</p>}
     {refunds.error != null && <ErrorState cause={refunds.error} operation="read" onRetry={refunds.reload} />}
     {refunds.loading && !data ? <NoData title="Đang tải yêu cầu hoàn tiền…" /> : data?.items.length ? <Card>
