@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ROUTES } from "@/constants/routes";
 import { useSession } from "@/components/auth/SessionProvider";
 import { Card, NoData } from "@/components/ui/Primitives";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { authService } from "./services/auth.service";
 import { ApiError } from "@/lib/api/client";
+import { FirebaseClientError, signInWithGooglePopup } from "@/lib/auth/firebase-client";
 import { profileService } from "@/features/profile";
 import type { AuthUser } from "./types";
 import { ShopRegistrationForm, ShopRegistrationReview, emptyShopRegistrationFields, validateShopRegistrationFields, type ShopRegistrationFields } from "@/features/seller/components/ShopRegistrationForm";
@@ -40,6 +41,37 @@ function safeReturnPath(value: string | null, user: AuthUser): string | null {
   return value;
 }
 
+const LOGIN_ERROR_MESSAGES: Record<string, string> = {
+  INVALID_CREDENTIALS: "Email/tên đăng nhập hoặc mật khẩu không đúng. Nếu bạn từng tạo tài khoản bằng Google, hãy thử nút Đăng nhập nhanh với Google hoặc Quên mật khẩu.",
+  ACCOUNT_LOCKED_TEMPORARY: "Tài khoản tạm khóa do đăng nhập sai nhiều lần. Vui lòng thử lại sau.",
+  ACCOUNT_NOT_VERIFIED: "Tài khoản chưa xác thực email. Vui lòng kiểm tra mã OTP hoặc đăng nhập bằng Google.",
+  USER_PENDING_VERIFICATION: "Tài khoản chưa xác thực email. Vui lòng kiểm tra mã OTP hoặc đăng nhập bằng Google.",
+  INVALID_FIREBASE_TOKEN: "Phiên xác thực Google không hợp lệ hoặc đã hết hạn. Vui lòng thử lại.",
+  FIREBASE_EMAIL_REQUIRED: "Tài khoản Google chưa cung cấp địa chỉ email hợp lệ.",
+  FIREBASE_EMAIL_NOT_VERIFIED: "Email Google của bạn chưa được xác minh.",
+  FIREBASE_UID_MISMATCH: "Email này đã được liên kết với một tài khoản Google khác.",
+  USER_NOT_FOUND: "Tài khoản không tồn tại hoặc đã bị xóa.",
+};
+
+function formatLoginError(reason: unknown): string {
+  if (reason instanceof FirebaseClientError) {
+    return reason.message;
+  }
+  if (reason instanceof ApiError) {
+    if (reason.status === 423) {
+      return LOGIN_ERROR_MESSAGES.ACCOUNT_LOCKED_TEMPORARY;
+    }
+    if (reason.errorCode === "ACCOUNT_BANNED" || reason.errorCode === "USER_BANNED") {
+      return reason.message || "Tài khoản của bạn đã bị khóa.";
+    }
+    if (reason.errorCode && LOGIN_ERROR_MESSAGES[reason.errorCode]) {
+      return LOGIN_ERROR_MESSAGES[reason.errorCode];
+    }
+    return reason.message;
+  }
+  return reason instanceof Error ? reason.message : "Không thể đăng nhập.";
+}
+
 export function LoginScreen() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -49,20 +81,48 @@ export function LoginScreen() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [googleSubmitting, setGoogleSubmitting] = useState(false);
+  const authInFlightRef = useRef(false);
+  const busy = submitting || googleSubmitting;
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function runAuthAttempt(
+    setLoading: (loading: boolean) => void,
+    authenticate: () => Promise<{ user: AuthUser }>,
+    ignorePopupClose = false,
+  ) {
+    if (authInFlightRef.current) return;
+    authInFlightRef.current = true;
     setError(null);
-    setSubmitting(true);
+    setLoading(true);
     try {
-      const response = await authService.login({ identifier, password });
+      const response = await authenticate();
       setAuthenticatedUser(response.user);
       router.replace(safeReturnPath(searchParams.get("returnTo"), response.user) ?? landingPath(response.user));
     } catch (reason) {
-      setError(reason instanceof ApiError && reason.status === 423 ? "Tài khoản tạm khóa do đăng nhập sai nhiều lần. Vui lòng thử lại sau." : reason instanceof Error ? reason.message : "Không thể đăng nhập.");
+      if (ignorePopupClose && reason instanceof FirebaseClientError && reason.code === "POPUP_CLOSED") {
+        return;
+      }
+      setError(formatLoginError(reason));
     } finally {
-      setSubmitting(false);
+      authInFlightRef.current = false;
+      setLoading(false);
     }
+  }
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await runAuthAttempt(setSubmitting, () => authService.login({ identifier, password }));
+  }
+
+  async function handleGoogleLogin() {
+    await runAuthAttempt(
+      setGoogleSubmitting,
+      async () => {
+        const idToken = await signInWithGooglePopup();
+        return authService.loginWithGoogle({ idToken });
+      },
+      true,
+    );
   }
 
   return (
@@ -77,9 +137,8 @@ export function LoginScreen() {
       <button
         type="button"
         className="auth-social-btn"
-        onClick={() => {
-          setError("Phương thức đăng nhập nhanh qua Google đang hoàn thiện kết nối. Vui lòng đăng nhập bằng tài khoản.");
-        }}
+        disabled={busy}
+        onClick={() => void handleGoogleLogin()}
       >
         <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
           <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -87,7 +146,7 @@ export function LoginScreen() {
           <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
           <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
         </svg>
-        <span>Đăng nhập nhanh với Google</span>
+        <span>{googleSubmitting ? "Đang xác thực Google…" : "Đăng nhập nhanh với Google"}</span>
       </button>
 
       <div className="auth-divider">
@@ -134,7 +193,7 @@ export function LoginScreen() {
 
         {error && <p className="form-error" role="alert">{error}</p>}
 
-        <button className="auth-submit-btn" type="submit" disabled={submitting}>
+        <button className="auth-submit-btn" type="submit" disabled={busy}>
           {submitting ? (
             "Đang đăng nhập…"
           ) : (
@@ -771,11 +830,13 @@ export function ChangePasswordScreen() {
   const [newPassword, setNew] = useState("");
   const [confirmPassword, setConfirm] = useState("");
   const [error, setError] = useState("");
+  const [errorCode, setErrorCode] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    setErrorCode(null);
     if (newPassword !== confirmPassword) {
       setError("Mật khẩu xác nhận không khớp.");
       return;
@@ -794,12 +855,15 @@ export function ChangePasswordScreen() {
       if (reason instanceof ApiError) {
         const messages: Record<string, string> = {
           INVALID_CREDENTIALS: "Mật khẩu hiện tại không đúng.",
+          PASSWORD_NOT_SET: "Tài khoản này đăng nhập bằng Google và chưa có mật khẩu. Vui lòng thiết lập mật khẩu qua Email OTP.",
           VAL_INVALID_PASSWORD: "Mật khẩu mới cần ít nhất 8 ký tự.",
           VAL_PASSWORD_MISMATCH: "Mật khẩu xác nhận không khớp.",
           VAL_SAME_PASSWORD: "Mật khẩu mới phải khác mật khẩu hiện tại.",
           UNAUTHORIZED: "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.",
           USER_BANNED: "Tài khoản đang bị khóa. Không thể đổi mật khẩu.",
+          USER_NOT_FOUND: "Tài khoản không tồn tại hoặc đã bị xóa.",
         };
+        setErrorCode(reason.errorCode ?? null);
         setError(messages[reason.errorCode ?? ""] ?? reason.message);
       } else {
         setError(reason instanceof Error ? reason.message : "Không thể đổi mật khẩu.");
@@ -839,7 +903,14 @@ export function ChangePasswordScreen() {
         value={confirmPassword}
         onChange={(event) => setConfirm(event.target.value)}
       />
-      {error && <p className="form-error" role="alert">{error}</p>}
+      {error && (
+        <p className="form-error" role="alert">
+          {error}{" "}
+          {errorCode === "PASSWORD_NOT_SET" && (
+            <Link href={ROUTES.auth.forgotPassword}>Thiết lập mật khẩu qua Email OTP</Link>
+          )}
+        </p>
+      )}
       <button className="button button-primary" disabled={busy}>{busy ? "Đang cập nhật…" : "Đổi mật khẩu"}</button>
     </form>
   </Card>;
