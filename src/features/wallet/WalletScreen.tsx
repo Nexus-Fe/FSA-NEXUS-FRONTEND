@@ -64,7 +64,7 @@ export function WalletScreen() {
             <NoData title="Đang kiểm tra ví…" />
           ) : balance.data ? (
             <>
-              <strong>{formatMoney(balance.data.balance)}</strong>
+              <strong className="wallet-balance">{formatMoney(balance.data.balance)}</strong>
               <p className="status-note">Đang giữ cọc: <strong>{formatMoney(balance.data.lockedBalance)}</strong> · Có thể dùng: <strong>{formatMoney(balance.data.availableBalance)}</strong></p>
               <p className="status-note">
                 Ví {isReady ? "đã sẵn sàng" : `đang ở trạng thái ${balance.data.status}`}
@@ -77,12 +77,18 @@ export function WalletScreen() {
         </div>
       </Card>
 
+      <div className="action-row wallet-actions">
+        <Link className="button button-primary" href={ROUTES.buyer.topUp}>Nạp tiền vào ví</Link>
+        <Link className="button button-secondary" href={ROUTES.buyer.transfer}>Chuyển tiền</Link>
+        <Link className="button button-secondary" href={ROUTES.buyer.topUps}>Lịch sử nạp tiền</Link>
+      </div>
+
       <Card className="card-pad wallet-pending-topups"><div className="section-heading"><div><h2>Cọc đấu giá đang giữ</h2><p>Khoản này chưa bị trừ khỏi ví nhưng không thể dùng để thanh toán hoặc rút.</p></div></div>
-        {holds.error ? <p className="notice" role="alert">Không tải được danh sách cọc. <button className="button button-secondary" onClick={holds.reload}>Thử lại</button></p> : holds.loading ? <p>Đang tải tiền cọc…</p> : holds.data?.items.length ? <ul className="wallet-pending-list">{holds.data.items.map((hold) => <li key={hold.holdId}><span>Phiên {hold.auctionId}</span><strong>{formatMoney(hold.amount)}</strong><Badge tone="amber">Đang giữ</Badge></li>)}</ul> : <p>Không có khoản cọc đang giữ.</p>}
+        {holds.error ? <p className="notice" role="alert">Không tải được danh sách cọc. <button className="button button-secondary" onClick={holds.reload}>Thử lại</button></p> : holds.loading ? <p>Đang tải tiền cọc…</p> : holds.data?.items.length ? <ul className="wallet-pending-list">{holds.data.items.map((hold) => <li key={hold.holdId}><Link href={ROUTES.auction.room(hold.auctionId)}>Phiên đấu giá {hold.auctionId.slice(0, 8)}</Link><strong>{formatMoney(hold.amount)}</strong><Badge tone="amber">Đang giữ</Badge></li>)}</ul> : <p>Không có khoản cọc đang giữ.</p>}
       </Card>
 
       <Card className="card-pad wallet-pending-topups"><div className="section-heading"><div><h2>Lượt nạp đang chờ</h2><p>Thanh toán hoặc webhook có thể vẫn đang được xử lý.</p></div><Link href={ROUTES.buyer.topUps}>Xem tất cả lượt nạp</Link></div>
-        {topups.error ? <p className="notice" role="alert">Không tải được lượt nạp: {topups.error.message} <button className="button button-secondary" onClick={topups.reload}>Thử lại</button></p> : topups.loading ? <p>Đang tải lượt nạp…</p> : pendingTopups.length ? <ul className="wallet-pending-list">{pendingTopups.map((item) => <li key={item.transactionId}><Link href={ROUTES.buyer.topUpDetail(item.transactionId)}>{formatMoney(item.amount)}</Link><Badge tone="amber">Đang xác nhận</Badge></li>)}</ul> : <p>Không có lượt nạp đang chờ trong 10 lượt gần nhất.</p>}
+        {topups.error ? <p className="notice" role="alert">Không tải được lượt nạp: {topups.error.message} <button className="button button-secondary" onClick={topups.reload}>Thử lại</button></p> : topups.loading ? <p>Đang tải lượt nạp…</p> : pendingTopups.length ? <ul className="wallet-pending-list">{pendingTopups.map((item) => <li key={item.transactionId}><span><Link href={ROUTES.buyer.topUpDetail(item.transactionId)}>{formatMoney(item.amount)}</Link>{item.createdAt && <small className="wallet-row-time"> · {new Date(item.createdAt).toLocaleString("vi-VN")}</small>}</span><Badge tone="amber">Đang xác nhận</Badge></li>)}</ul> : <p>Không có lượt nạp đang chờ trong 10 lượt gần nhất.</p>}
       </Card>
 
       <SectionHeading title="10 giao dịch gần nhất" />
@@ -142,15 +148,6 @@ export function WalletScreen() {
         !transactions.error && <NoData title="Chưa có giao dịch" />
       )}
 
-      <div className="action-row">
-        <Link className="button button-secondary" href={ROUTES.buyer.transfer}>Chuyển tiền</Link>
-        <Link className="button button-secondary" href={ROUTES.buyer.topUp}>
-          Nạp tiền vào ví
-        </Link>
-        <Link className="button button-secondary" href={ROUTES.buyer.topUps}>
-          Lịch sử nạp tiền
-        </Link>
-      </div>
     </div>
   );
 }

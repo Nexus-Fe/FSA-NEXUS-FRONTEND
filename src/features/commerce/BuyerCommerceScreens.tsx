@@ -834,7 +834,7 @@ export function OrdersScreen() {
               <div style={{ textAlign: "right" }}>
                 <strong style={{ display: "block", marginBottom: 6 }}>{formatMoney(order.totalAmount)}</strong>
                 <Link className="button button-secondary" href={ROUTES.buyer.order(resolvedId)}>
-                  Xem &amp; Nhận hàng
+                  Xem chi tiết
                 </Link>
               </div>
             </div>

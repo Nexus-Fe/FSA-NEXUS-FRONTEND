@@ -538,7 +538,7 @@ export function BecomeSellerScreen() {
 
   return (
     <>
-      <PageHeading title="Đăng kí mở gian hàng" />
+      <PageHeading title="Đăng ký mở gian hàng" />
 
       {statusNotice && (
         <p role="status" className="form-success" style={{ marginBottom: 18 }}>

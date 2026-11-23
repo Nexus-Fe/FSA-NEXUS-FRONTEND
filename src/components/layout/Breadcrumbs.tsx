@@ -7,7 +7,7 @@ import { ROUTES } from "@/constants/routes";
 const labels: Record<string, string> = {
   "/catalog": "Sản phẩm", "/shops": "Gian hàng", "/auctions": "Đấu giá trực tiếp",
   "/buyer/cart": "Giỏ hàng", "/buyer/checkout": "Thông tin giao hàng",
-  "/buyer/orders": "Đơn mua", "/buyer/notifications": "Thông báo", "/buyer/auctions": "Đấu giá của tôi", "/buyer/deposits": "Cọc của tôi", "/buyer/watchlist": "Theo dõi phiên", "/buyer/wallet": "Ví của tôi",
+  "/buyer/orders": "Đơn mua", "/buyer/refunds": "Hoàn tiền", "/buyer/wallet/top-ups": "Lịch sử nạp tiền", "/buyer/notifications": "Thông báo", "/buyer/auctions": "Đấu giá của tôi", "/buyer/deposits": "Cọc của tôi", "/buyer/watchlist": "Theo dõi phiên", "/buyer/wallet": "Ví của tôi",
   "/buyer/wallet/top-up": "Nạp tiền", "/buyer/wallet/transfer": "Chuyển tiền", "/buyer/reputation": "Uy tín của tôi", "/buyer/reports": "Báo cáo", "/buyer/become-seller": "Đăng ký bán hàng",
   "/buyer/payment": "Thanh toán", "/buyer/payment/result": "Kết quả thanh toán",
   "/seller": "Kênh người bán", "/seller/products": "Quản lý sản phẩm", "/seller/products/new": "Tạo sản phẩm",

@@ -3391,3 +3391,19 @@ h1,h2,h3 { letter-spacing: -.01em; word-spacing: .06em; }
 .checkout-voucher-manual input { flex: 1 1 auto; width: auto; }
 .checkout-voucher-manual .button { flex: none; width: auto; }
 .checkout-form .field { font-size: 15px; font-weight: 400; }
+
+/* Buyer pass 2 */
+.card-pad > h2:first-child,.card-pad > .card-header + h2 { margin-bottom: 12px; }
+.card-pad > h2 + p,.card-pad > h2 + .status-note { margin-top: -6px; margin-bottom: 14px; }
+.wallet-balance { display: block; font-size: 32px; line-height: 1.2; margin: 4px 0 8px; font-variant-numeric: tabular-nums; }
+.wallet-status .status-note { font-size: 13px; }
+.wallet-actions { margin: 16px 0; }
+.wallet-pending-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; }
+.wallet-pending-list li > :nth-child(2):last-child { grid-column: 3; }
+.wallet-row-time { color: var(--muted); font-size: 12px; }
+.catalog-filters .field-wrap { font-size: 13px; font-weight: 600; color: #475569; }
+.buyer-report-item-text { margin: 4px 0; font-size: 13px; overflow-wrap: anywhere; }
+/* Auction room: the side tables fit the rail (they were forced to 580px and cut the status column). */
+.auction-room-rail .data-table,.auction-room-rail .auction-bid-history .data-table { min-width: 0; }
+.auction-room-rail .data-table th,.auction-room-rail .data-table td { padding: 10px 8px; }
+@media (max-width: 640px) { .auction-room-rail .data-table { min-width: 520px; } }
