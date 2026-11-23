@@ -2,8 +2,8 @@
 /* Catalog and fulfillment responses are ungenerated Gateway JSON contracts. */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ROUTES } from "@/constants/routes";
 import { useSession } from "@/components/auth/SessionProvider";
 import { Icon } from "@/components/ui/Icon";
@@ -75,37 +75,153 @@ function buildAutoSku(productName: string, variantName: string, index: number): 
 }
 
 export function SellerProductsScreen() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Resolve current active page: URL parameter has highest priority, then persistent sessionStorage
+  const rawPage = searchParams.get("page");
+  const page = useMemo(() => {
+    if (rawPage && !isNaN(Number(rawPage)) && Number(rawPage) >= 1) {
+      return Number(rawPage);
+    }
+    if (typeof window !== "undefined") {
+      const saved = sessionStorage.getItem("seller_products_last_page");
+      if (saved && !isNaN(Number(saved)) && Number(saved) >= 1) {
+        return Number(saved);
+      }
+    }
+    return 1;
+  }, [rawPage]);
+
+  const pageSize = useMemo(() => {
+    const ps = searchParams.get("pageSize");
+    if (ps && !isNaN(Number(ps)) && Number(ps) >= 1) return Number(ps);
+    return 10;
+  }, [searchParams]);
+
+  const [highlightedId, setHighlightedId] = useState<string | null>(() => {
+    if (typeof window !== "undefined") {
+      const hl = new URLSearchParams(window.location.search).get("highlight");
+      if (hl) return hl;
+      return sessionStorage.getItem("seller_products_highlight_id");
+    }
+    return null;
+  });
+
   const [q, setQ] = useState("");
   const [keyword, setKeyword] = useState("");
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+
+  const prevQRef = useRef(q);
+  const rowRefs = useRef<Map<string, HTMLTableRowElement>>(new Map());
+
   const resource = useApiResource(
     `seller-products:${page}:${pageSize}:${keyword}`,
     (signal) => sellerCatalogService.list(page, keyword, signal, pageSize),
   );
 
-  // Live auto-search with debounce; clearing immediately resets list
+  // Listen to searchParams changes for highlight
   useEffect(() => {
+    const hl = searchParams.get("highlight");
+    if (hl) {
+      setHighlightedId(hl);
+    } else if (typeof window !== "undefined") {
+      const savedHl = sessionStorage.getItem("seller_products_highlight_id");
+      if (savedHl) setHighlightedId(savedHl);
+    }
+  }, [searchParams]);
+
+  // Sync URL when page is restored from sessionStorage and not yet present in URL query
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!rawPage && page > 1) {
+      const currentParams = new URLSearchParams(searchParams.toString());
+      currentParams.set("page", String(page));
+      router.replace(`${ROUTES.seller.products}?${currentParams.toString()}`);
+    }
+  }, [rawPage, page, searchParams, router]);
+
+  // Keep sessionStorage in sync with current page
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("seller_products_last_page", String(page));
+      sessionStorage.setItem("seller_products_page_size", String(pageSize));
+    }
+  }, [page, pageSize]);
+
+  // Handle explicit page change (pushes history entry so browser Back goes to previous page)
+  const handlePageChange = (newPage: number) => {
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("seller_products_last_page", String(newPage));
+    }
+    const currentParams = new URLSearchParams(searchParams.toString());
+    currentParams.set("page", String(newPage));
+    currentParams.delete("highlight");
+    router.push(`${ROUTES.seller.products}?${currentParams.toString()}`);
+  };
+
+  // Live auto-search with debounce; only trigger when search query actually changes
+  useEffect(() => {
+    if (prevQRef.current === q) return;
+    prevQRef.current = q;
+
     const timer = setTimeout(() => {
       const trimmed = q.trim();
       setKeyword(trimmed);
-      setPage(1);
+      handlePageChange(1);
     }, q.trim() ? 300 : 0);
     return () => clearTimeout(timer);
   }, [q]);
 
+  // Auto-scroll and flash green highlight effect on target product row (1.5s duration)
+  useEffect(() => {
+    if (!highlightedId || !resource.data?.items?.length) return;
+
+    const hasItem = resource.data.items.some((item) => item.productId === highlightedId);
+    if (hasItem) {
+      const scrollTimer = setTimeout(() => {
+        const el = rowRefs.current.get(highlightedId);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 80);
+
+      // Cleanup highlight animation after 1.5s so it only flashes once
+      const clearTimer = setTimeout(() => {
+        setHighlightedId(null);
+        if (typeof window !== "undefined") {
+          sessionStorage.removeItem("seller_products_highlight_id");
+          const url = new URL(window.location.href);
+          if (url.searchParams.has("highlight")) {
+            url.searchParams.delete("highlight");
+            window.history.replaceState(null, "", url.pathname + url.search);
+          }
+        }
+      }, 1500);
+
+      return () => {
+        clearTimeout(scrollTimer);
+        clearTimeout(clearTimer);
+      };
+    }
+  }, [highlightedId, resource.data]);
+
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = q.trim();
-    setPage(1);
     setKeyword(trimmed);
-    if (keyword === trimmed && page === 1) resource.reload();
+    if (page !== 1) {
+      handlePageChange(1);
+    } else {
+      resource.reload();
+    }
   };
 
   const handleClear = () => {
     setQ("");
     setKeyword("");
-    setPage(1);
+    if (page !== 1) {
+      handlePageChange(1);
+    }
   };
 
   // Sort items prioritizing matches starting with keyword (prefix) then word prefix then contains
@@ -221,27 +337,56 @@ export function SellerProductsScreen() {
                 </tr>
               </thead>
               <tbody>
-                {sortedItems.map((p) => (
-                  <tr key={p.productId}>
-                    <td>
-                      <Link href={ROUTES.seller.product(p.productId)}>
-                        <strong>{p.name}</strong>
-                      </Link>
-                      {p.brand && <div style={{ fontSize: 12, color: "var(--muted)" }}>{p.brand}</div>}
-                    </td>
-                    <td>{p.categoryName || "—"}</td>
-                    <td className="seller-product-price">
-                      <strong>{formatMoney(p.minPrice ?? null)}</strong>
-                    </td>
-                    <td>{p.variantCount} SKU</td>
-                    <td>
-                      <Badge>{p.status ?? ""}</Badge>
-                    </td>
-                    <td>
-                      <ButtonLink href={ROUTES.seller.editProduct(p.productId)} variant="secondary">Điều chỉnh</ButtonLink>
-                    </td>
-                  </tr>
-                ))}
+                {sortedItems.map((p) => {
+                  const isTarget = highlightedId === p.productId;
+                  return (
+                    <tr
+                      key={p.productId}
+                      ref={(el) => {
+                        if (el) rowRefs.current.set(p.productId, el);
+                        else rowRefs.current.delete(p.productId);
+                      }}
+                      className={isTarget ? "seller-product-row-highlight" : undefined}
+                    >
+                      <td>
+                        <Link
+                          href={`${ROUTES.seller.product(p.productId)}?fromPage=${page}`}
+                          onClick={() => {
+                            if (typeof window !== "undefined") {
+                              sessionStorage.setItem("seller_products_last_page", String(page));
+                              sessionStorage.setItem("seller_products_highlight_id", p.productId);
+                            }
+                          }}
+                        >
+                          <strong>{p.name}</strong>
+                        </Link>
+                        {p.brand && <div style={{ fontSize: 12, color: "var(--muted)" }}>{p.brand}</div>}
+                      </td>
+                      <td>{p.categoryName || "—"}</td>
+                      <td className="seller-product-price">
+                        <strong>{formatMoney(p.minPrice ?? null)}</strong>
+                      </td>
+                      <td>{p.variantCount} SKU</td>
+                      <td>
+                        <Badge>{p.status ?? ""}</Badge>
+                      </td>
+                      <td>
+                        <ButtonLink
+                          href={`${ROUTES.seller.editProduct(p.productId)}?fromPage=${page}`}
+                          variant="secondary"
+                          onClick={() => {
+                            if (typeof window !== "undefined") {
+                              sessionStorage.setItem("seller_products_last_page", String(page));
+                              sessionStorage.setItem("seller_products_highlight_id", p.productId);
+                            }
+                          }}
+                        >
+                          Điều chỉnh
+                        </ButtonLink>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -258,7 +403,17 @@ export function SellerProductsScreen() {
         )}
         {resource.data && <div className="seller-products-pagination">
           <label className="seller-products-page-size">Hiển thị
-            <select className="select-field" value={pageSize} onChange={(event) => { setPageSize(Number(event.target.value)); setPage(1); }}>
+            <select
+              className="select-field"
+              value={pageSize}
+              onChange={(event) => {
+                const newSize = Number(event.target.value);
+                const currentParams = new URLSearchParams(searchParams.toString());
+                currentParams.set("page", "1");
+                currentParams.set("pageSize", String(newSize));
+                router.push(`${ROUTES.seller.products}?${currentParams.toString()}`);
+              }}
+            >
               <option value={10}>10</option>
               <option value={30}>30</option>
               <option value={50}>50</option>
@@ -266,9 +421,9 @@ export function SellerProductsScreen() {
             sản phẩm/trang
           </label>
           <nav className="seller-products-page-controls" aria-label="Phân trang sản phẩm">
-            <button type="button" className="button button-secondary" disabled={page <= 1 || resource.loading} onClick={() => setPage((value) => value - 1)}>Trang trước</button>
+            <button type="button" className="button button-secondary" disabled={page <= 1 || resource.loading} onClick={() => handlePageChange(page - 1)}>Trang trước</button>
             <span>Trang {page}/{Math.max(1, resource.data.pagination.totalPages)}</span>
-            <button type="button" className="button button-secondary" disabled={!resource.data.pagination.hasNextPage || resource.loading} onClick={() => setPage((value) => value + 1)}>Trang sau</button>
+            <button type="button" className="button button-secondary" disabled={!resource.data.pagination.hasNextPage || resource.loading} onClick={() => handlePageChange(page + 1)}>Trang sau</button>
           </nav>
         </div>}
       </Card>
@@ -288,12 +443,45 @@ export function SellerProductEditScreen() {
 export function SellerProductEditorScreen({ initialProduct }: { initialProduct?: SellerProductDetail }) {
   const { user } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [name, setName] = useState(initialProduct?.name ?? "");
   const [categoryId, setCategoryId] = useState(initialProduct?.categoryId ?? "");
   const [brand, setBrand] = useState(initialProduct?.brand ?? "");
   const [description, setDescription] = useState(initialProduct?.description ?? "");
   const [weightGrams, setWeightGrams] = useState(String(initialProduct?.weightGrams ?? ""));
+
+  // Track session for back navigation and row flash highlight
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const fromPage = searchParams?.get("fromPage");
+      if (fromPage && !isNaN(Number(fromPage)) && Number(fromPage) >= 1) {
+        sessionStorage.setItem("seller_products_last_page", fromPage);
+      }
+      if (initialProduct?.productId) {
+        sessionStorage.setItem("seller_products_highlight_id", initialProduct.productId);
+      }
+    }
+  }, [searchParams, initialProduct?.productId]);
+
+  const handleBackToList = () => {
+    let targetPage = 1;
+    if (typeof window !== "undefined") {
+      const fromPage = searchParams?.get("fromPage");
+      const savedPage = sessionStorage.getItem("seller_products_last_page");
+      if (fromPage && !isNaN(Number(fromPage)) && Number(fromPage) >= 1) {
+        targetPage = Number(fromPage);
+      } else if (savedPage && !isNaN(Number(savedPage)) && Number(savedPage) >= 1) {
+        targetPage = Number(savedPage);
+      }
+      if (initialProduct?.productId) {
+        sessionStorage.setItem("seller_products_highlight_id", initialProduct.productId);
+      }
+      sessionStorage.setItem("seller_products_last_page", String(targetPage));
+    }
+    const highlightQuery = initialProduct?.productId ? `&highlight=${encodeURIComponent(initialProduct.productId)}` : "";
+    router.push(`${ROUTES.seller.products}?page=${targetPage}${highlightQuery}`);
+  };
 
   // Dynamic specifications (JSON object per R105_POST_PRODUCTS.md)
   const [specs, setSpecs] = useState<Array<{ key: string; value: string }>>(() => initialProduct
@@ -551,7 +739,20 @@ export function SellerProductEditorScreen({ initialProduct }: { initialProduct?:
         if (publishImmediately && initialProduct.status.toUpperCase() !== "ACTIVE") {
           await sellerCatalogService.changeStatus(initialProduct.productId, "PENDING_APPROVAL");
         }
-        router.push(ROUTES.seller.product(initialProduct.productId));
+        let targetPage = 1;
+        if (typeof window !== "undefined") {
+          const fromPage = searchParams?.get("fromPage");
+          const savedPage = sessionStorage.getItem("seller_products_last_page");
+          if (fromPage && !isNaN(Number(fromPage)) && Number(fromPage) >= 1) {
+            targetPage = Number(fromPage);
+          } else if (savedPage && !isNaN(Number(savedPage)) && Number(savedPage) >= 1) {
+            targetPage = Number(savedPage);
+          }
+          sessionStorage.setItem("seller_products_last_page", String(targetPage));
+          sessionStorage.setItem("seller_products_highlight_id", initialProduct.productId);
+        }
+        const targetUrl = `${ROUTES.seller.products}?page=${targetPage}&highlight=${encodeURIComponent(initialProduct.productId)}`;
+        router.push(targetUrl);
         return;
       }
 
@@ -1191,9 +1392,13 @@ export function SellerProductEditorScreen({ initialProduct }: { initialProduct?:
                 {busy ? "Đang lưu…" : initialProduct ? "Lưu thay đổi" : "Lưu bản nháp"}
               </button>
 
-              <ButtonLink href={ROUTES.seller.products} variant="secondary">
+              <button
+                type="button"
+                className="button button-secondary"
+                onClick={handleBackToList}
+              >
                 Quay lại danh sách
-              </ButtonLink>
+              </button>
             </div>
           </Card>
         </aside>

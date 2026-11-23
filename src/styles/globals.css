@@ -3345,3 +3345,28 @@ h1,h2,h3 { letter-spacing: -.025em; }
 .textarea-field::placeholder {
   color: var(--muted);
 }
+
+/* Seller Product Row Highlight Animation (Flash green 1 time upon returning from edit) */
+@keyframes seller-row-flash-green {
+  0% {
+    background-color: transparent;
+    box-shadow: inset 4px 0 0 transparent;
+  }
+  15% {
+    background-color: rgba(34, 197, 94, 0.32);
+    box-shadow: inset 4px 0 0 #16a34a, 0 0 14px rgba(34, 197, 94, 0.4);
+  }
+  50% {
+    background-color: rgba(34, 197, 94, 0.16);
+    box-shadow: inset 4px 0 0 #22c55e;
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: inset 4px 0 0 transparent;
+  }
+}
+
+.seller-product-row-highlight td {
+  animation: seller-row-flash-green 1.5s cubic-bezier(0.25, 1, 0.5, 1) forwards !important;
+}
+
