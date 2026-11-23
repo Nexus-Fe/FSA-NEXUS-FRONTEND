@@ -3319,11 +3319,12 @@ h1,h2,h3 { letter-spacing: -.025em; }
 .wallet-dialog,
 .seller-otp-dialog,
 .seller-inventory-modal,
-.auction-deposit-dialog {
+.auction-deposit-dialog,
+.modal-panel {
   border-color: var(--glass-border);
-  background: var(--glass-surface);
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
+  background: var(--dialog-glass-surface);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
 }
 
 .product-category,

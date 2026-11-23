@@ -31,7 +31,7 @@ export function SellerReviewsScreen() {
     {reputation.error && <p className="notice" role="alert">{reputation.error.message}</p>}
     <ReputationPolicyBlock />
     <ReputationHistoryBlock />
-    <div className="action-row"><label className="field-wrap">Lọc theo số sao
+    <div className="action-row seller-reviews-filter"><label className="field-wrap">Lọc theo số sao
       <select className="select-field" value={rating} onChange={(event) => { setRating(event.target.value); setPage(1); }}>
         <option value="">Tất cả</option>{[5, 4, 3, 2, 1].map((value) => <option key={value} value={value}>{value} sao</option>)}
       </select></label></div>

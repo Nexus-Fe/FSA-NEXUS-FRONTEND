@@ -878,6 +878,31 @@ body,
   background-attachment: fixed;
 }
 
+/* Keep the botanical canvas beneath a readable mint surface in detail dialogs. */
+.admin-penalty-detail-dialog,
+.staff-report-detail-dialog {
+  background-color: var(--primary-soft);
+  background-image: linear-gradient(color-mix(in srgb, var(--primary-soft) 92%, transparent), color-mix(in srgb, var(--primary-soft) 92%, transparent)), var(--site-background-image);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+.admin-penalty-detail-dialog .info-row > span:first-child,
+.staff-report-detail-dialog .info-row > span:first-child {
+  color: var(--muted);
+}
+
+.seller-reviews-filter {
+  margin-bottom: 20px;
+}
+
+.seller-reviews-filter .field-wrap {
+  width: min(100%, 180px);
+}
+
 .auction-surface { background: transparent; }
 .site-footer,
 .auth-footer,

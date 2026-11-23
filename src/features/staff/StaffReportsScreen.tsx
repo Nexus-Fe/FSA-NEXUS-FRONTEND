@@ -385,7 +385,7 @@ export function StaffReportsScreen() {
             if (e.key === "Escape" && !busy) closeDetail();
           }}
         >
-          <section className="admin-modal" style={{ maxWidth: "700px" }}>
+          <section className="admin-modal staff-report-detail-dialog" style={{ maxWidth: "700px" }}>
             <div className="admin-modal-heading">
               <div>
                 <h2 id="report-modal-title">Chi tiết báo cáo vi phạm</h2>

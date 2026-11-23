@@ -331,7 +331,7 @@ export function AdminPenaltiesScreen() {
           }}
         >
           <section
-            className="admin-modal-dialog admin-modal-wide"
+            className="admin-modal-dialog admin-modal-wide admin-penalty-detail-dialog"
             role="dialog"
             aria-modal="true"
             aria-labelledby="penalty-modal-title"

@@ -33,6 +33,7 @@
   --mint: #8eb69b;
   --mint-light: #daf1de;
   --glass-surface: radial-gradient(ellipse at 12% 0%, rgba(255, 255, 255, .56), transparent 48%), linear-gradient(145deg, rgba(255, 255, 255, .42), rgba(255, 255, 255, .2) 58%, rgba(255, 255, 255, .3));
+  --dialog-glass-surface: radial-gradient(ellipse at 12% 0%, rgba(255, 255, 255, .5), transparent 48%), linear-gradient(145deg, color-mix(in srgb, var(--primary-soft) 96%, transparent), color-mix(in srgb, var(--primary-soft) 90%, transparent));
   --glass-border: rgba(255, 255, 255, 0.88);
   --glass-shadow: 0 16px 36px rgba(5, 31, 32, 0.13);
 
