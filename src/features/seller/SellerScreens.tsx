@@ -3,7 +3,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ROUTES } from "@/constants/routes";
 import { useSession } from "@/components/auth/SessionProvider";
 import { Icon } from "@/components/ui/Icon";
@@ -99,14 +99,14 @@ export function SellerProductsScreen() {
     return 10;
   }, [searchParams]);
 
-  const [highlightedId, setHighlightedId] = useState<string | null>(() => {
-    if (typeof window !== "undefined") {
-      const hl = new URLSearchParams(window.location.search).get("highlight");
-      if (hl) return hl;
-      return sessionStorage.getItem("seller_products_highlight_id");
-    }
-    return null;
-  });
+  const highlightParam = searchParams.get("highlight");
+  const [clearedHighlightId, setClearedHighlightId] = useState<string | null>(null);
+
+  const highlightedId = useMemo(() => {
+    const rawId = highlightParam || (typeof window !== "undefined" ? sessionStorage.getItem("seller_products_highlight_id") : null);
+    if (!rawId || rawId === clearedHighlightId) return null;
+    return rawId;
+  }, [highlightParam, clearedHighlightId]);
 
   const [q, setQ] = useState("");
   const [keyword, setKeyword] = useState("");
@@ -118,17 +118,6 @@ export function SellerProductsScreen() {
     `seller-products:${page}:${pageSize}:${keyword}`,
     (signal) => sellerCatalogService.list(page, keyword, signal, pageSize),
   );
-
-  // Listen to searchParams changes for highlight
-  useEffect(() => {
-    const hl = searchParams.get("highlight");
-    if (hl) {
-      setHighlightedId(hl);
-    } else if (typeof window !== "undefined") {
-      const savedHl = sessionStorage.getItem("seller_products_highlight_id");
-      if (savedHl) setHighlightedId(savedHl);
-    }
-  }, [searchParams]);
 
   // Sync URL when page is restored from sessionStorage and not yet present in URL query
   useEffect(() => {
@@ -149,7 +138,7 @@ export function SellerProductsScreen() {
   }, [page, pageSize]);
 
   // Handle explicit page change (pushes history entry so browser Back goes to previous page)
-  const handlePageChange = (newPage: number) => {
+  const handlePageChange = useCallback((newPage: number) => {
     if (typeof window !== "undefined") {
       sessionStorage.setItem("seller_products_last_page", String(newPage));
     }
@@ -157,7 +146,7 @@ export function SellerProductsScreen() {
     currentParams.set("page", String(newPage));
     currentParams.delete("highlight");
     router.push(`${ROUTES.seller.products}?${currentParams.toString()}`);
-  };
+  }, [searchParams, router]);
 
   // Live auto-search with debounce; only trigger when search query actually changes
   useEffect(() => {
@@ -170,16 +159,17 @@ export function SellerProductsScreen() {
       handlePageChange(1);
     }, q.trim() ? 300 : 0);
     return () => clearTimeout(timer);
-  }, [q]);
+  }, [q, handlePageChange]);
 
   // Auto-scroll and flash green highlight effect on target product row (1.5s duration)
   useEffect(() => {
     if (!highlightedId || !resource.data?.items?.length) return;
 
-    const hasItem = resource.data.items.some((item) => item.productId === highlightedId);
+    const targetId = highlightedId;
+    const hasItem = resource.data.items.some((item) => item.productId === targetId);
     if (hasItem) {
       const scrollTimer = setTimeout(() => {
-        const el = rowRefs.current.get(highlightedId);
+        const el = rowRefs.current.get(targetId);
         if (el) {
           el.scrollIntoView({ behavior: "smooth", block: "center" });
         }
@@ -187,7 +177,7 @@ export function SellerProductsScreen() {
 
       // Cleanup highlight animation after 1.5s so it only flashes once
       const clearTimer = setTimeout(() => {
-        setHighlightedId(null);
+        setClearedHighlightId(targetId);
         if (typeof window !== "undefined") {
           sessionStorage.removeItem("seller_products_highlight_id");
           const url = new URL(window.location.href);
