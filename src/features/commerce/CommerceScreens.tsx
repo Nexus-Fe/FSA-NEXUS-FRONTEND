@@ -4,11 +4,12 @@ import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { describeError, formatError } from "@/lib/errors/error-messages";
 import { evidenceRequired, parseReportPrefill } from "./order-report";
-import { Badge, Card, NoData, PageHeading } from "@/components/ui/Primitives";
+import { Badge, Card, PageHeading } from "@/components/ui/Primitives";
 import { api, type ApiResponse } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { REPORT_REFUND_STATUS, REPORT_STATUS, statusLabel } from "@/lib/status-labels";
-import { ErrorState } from "@/components/ui/States";
+import { ErrorState, LoadingState } from "@/components/ui/States";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 const unwrap = <T,>(value: ApiResponse<T> | T): T => value && typeof value === "object" && "data" in value ? value.data : value;
 
@@ -53,7 +54,7 @@ export function BuyerReportsScreen() {
             {report.refundStatus&&report.refundStatus!=="None"&&<p>Hoàn tiền: {statusLabel(REPORT_REFUND_STATUS, report.refundStatus)}{typeof report.refundAmount==="number"&&report.refundAmount>0?` (${report.refundAmount.toLocaleString("vi-VN")} ₫)`:""}</p>}
           </div>
           <Badge>{statusLabel(REPORT_STATUS, report.status)}</Badge>
-        </div>):<NoData title={reports.loading?"Đang tải báo cáo…":reports.error?"Không tải được báo cáo":"Chưa gửi báo cáo nào"}/>}
+        </div>):reports.loading?<LoadingState rows={3} label="Đang tải báo cáo…"/>:reports.error?null:<EmptyState title="Chưa gửi báo cáo nào" description="Báo cáo bạn gửi sẽ hiện ở đây cùng trạng thái xử lý."/>}
       </Card>
     </div>
   </div>;

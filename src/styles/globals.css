@@ -3437,3 +3437,5 @@ h1,h2,h3 { letter-spacing: -.01em; word-spacing: .06em; }
 .route-state-code { font-size: 56px; font-weight: 800; line-height: 1; color: var(--sky); letter-spacing: -.02em; }
 .route-state-reference { font-size: 11px; opacity: .8; word-break: break-all; }
 .route-state-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+
+.skeleton-cards { grid-column: 1 / -1; }
