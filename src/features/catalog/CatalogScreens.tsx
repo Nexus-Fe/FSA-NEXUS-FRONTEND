@@ -46,9 +46,19 @@ function pageChoices(current: number, total: number): Array<number | "…"> {
     ...(end < total - 1 ? ["…" as const] : []), total];
 }
 
+/** The catalog serves the status as the English word the back end uses; the card shows it in Vietnamese. */
+function productStatusLabel(status?: string | null): string {
+  switch ((status ?? "").toUpperCase()) {
+    case "ACTIVE": return "Đang bán";
+    case "OUTOFSTOCK": case "OUT_OF_STOCK": return "Hết hàng";
+    case "": return "";
+    default: return status ?? "";
+  }
+}
+
 function ProductCard({ product }: { product: Product }) {
   const hasPriceRange = typeof product.maxPrice === "number" && product.maxPrice > product.price;
-  return <article className="product-card"><Link href={ROUTES.catalog.product(product.id)} className="product-media"><BackendImage src={resolveImageUrl(product.imageUrl ?? null)} alt={product.name} compact /></Link><div className="product-body"><p className="product-category">{product.brand ?? product.categoryName ?? ""}</p><h3><Link href={ROUTES.catalog.product(product.id)}>{product.name}</Link></h3><p className="product-seller">{product.status ?? ""}</p><div className="product-bottom"><div className="product-card-price"><span>{hasPriceRange ? "Giá từ" : "Giá bán"}</span><strong>{formatMoney(product.price)}</strong></div><Link aria-label={`Xem ${product.name}`} href={ROUTES.catalog.product(product.id)} className="round-link"><Icon name="arrow" size={18} /></Link></div></div></article>;
+  return <article className="product-card"><Link href={ROUTES.catalog.product(product.id)} className="product-media"><BackendImage src={resolveImageUrl(product.imageUrl ?? null)} alt={product.name} compact /></Link><div className="product-body"><p className="product-category">{product.brand ?? product.categoryName ?? ""}</p><h3><Link href={ROUTES.catalog.product(product.id)}>{product.name}</Link></h3><p className="product-seller">{productStatusLabel(product.status)}</p><div className="product-bottom"><div className="product-card-price"><span>{hasPriceRange ? "Giá từ" : "Giá bán"}</span><strong>{formatMoney(product.price)}</strong></div><Link aria-label={`Xem ${product.name}`} href={ROUTES.catalog.product(product.id)} className="round-link"><Icon name="arrow" size={18} /></Link></div></div></article>;
 }
 
 function HomeProductBanner({ products }: { products: Product[] }) {

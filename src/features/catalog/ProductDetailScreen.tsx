@@ -357,7 +357,7 @@ export function ProductDetailScreen() {
     </div>
 
     <div className="product-detail-content">
-      <ProductFeedback productId={product.productId} canReport={Boolean(user && (user.roles?.some((role) => /^(buyer|seller)$/i.test(role)) || /^(buyer|seller)$/i.test(user.role ?? "")))} />
+      <div className="product-detail-main">
       <section className="product-detail-section" aria-labelledby="product-description-title">
         <SectionHeading id="product-description-title" title="Mô tả sản phẩm" />
         <Card className="card-pad"><p className="product-detail-copy">{product.description?.trim() || "Người bán chưa cung cấp mô tả sản phẩm."}</p></Card>
@@ -369,6 +369,9 @@ export function ProductDetailScreen() {
             <div key={`${label}-${index}`}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
           : <p className="product-detail-copy">{specifications.text || "Người bán chưa cung cấp thông số sản phẩm."}</p>}</Card>
       </section>
+      <ProductFeedback productId={product.productId} canReport={Boolean(user && (user.roles?.some((role) => /^(buyer|seller)$/i.test(role)) || /^(buyer|seller)$/i.test(user.role ?? "")))} />
+      </div>
+      <aside className="product-detail-side" aria-label="Thông tin gian hàng">
       {product.sellerId && <section className="product-detail-section" aria-labelledby="product-seller-title">
         <SectionHeading id="product-seller-title" title="Gian hàng" />
         <Card className="card-pad product-detail-seller">
@@ -389,7 +392,8 @@ export function ProductDetailScreen() {
           </div>}
         </Card>
       </section>}
-      {product.category?.categoryId && <section className="product-detail-section" aria-labelledby="related-products-title">
+      </aside>
+      {product.category?.categoryId && <section className="product-detail-section product-detail-related-section" aria-labelledby="related-products-title">
         <SectionHeading id="related-products-title" title="Sản phẩm cùng danh mục" hint="Gợi ý từ các gian hàng trên Nexus" />
         {relatedResource.error && <p className="notice" role="alert">Không tải được sản phẩm cùng danh mục.</p>}
         {relatedProducts.length > 0 ? <div className="product-detail-related">

@@ -821,7 +821,7 @@ export function OrdersScreen() {
           const resolvedId = order.orderId ?? order.id ?? "";
           const resolvedNo = order.orderNo ?? `ORD-${resolvedId.slice(0, 8).toUpperCase()}`;
           return (
-            <div className="info-row" key={resolvedId}>
+            <div className="info-row order-list-row" key={resolvedId}>
               <div>
                 <Link href={ROUTES.buyer.order(resolvedId)}>
                   <strong>Đơn hàng {resolvedNo}</strong>

@@ -201,7 +201,7 @@ button:disabled { cursor: not-allowed; }
 :focus-visible { outline: 3px solid var(--primary-accent); outline-offset: 3px; }
 img { max-width: 100%; }
 h1,h2,h3,p { margin-top: 0; }
-h1,h2,h3 { letter-spacing: -.025em; }
+h1,h2,h3 { letter-spacing: -.01em; word-spacing: .06em; }
 .site-shell,.auth-shell { min-height: 100vh; display: flex; flex-direction: column; }
 .buyer-header,.auth-header { background: var(--canvas); border-bottom: 1px solid var(--line); }
 .buyer-header { position: sticky; top: 0; z-index: 20; }
@@ -846,7 +846,7 @@ h1,h2,h3 { letter-spacing: -.025em; }
 .product-card { overflow: hidden; background: #fff; border: 1px solid var(--line); border-radius: 12px; }
 .auction-teaser-media { height: 150px; margin: -8px -8px 16px; overflow: hidden; border-radius: 8px; background: #f1f5f9; display: grid; place-items: center; }
 .auction-teaser-media img { width: 100%; height: 100%; object-fit: cover; }
-.product-media { aspect-ratio:4/5; background: #f1f5f9; display: grid; grid-template-columns:minmax(0,1fr); grid-template-rows:minmax(0,1fr); place-items: center; position: relative; overflow: hidden; }
+.product-media { aspect-ratio:4/3; background: #f1f5f9; display: grid; grid-template-columns:minmax(0,1fr); grid-template-rows:minmax(0,1fr); place-items: center; position: relative; overflow: hidden; }
 .product-media img { display:block; width:100%; height:100%; min-width:0; min-height:0; box-sizing:border-box; padding:8px; object-fit:contain; object-position:center; }
 .product-body { padding: 17px; }
 .product-category { color: #94a3b8; text-transform: uppercase; font-size: 10px; font-weight: 700; letter-spacing: .08em; margin: 0 0 8px; }
@@ -910,7 +910,10 @@ h1,h2,h3 { letter-spacing: -.025em; }
 .product-detail-toast-content a { color:var(--sky-dark); font-size:13px; font-weight:700; text-decoration:underline; text-underline-offset:2px; }
 .product-detail-toast-close { flex:0 0 28px; width:28px; height:28px; display:grid; place-items:center; border:0; border-radius:6px; background:transparent; color:var(--muted); font-size:21px; line-height:1; }
 .product-detail-toast-close:hover { background:#f1f5f9; color:var(--ink); }
-.product-detail-content { max-width:1040px; margin-top:42px; }
+.product-detail-content { display:grid; grid-template-columns:minmax(0,1fr) minmax(280px,340px); column-gap:clamp(24px,3vw,40px); align-items:start; margin-top:42px; }
+.product-detail-main { grid-column:1; min-width:0; }
+.product-detail-side { grid-column:2; min-width:0; position:sticky; top:96px; }
+.product-detail-related-section { grid-column:1 / -1; }
 .product-detail-section { min-width:0; }
 .product-detail-section .section-heading { margin-top:30px; }
 .product-detail-copy { margin:0; color:#334155; font-size:14px; line-height:1.75; white-space:pre-wrap; overflow-wrap:anywhere; }
@@ -938,7 +941,9 @@ h1,h2,h3 { letter-spacing: -.025em; }
   .product-detail-heading { margin-bottom:20px; }
   .product-detail-gallery { margin-bottom:26px; }
   .product-detail-image { height:clamp(320px,55vw,480px); }
-  .product-detail-content { margin-top:32px; }
+  .product-detail-content { margin-top:32px; grid-template-columns:minmax(0,1fr); }
+  .product-detail-main,.product-detail-side,.product-detail-related-section { grid-column:1; }
+  .product-detail-side { position:static; }
   .product-detail-related { grid-template-columns:repeat(2,minmax(0,1fr)); }
 }
 @media(max-width:560px) {
@@ -3370,3 +3375,19 @@ h1,h2,h3 { letter-spacing: -.025em; }
   animation: seller-row-flash-green 1.5s cubic-bezier(0.25, 1, 0.5, 1) forwards !important;
 }
 
+
+/* Buyer layout fixes: cards and lists must be allowed to shrink so a wide table or a long line never widens the page. */
+.card { min-width: 0; }
+.table-scroll { max-width: 100%; }
+.order-list-row { flex-wrap: wrap; gap: 10px 16px; align-items: flex-start; }
+.order-list-row > * { min-width: 0; }
+@media (max-width: 560px) { .order-list-row > div:last-child { text-align: left !important; } }
+/* Account pages are centered by the grid; the single column must still shrink to the screen (a wide table then scrolls inside its card). */
+.auth-main { grid-template-columns: minmax(0, 1fr); }
+.auth-main > * { min-width: 0; max-width: 100%; }
+/* Checkout: every field label shares one style (plain-text labels were larger than the ones wrapped in a span), and the voucher code box keeps its width. */
+.checkout-form .field-wrap { font-size: 13px; font-weight: 600; color: #475569; }
+.checkout-contact-row { align-items: end; }
+.checkout-voucher-manual input { flex: 1 1 auto; width: auto; }
+.checkout-voucher-manual .button { flex: none; width: auto; }
+.checkout-form .field { font-size: 15px; font-weight: 400; }
