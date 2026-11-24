@@ -56,7 +56,6 @@ type ProductDetail = {
 type SellerProfile = {
   shopName: string;
   logoUrl?: string | null;
-  description?: string | null;
   ratingAvg?: number;
   totalProducts?: number;
 };
@@ -383,7 +382,6 @@ export function ProductDetailScreen() {
           {sellerResource.data ? <>
             {sellerResource.data.logoUrl && <div className="product-detail-seller-logo"><BackendImage src={resolveImageUrl(sellerResource.data.logoUrl)} alt={`Logo ${sellerResource.data.shopName}`} compact /></div>}
             <div><h3><Link href={ROUTES.catalog.shop(product.sellerId)}>{sellerResource.data.shopName}</Link></h3>
-              {sellerResource.data.description && <p>{sellerResource.data.description}</p>}
               <div className="product-detail-seller-facts">
                 {typeof sellerResource.data.ratingAvg === "number" && sellerResource.data.ratingAvg > 0 && <span>★ {sellerResource.data.ratingAvg.toFixed(1)}/5</span>}
                 {typeof sellerResource.data.totalProducts === "number" && sellerResource.data.totalProducts > 0 && <span>{sellerResource.data.totalProducts} sản phẩm</span>}

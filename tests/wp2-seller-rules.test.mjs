@@ -106,9 +106,8 @@ test("a reload while the seller is editing does not change the form key; a save 
   assert.equal(nextShopFormKey(before, reloaded, false), reloaded, "after the save: adopt the saved data");
 });
 
-test("a reload that changes only the description changes the form key, so the description field shows the saved text", () => {
-  const saved = { shopName: "Shop", hotline: "0900", description: "Mô tả cũ", provinceId: "202", districtId: "1442", wardCode: "20101", streetAddress: "1 Le Loi" };
-  assert.notEqual(shopFormSavedKey(saved), shopFormSavedKey({ ...saved, description: "Mô tả mới" }));
+test("every value the shop form starts from is part of the form key, so a reload that changes only one of them shows the saved text", () => {
+  const saved = { shopName: "Shop", hotline: "0900", provinceId: "202", districtId: "1442", wardCode: "20101", streetAddress: "1 Le Loi" };
   for (const field of Object.keys(saved)) {
     assert.notEqual(shopFormSavedKey(saved), shopFormSavedKey({ ...saved, [field]: saved[field] + "x" }), `${field} is part of the key`);
   }

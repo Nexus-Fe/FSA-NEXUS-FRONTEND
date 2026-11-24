@@ -14,7 +14,6 @@ import { CatalogScreen } from "./CatalogScreens";
 type PublicSellerProfile = {
   shopName: string;
   logoUrl?: string | null;
-  description?: string | null;
   hotline?: string | null;
   ratingAvg?: number | null;
   totalProducts?: number | null;
@@ -47,7 +46,7 @@ export function ShopScreen() {
         <div className="public-shop-identity">
           <p className="overline">Gian hàng trên Nexus</p>
           <h1>{shopName}</h1>
-          <p>{profile.data?.description || "Khám phá các sản phẩm đang được bán tại gian hàng này."}</p>
+          <p>Khám phá các sản phẩm đang được bán tại gian hàng này.</p>
           <div className="product-detail-seller-facts">
             {typeof profile.data?.ratingAvg === "number" && profile.data.ratingAvg > 0 && <span>★ {profile.data.ratingAvg.toFixed(1)}/5</span>}
             {typeof profile.data?.totalProducts === "number" && <span>{profile.data.totalProducts} sản phẩm</span>}

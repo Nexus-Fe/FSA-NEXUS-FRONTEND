@@ -2939,7 +2939,6 @@ export function SellerShopScreen() {
       await api.patch("/api/v1/sellers/profile", {
         shopName: String(values.get("shopName") ?? ""),
         hotline: String(values.get("hotline") ?? ""),
-        description: String(values.get("description") ?? ""),
         pickupAddress: String(values.get("streetAddress") ?? ""),
         provinceId: Number(values.get("provinceId")),
         districtId: Number(values.get("districtId")),
@@ -2978,7 +2977,7 @@ export function SellerShopScreen() {
   );
 
   // The form keeps its key while the seller edits (see nextShopFormKey): changing it would re-create the form and lose what was just typed.
-  const savedKey = shopFormSavedKey({ shopName: resolvedShopName, hotline: resolvedHotline, description: String(data.description ?? ""), provinceId: resolvedProvinceId, districtId: resolvedDistrictId, wardCode: resolvedWardCode, streetAddress: resolvedStreetAddress });
+  const savedKey = shopFormSavedKey({ shopName: resolvedShopName, hotline: resolvedHotline, provinceId: resolvedProvinceId, districtId: resolvedDistrictId, wardCode: resolvedWardCode, streetAddress: resolvedStreetAddress });
   const [formKey, setFormKey] = useState(savedKey);
   const nextKey = nextShopFormKey(formKey, savedKey, dirty);
   if (nextKey !== formKey) setFormKey(nextKey);
@@ -3023,10 +3022,6 @@ export function SellerShopScreen() {
           <label className="field-wrap">
             Hotline
             <input className="field" name="hotline" required defaultValue={resolvedHotline} />
-          </label>
-          <label className="field-wrap">
-            Mô tả
-            <textarea className="textarea-field" name="description" defaultValue={String(data.description ?? "")} />
           </label>
           <SellerShopAddressFields provinceId={resolvedProvinceId} districtId={resolvedDistrictId}
             wardCode={resolvedWardCode} streetAddress={resolvedStreetAddress} onCheck={setLocationCheck} />

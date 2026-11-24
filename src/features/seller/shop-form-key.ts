@@ -14,11 +14,10 @@ export function nextShopFormKey(currentKey: string, savedKey: string, editing: b
 export function shopFormSavedKey(saved: {
   shopName: string;
   hotline: string;
-  description: string;
   provinceId: string;
   districtId: string;
   wardCode: string;
   streetAddress: string;
 }): string {
-  return JSON.stringify([saved.shopName, saved.hotline, saved.description, saved.provinceId, saved.districtId, saved.wardCode, saved.streetAddress]);
+  return JSON.stringify([saved.shopName, saved.hotline, saved.provinceId, saved.districtId, saved.wardCode, saved.streetAddress]);
 }
