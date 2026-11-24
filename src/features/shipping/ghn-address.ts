@@ -31,13 +31,15 @@ export type ShippingAddressPayload = {
   ward: string;
   district: string;
   province: string;
+  /** The GHN province id: the whole province, district and ward chain is checked against the GHN lists. */
+  provinceId: number;
   ghnDistrictId: number;
   ghnWardCode: string;
 };
 
 /** Builds the `shippingAddress` object of the quote, recalculate and change-address calls. Throws if the selection is incomplete. */
 export function buildShippingAddress(input: { receiverName: string; phone: string; street: string }, selection: GhnSelection): ShippingAddressPayload {
-  if (!selection.districtId || !selection.wardCode) throw new Error("GHN_SELECTION_INCOMPLETE");
+  if (!selection.provinceId || !selection.districtId || !selection.wardCode) throw new Error("GHN_SELECTION_INCOMPLETE");
   return {
     receiverName: input.receiverName.trim(),
     contactPhone: input.phone.trim(),
@@ -45,6 +47,7 @@ export function buildShippingAddress(input: { receiverName: string; phone: strin
     ward: selection.wardName,
     district: selection.districtName,
     province: selection.provinceName,
+    provinceId: selection.provinceId,
     ghnDistrictId: selection.districtId,
     ghnWardCode: selection.wardCode,
   };

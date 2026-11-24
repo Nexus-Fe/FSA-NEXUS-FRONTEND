@@ -118,3 +118,11 @@ test("codes from a saved address become a selection, and a ward without its pare
   assert.equal(selectionFromCodes("202", "", "20101").wardCode, "");
   assert.equal(selectionFromCodes(202, 1442, " 20101 ").wardCode, "20101");
 });
+
+test("the shipping payload carries the GHN province id, and an incomplete selection cannot build one", () => {
+  const payload = buildShippingAddress({ receiverName: "A", phone: "0912345678", street: "1 Le Loi" }, { provinceId: 202, provinceName: "Hồ Chí Minh", districtId: 1442, districtName: "Quận 1", wardCode: "20101", wardName: "Bến Nghé" });
+  assert.equal(payload.provinceId, 202);
+  assert.equal(payload.ghnDistrictId, 1442);
+  assert.equal(payload.ghnWardCode, "20101");
+  assert.throws(() => buildShippingAddress({ receiverName: "A", phone: "0912345678", street: "1 Le Loi" }, { provinceId: null, provinceName: "", districtId: 1442, districtName: "", wardCode: "20101", wardName: "" }), /GHN_SELECTION_INCOMPLETE/);
+});

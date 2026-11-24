@@ -68,6 +68,7 @@ export function SellerWarehouseGate({ readiness, warehouse, onSaved }: {
         address: street.trim(),
         contactPhone: phone.trim() || undefined,
         provinceName: ghn.provinceName,
+        provinceId: ghn.provinceId ?? undefined,
         districtId: ghn.districtId,
         wardCode: ghn.wardCode,
       });

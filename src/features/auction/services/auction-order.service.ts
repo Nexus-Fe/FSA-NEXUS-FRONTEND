@@ -7,7 +7,7 @@ export type AuctionOrderDetail = {
   paidAt: string | null; shippedAt: string | null; deliveredAt: string | null;
 };
 export type AuctionOrderSummary = Pick<AuctionOrderDetail, "id" | "orderNo" | "auctionId" | "productName" | "winningAmount" | "totalAmount" | "status" | "paymentDeadlineAt">;
-export type ShippingAddress = { fullName: string; phoneNumber: string; addressLine: string; provinceName: string; districtName: string; wardName: string; ghnDistrictId: number; ghnWardCode: string };
+export type ShippingAddress = { fullName: string; phoneNumber: string; addressLine: string; provinceName: string; districtName: string; wardName: string; provinceId: number; ghnDistrictId: number; ghnWardCode: string };
 type SellerOrdersPage = { items: AuctionOrderSummary[]; pageIndex: number; pageSize: number; totalCount: number; totalPages: number; hasPreviousPage: boolean; hasNextPage: boolean };
 const path = (id: string) => `/api/v1/auction-orders/${encodeURIComponent(id)}`;
 
