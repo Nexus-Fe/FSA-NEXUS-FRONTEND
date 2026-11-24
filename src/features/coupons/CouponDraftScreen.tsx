@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { Badge, Card, NoData, PageHeading, SectionHeading } from "@/components/ui/Primitives";
+import { DatePicker } from "@/components/ui/DatePicker";
 import { formatMoney } from "@/lib/presentation";
 
 type LocalCouponDraft = {
@@ -353,12 +354,10 @@ export function CouponDraftScreen({ scope }: { scope: "admin" | "seller" }) {
 
                 <label className="field-wrap">
                   Ngày hết hạn
-                  <input
-                    className="field"
-                    type="date"
-                    min={new Date().toISOString().slice(0, 10)}
+                  <DatePicker
                     value={form.expiresAt}
-                    onChange={(e) => setForm((prev) => ({ ...prev, expiresAt: e.target.value }))}
+                    placeholder="Chọn ngày hết hạn"
+                    onChange={(next) => setForm((prev) => ({ ...prev, expiresAt: next }))}
                   />
                 </label>
               </div>

@@ -1,0 +1,44 @@
+/* Lucian UX/UI Prompt #434 · MIT License (c) 2026 Seokwoooo · https://lucianlabs.dev/uxui-prompt/#434 */
+.u434{
+  --ux-accent:var(--primary,#235347);
+  --ux-accent-soft:color-mix(in srgb,var(--primary,#235347) 14%,transparent);
+  --ux-surface:#FFFFFF;
+  --ux-surface-2:#F5F8F6;
+  --ux-ink:#051F20;
+  --ux-ink-2:#475569;
+  --ux-ink-3:#94A3B8;
+  --ux-line-2:rgba(35,83,71,.22);
+  --ux-mint:#119C72;
+  --ux-danger:#D93A55;
+  --ux-shadow-strong:rgba(5,31,32,.22);
+  --ux-ease:cubic-bezier(.2,.8,.2,1);
+  position:relative;width:100%;
+}
+.u434,.u434 *,.u434 *::before,.u434 *::after{box-sizing:border-box}
+.u434-w{width:100%}
+.u434-lb{display:block;margin:0 0 8px 2px;font-size:13px;font-weight:600;color:var(--ux-ink-2)}
+.u434-f{position:relative;display:flex;align-items:center;height:48px;padding:0 12px 0 14px;border-radius:12px;background:var(--ux-surface);box-shadow:0 0 0 1px var(--ux-line-2),0 8px 20px -14px var(--ux-shadow-strong);transition:box-shadow .3s var(--ux-ease);cursor:text}
+.u434-f.is-focus{box-shadow:0 0 0 1.5px var(--ux-accent),0 0 0 5px var(--ux-accent-soft),0 8px 20px -14px var(--ux-shadow-strong)}
+.u434-f.is-err{box-shadow:0 0 0 1.5px var(--ux-danger),0 0 0 5px color-mix(in srgb,var(--ux-danger) 14%,transparent);animation:u434-shake .45s cubic-bezier(.36,.07,.19,.97)}
+.u434-f.is-ok{box-shadow:0 0 0 1.5px var(--ux-mint),0 0 0 5px color-mix(in srgb,var(--ux-mint) 14%,transparent)}
+@keyframes u434-shake{15%,85%{transform:translateX(-2px)}30%,70%{transform:translateX(5px)}45%,55%{transform:translateX(-7px)}}
+.u434-in{flex:1;min-width:0;height:100%;padding:0;border:0;background:none;outline:none;font-size:14.5px;font-weight:500;color:var(--ux-ink)}
+.u434-in::placeholder{color:var(--ux-ink-3);font-weight:400}
+.u434-in:focus-visible{outline:none}
+.u434-ic{position:relative;flex:none;width:24px;height:24px;margin-left:8px}
+.u434-ic span{position:absolute;inset:0;border-radius:50%;display:grid;place-items:center;opacity:0;transform:scale(.2) rotate(-40deg);transition:opacity .15s,transform .25s var(--ux-ease)}
+.u434-ic svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.u434-ic .ok{background:var(--ux-mint);color:var(--ux-surface)}
+.u434-ic .no{background:var(--ux-danger);color:var(--ux-surface)}
+.u434-f.is-ok .u434-ic .ok,.u434-f.is-err .u434-ic .no{opacity:1;transform:none;transition:opacity .15s,transform .6s cubic-bezier(.3,1.9,.5,1)}
+.u434-ok path{stroke-dasharray:20;stroke-dashoffset:20;transition:none}
+.u434-f.is-ok .u434-ic .ok path{stroke-dashoffset:0;transition:stroke-dashoffset .35s var(--ux-ease) .12s}
+.u434-msg{display:grid;margin:7px 0 0 2px;min-height:18px;font-size:12.5px;line-height:1.4}
+.u434-msg span{grid-area:1/1;opacity:0;transform:translateY(-6px);transition:opacity .2s var(--ux-ease),transform .45s cubic-bezier(.3,1.5,.5,1)}
+.u434-msg .h{color:var(--ux-ink-3)}
+.u434-msg .e{color:var(--ux-danger);font-weight:600}
+.u434-msg .s{color:var(--ux-mint);font-weight:600}
+.u434-w[data-s="idle"] .u434-msg .h,.u434-w[data-s="err"] .u434-msg .e,.u434-w[data-s="ok"] .u434-msg .s{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){
+  .u434,.u434 *,.u434 *::before,.u434 *::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
+}

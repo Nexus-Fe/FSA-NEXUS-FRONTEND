@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useRef, useState, type FormEvent } from "react";
 import { useSession } from "@/components/auth/SessionProvider";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { FileDropZone } from "@/components/ui/FileDropZone";
 import { Badge, Card, NoData, PageHeading } from "@/components/ui/Primitives";
 import { ErrorState } from "@/components/ui/States";
 import { ROUTES } from "@/constants/routes";
@@ -160,11 +161,19 @@ export function SellerDocumentsScreen() {
     <PageHeading title="Giấy tờ đăng ký bán hàng" description="Tải ảnh hai mặt căn cước công dân và giấy phép kinh doanh (nếu có) để nhân viên thẩm định. Tệp được lưu riêng tư." />
     <Card className="card-pad">
       <form className="auth-fields" onSubmit={(event) => void submit(event)} noValidate>
-        {([["Mặt trước căn cước", setFront, errors.front, true], ["Mặt sau căn cước", setBack, errors.back, true], ["Giấy phép kinh doanh (không bắt buộc)", setLicense, errors.license, false]] as const).map(([label, setter, error]) =>
-          <label className="field-wrap" key={label}>{label}
-            <input className="field" type="file" accept="image/jpeg,image/png,application/pdf" disabled={busy} aria-invalid={Boolean(error)} onChange={(event) => { setter(event.target.files?.[0] ?? null); setErrors({}); setDone(false); }} />
+        {([["Mặt trước căn cước", setFront, errors.front, true], ["Mặt sau căn cước", setBack, errors.back, true], ["Giấy phép kinh doanh (không bắt buộc)", setLicense, errors.license, false]] as const).map(([label, setter, error, req]) =>
+          <div className="field-wrap" key={label}>
+            <span>{label}</span>
+            <FileDropZone
+              accept="image/jpeg,image/png,application/pdf"
+              disabled={busy}
+              required={req}
+              ariaInvalid={Boolean(error)}
+              hint="JPG, PNG hoặc PDF · tối đa 10 MB"
+              onFilesChange={(files) => { setter(files[0] ?? null); setErrors({}); setDone(false); }}
+            />
             {error && <small className="checkout-field-error" role="alert">{error}</small>}
-          </label>)}
+          </div>)}
         <div className="action-row"><button className="button button-primary" type="submit" disabled={busy}>{busy ? "Đang tải lên…" : "Tải giấy tờ lên"}</button></div>
         {failure != null && <ErrorState cause={failure} operation="write" />}
         {done && <p className="form-success" role="status">Đã tải giấy tờ lên. Nhân viên sẽ thẩm định cùng hồ sơ đăng ký của bạn.</p>}

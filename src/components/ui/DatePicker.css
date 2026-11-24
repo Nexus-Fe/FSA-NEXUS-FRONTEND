@@ -1,0 +1,51 @@
+/* Lucian UX/UI Prompt #431 · MIT License (c) 2026 Seokwoooo · https://lucianlabs.dev/uxui-prompt/#431 */
+.u431{
+  --ux-accent:var(--primary,#235347);
+  --ux-accent-ink:#FFFFFF;
+  --ux-surface:#FFFFFF;
+  --ux-surface-2:#F1F6F2;
+  --ux-ink:#051F20;
+  --ux-ink-2:#475569;
+  --ux-ink-3:#94A3B8;
+  --ux-line:rgba(5,31,32,.09);
+  --ux-line-2:rgba(35,83,71,.22);
+  --ux-shadow-strong:rgba(5,31,32,.25);
+  --ux-ease:cubic-bezier(.2,.8,.2,1);
+  position:relative;width:100%;
+}
+.u431,.u431 *,.u431 *::before,.u431 *::after{box-sizing:border-box}
+.u431-trigger{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;text-align:left;cursor:pointer}
+.u431-trigger:disabled{cursor:not-allowed}
+.u431-trigger .is-empty{color:var(--ux-ink-3)}
+.u431-trigger svg{width:16px;height:16px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;color:var(--ux-ink-2)}
+.u431-c{width:100%;max-width:292px;margin-top:8px;padding:12px 12px 10px;border-radius:20px;background:var(--ux-surface);box-shadow:0 0 0 1px var(--ux-line-2),0 20px 44px -22px var(--ux-shadow-strong)}
+.u431-hd{display:flex;align-items:center;height:32px;padding:0 2px 0 8px}
+.u431-hd b{flex:1;font-size:15px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums;color:var(--ux-ink)}
+.u431-nav{width:30px;height:30px;padding:0;border:0;border-radius:9px;display:grid;place-items:center;background:none;color:var(--ux-ink-2);cursor:pointer;transform:scale(var(--k,1));transition:background-color .15s,color .15s,opacity .15s,transform .4s cubic-bezier(.34,1.7,.5,1)}
+.u431-nav:hover:not(:disabled){background:var(--ux-surface-2);color:var(--ux-ink)}
+.u431-nav:active:not(:disabled){--k:.86;transition:transform .1s var(--ux-ease)}
+.u431-nav:disabled{opacity:.25;cursor:default}
+.u431-nav svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.u431-wk,.u431-g{display:grid;grid-template-columns:repeat(7,1fr)}
+.u431-wk{margin-top:4px}
+.u431-wk span{height:24px;display:grid;place-items:center;font-size:11px;font-weight:600;color:var(--ux-ink-3)}
+.u431-gw{position:relative;overflow:hidden}
+.u431-g{position:relative;grid-template-rows:repeat(6,32px)}
+.u431-g.is-l{animation:u431-l .42s cubic-bezier(.25,1,.4,1)}
+.u431-g.is-r{animation:u431-r .42s cubic-bezier(.25,1,.4,1)}
+@keyframes u431-l{from{opacity:0;transform:translateX(44px)}}
+@keyframes u431-r{from{opacity:0;transform:translateX(-44px)}}
+.u431-sel{position:absolute;left:0;top:0;width:32px;height:32px;border-radius:50%;background:var(--ux-accent);box-shadow:0 6px 14px -6px var(--ux-accent);transform:translate(var(--sx,0px),var(--sy,0px)) scale(var(--ss,0));transition:transform .5s cubic-bezier(.3,1.45,.5,1);pointer-events:none}
+.u431-sel.is-jump{transition:none}
+.u431-d{position:relative;z-index:1;justify-self:center;width:32px;height:32px;padding:0;border:0;border-radius:50%;background:none;font-size:13px;font-weight:500;font-variant-numeric:tabular-nums;color:var(--ux-ink);cursor:pointer;transition:color .2s var(--ux-ease),background-color .15s}
+.u431-d:hover:not(:disabled):not([aria-selected="true"]){background:color-mix(in srgb,var(--ux-ink) 7%,transparent)}
+.u431-d:disabled{color:var(--ux-ink-3);opacity:.5;cursor:default}
+.u431-d[aria-selected="true"]{color:var(--ux-accent-ink);font-weight:700;transition:color .2s var(--ux-ease) .12s}
+.u431-d[aria-current="date"]{font-weight:700;color:var(--ux-accent)}
+.u431-d[aria-current="date"]::after{content:"";position:absolute;left:50%;bottom:3px;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:currentColor}
+.u431-d[aria-current="date"][aria-selected="true"]{color:var(--ux-accent-ink)}
+.u431 .u431-d:focus-visible,.u431 .u431-nav:focus-visible{outline:2px solid var(--ux-accent);outline-offset:1px}
+.u431-live{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+@media (prefers-reduced-motion:reduce){
+  .u431,.u431 *,.u431 *::before,.u431 *::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
+}
