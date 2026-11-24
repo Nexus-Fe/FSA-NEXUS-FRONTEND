@@ -71,6 +71,7 @@ export const SHIPMENT_STATUS: StatusTable = build({
 /** Commerce `RefundStatus`. */
 export const REFUND_STATUS: StatusTable = build({
   Requested: "Đã yêu cầu hoàn tiền",
+  WalletPending: "Đã duyệt, đang chờ ví xác nhận",
   Completed: "Đã hoàn tiền",
   Failed: "Hoàn tiền thất bại",
   Rejected: "Yêu cầu hoàn tiền bị từ chối",

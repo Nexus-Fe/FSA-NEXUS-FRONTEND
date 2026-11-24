@@ -39,6 +39,7 @@ test("refund rules: only non-buyers decide a Requested refund", () => {
   assert.equal(canDecideRefund("seller", "Requested"), true);
   assert.equal(canDecideRefund("buyer", "Requested"), false);
   assert.equal(canDecideRefund("admin", "Completed"), false);
+  assert.equal(canDecideRefund("seller", "WalletPending"), false, "already decided: it only waits for the wallet");
 });
 
 test("refund rules: reject reason is required and bounded", () => {

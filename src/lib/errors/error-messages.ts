@@ -102,6 +102,11 @@ export const ERROR_DICTIONARY: Record<string, Entry> = {
     kind: "unavailable",
     byScope: { "place-order": { message: "Hệ thống kho tạm thời không phản hồi. Ví của bạn chưa bị trừ tiền.", hint: "Lấy báo giá mới và thử lại sau ít phút.", kind: "unavailable" } },
   },
+  SHIPPING_QUOTE_FAILED: { message: "Không tính được phí vận chuyển cho địa chỉ này.", hint: "Kiểm tra lại tỉnh, quận, phường của địa chỉ giao hàng rồi thử lại." },
+  SHIPPING_CARRIER_NOT_CONFIGURED: { message: "Dịch vụ vận chuyển chưa được cấu hình nên chưa tính được phí giao hàng.", hint: "Đây không phải lỗi địa chỉ của bạn. Hãy liên hệ quản trị viên hoặc thử lại sau.", kind: "unavailable" },
+  SHIPPING_CARRIER_UNAVAILABLE: { message: "Đơn vị vận chuyển tạm thời không phản hồi nên chưa tính được phí giao hàng.", hint: "Thử lại sau ít phút.", kind: "unavailable" },
+  SHIPPING_CARRIER_TIMEOUT: { message: "Đơn vị vận chuyển phản hồi quá chậm nên chưa tính được phí giao hàng.", hint: "Thử lại sau ít phút.", kind: "unavailable" },
+  STOCK_CHECK_UNAVAILABLE: { message: "Chưa kiểm tra được tồn kho nên chưa thể đặt đơn.", hint: "Thử lại sau ít phút.", kind: "unavailable" },
   SELLER_WAREHOUSE_MISSING: { message: "Cửa hàng này chưa có kho gửi hàng nên chưa thể nhận đơn.", hint: "Bỏ sản phẩm của cửa hàng này khỏi đơn hoặc thử lại sau." },
   SELLER_WAREHOUSE_INCOMPLETE: { message: "Kho của cửa hàng này thiếu thông tin quận, phường gửi hàng nên chưa thể nhận đơn.", hint: "Bỏ sản phẩm của cửa hàng này khỏi đơn hoặc thử lại sau." },
 
