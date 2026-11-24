@@ -5,7 +5,9 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useSession } from "@/components/auth/SessionProvider";
 import { BackendImage } from "@/components/ui/BackendImage";
-import { Badge, Card, NoData, PageHeading } from "@/components/ui/Primitives";
+import { AdminPagination, Badge, Card, NoData, PageHeading } from "@/components/ui/Primitives";
+import { ErrorState } from "@/components/ui/States";
+import { EmailInput } from "@/components/ui/EmailInput";
 import { ROUTES } from "@/constants/routes";
 import { ApiError, api, unwrap, type ApiResponse } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
@@ -746,7 +748,7 @@ export function CheckoutScreen() {
   return <>
     <nav className="checkout-breadcrumb" aria-label="Đường dẫn"><Link href={ROUTES.buyer.cart}>Giỏ hàng</Link><span aria-hidden="true">›</span><span aria-current="page">Thông tin giao hàng &amp; Thanh toán</span></nav>
     <ol className="checkout-progress" aria-label="Tiến trình đặt hàng"><li className="is-complete"><span aria-hidden="true">✓</span>Giỏ hàng</li><li className="is-current" aria-current="step"><span aria-hidden="true">2</span>Giao hàng &amp; thanh toán</li><li><span aria-hidden="true">3</span>Xác nhận</li></ol>
-    {cart.error && <p className="notice" role="alert">{cart.error.message}</p>}
+    {cart.error && <ErrorState cause={cart.error} onRetry={cart.reload} />}
     <div className="checkout-layout"><div className="checkout-main">
       <section className="checkout-panel" aria-labelledby="checkout-address-heading"><div className="checkout-panel-heading"><div><h1 id="checkout-address-heading">Địa chỉ nhận hàng</h1><p>Điền thông tin để xem tổng thanh toán trước khi đặt hàng.</p></div></div>
         {quoteReady && !editingShipping && <div className="checkout-address-review"><div><span>Liên hệ</span><strong>{form.receiverName} · {form.phone}</strong>{extra.email && <small>{extra.email}</small>}</div><div><span>Giao tới</span><strong>{formatAddressLine(form.address, ghn)}</strong></div><button className="button button-secondary" type="button" onClick={() => { setEditingShipping(true); setSubmitError(""); }}>Sửa thông tin</button></div>}
@@ -754,7 +756,7 @@ export function CheckoutScreen() {
           {(!quoteReady || editingShipping) && <>
           <SavedAddressPicker onPick={(saved) => { setForm({ receiverName: saved.recipientName, phone: saved.phone, address: saved.addressLine }); setGhn(toGhnSelection(saved)); setErrors({}); setSubmitError(""); setQuoteError(""); }} />
           <label className="field-wrap"><span>Họ tên người nhận <abbr className="checkout-required" title="Bắt buộc">*</abbr></span><input className="field" name="receiverName" required autoComplete="name" value={form.receiverName} onChange={(event) => setField("receiverName", event.target.value)} onBlur={() => blurField("receiverName")} aria-invalid={Boolean(errors.receiverName)} placeholder="Ví dụ: Nguyễn Văn A" />{errors.receiverName && <small className="checkout-field-error" role="alert">{errors.receiverName}</small>}</label>
-          <div className="checkout-contact-row"><label className="field-wrap">Email liên hệ<input className="field" type="email" autoComplete="email" value={extra.email} onChange={(event) => setExtra((current) => ({ ...current, email: event.target.value }))} placeholder="contact@example.com" /></label>
+          <div className="checkout-contact-row"><EmailInput label="Email liên hệ" value={extra.email} onChange={(next) => setExtra((current) => ({ ...current, email: next }))} placeholder="contact@example.com" helpText="Tùy chọn: nhận thông báo trạng thái đơn hàng" />
           <label className="field-wrap"><span>Số điện thoại <abbr className="checkout-required" title="Bắt buộc">*</abbr></span><input className="field" name="phone" type="tel" required autoComplete="tel" inputMode="tel" value={form.phone} onChange={(event) => setField("phone", event.target.value)} onBlur={() => blurField("phone")} aria-invalid={Boolean(errors.phone)} placeholder="Ví dụ: 0901234567" />{errors.phone && <small className="checkout-field-error" role="alert">{errors.phone}</small>}</label></div>
           <label className="field-wrap"><span>Địa chỉ cụ thể <abbr className="checkout-required" title="Bắt buộc">*</abbr></span><input className="field" name="address" required autoComplete="street-address" value={form.address} onChange={(event) => setField("address", event.target.value)} onBlur={() => blurField("address")} aria-invalid={Boolean(errors.address)} placeholder="Số nhà, tên đường" />{errors.address && <small className="checkout-field-error" role="alert">{errors.address}</small>}</label>
           <label className="field-wrap">Quốc gia<input className="field checkout-country" value="Việt Nam" readOnly aria-readonly="true" /></label>
@@ -814,7 +816,7 @@ export function OrdersScreen() {
       title="Đơn mua của tôi"
       description="Theo dõi trạng thái người bán xác nhận và bấm xác nhận khi bạn đã nhận được hàng."
     />
-    {orders.error && <p className="notice" role="alert">{orders.error.message}</p>}
+    {orders.error && <ErrorState cause={orders.error} onRetry={orders.reload} />}
     <Card className="card-pad">
       {orders.data?.items.length ? (
         orders.data.items.map((order) => {
@@ -843,7 +845,17 @@ export function OrdersScreen() {
       ) : (
         <NoData title={orders.loading ? "Đang tải đơn hàng…" : orders.error ? "Không tải được đơn hàng" : "Bạn chưa có đơn hàng"} />
       )}
-      {orders.data && orders.data.pagination.totalPages > 1 && <div className="action-row"><button type="button" className="button button-secondary" disabled={page <= 1} onClick={() => setPage((value) => value - 1)}>Trang trước</button><span>Trang {page}/{orders.data.pagination.totalPages}</span><button type="button" className="button button-secondary" disabled={!orders.data.pagination.hasNextPage} onClick={() => setPage((value) => value + 1)}>Trang sau</button></div>}
+      {orders.data && orders.data.pagination.totalPages > 1 && (
+        <AdminPagination
+          page={page}
+          pageSize={orders.data.pagination.pageSize}
+          totalItems={orders.data.pagination.totalCount}
+          totalPages={orders.data.pagination.totalPages}
+          loading={orders.loading}
+          onPageChange={setPage}
+          itemLabel="đơn hàng"
+        />
+      )}
     </Card>
   </>;
 }

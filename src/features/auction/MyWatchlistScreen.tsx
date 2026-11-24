@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { BackendImage } from "@/components/ui/BackendImage";
-import { Badge, Card, NoData, PageHeading } from "@/components/ui/Primitives";
+import { AdminPagination, Badge, Card, NoData, PageHeading } from "@/components/ui/Primitives";
 import { ROUTES } from "@/constants/routes";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { describeError, formatError } from "@/lib/errors/error-messages";
@@ -43,10 +43,16 @@ export function MyWatchlistScreen() {
         <div className="action-row"><button type="button" className="button button-secondary" disabled={busyId === item.auctionId} onClick={() => void run(item.auctionId, () => auctionService.unwatch(item.auctionId))}>Bỏ theo dõi</button></div>
       </Card>)}
     </div> : !list.error && <NoData title="Bạn chưa theo dõi phiên nào." />}
-    {list.data && list.data.pagination.totalPages > 1 && <div className="action-row">
-      <button className="button button-secondary" type="button" disabled={!list.data.pagination.hasPreviousPage || list.loading} onClick={() => setPage(page - 1)}>Trang trước</button>
-      <span>Trang {list.data.pagination.pageIndex}/{list.data.pagination.totalPages}</span>
-      <button className="button button-secondary" type="button" disabled={!list.data.pagination.hasNextPage || list.loading} onClick={() => setPage(page + 1)}>Trang sau</button>
-    </div>}
+    {list.data && list.data.pagination.totalPages > 1 && (
+      <AdminPagination
+        page={list.data.pagination.pageIndex}
+        pageSize={list.data.pagination.pageSize}
+        totalItems={list.data.pagination.totalCount}
+        totalPages={list.data.pagination.totalPages}
+        loading={list.loading}
+        onPageChange={setPage}
+        itemLabel="phiên theo dõi"
+      />
+    )}
   </div>;
 }

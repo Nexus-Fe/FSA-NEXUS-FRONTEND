@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { SelectBox } from "@/components/ui/SelectBox";
 import { ghnPresets } from "../ghn-presets";
 
 export function SellerShopAddressFields({ provinceId, districtId, wardCode, streetAddress }: {
@@ -24,28 +25,48 @@ export function SellerShopAddressFields({ provinceId, districtId, wardCode, stre
     <h3>Địa chỉ lấy hàng</h3>
     <div className="form-grid">
       <label className="field-wrap" htmlFor="seller-shop-province">Tỉnh / thành phố
-        <select id="seller-shop-province" className="select-field" name="provinceId" required value={selectedProvince}
-          onChange={(event) => { setSelectedProvince(event.target.value); setSelectedDistrict(""); setSelectedWard(""); }}>
-          <option value="">Chọn tỉnh / thành phố</option>
-          {existingProvince && <option value={selectedProvince}>Khu vực đã lưu</option>}
-          {provinces.map(([id, city]) => <option key={id} value={id}>{city}</option>)}
-        </select>
+        <SelectBox
+          id="seller-shop-province"
+          name="provinceId"
+          ariaLabel="Tỉnh / thành phố"
+          value={selectedProvince}
+          placeholder="Chọn tỉnh / thành phố"
+          options={[
+            ...(existingProvince ? [{ value: selectedProvince, label: "Khu vực đã lưu" }] : []),
+            ...provinces.map(([id, city]) => ({ value: id, label: city })),
+          ]}
+          onChange={(next) => { setSelectedProvince(next); setSelectedDistrict(""); setSelectedWard(""); }}
+        />
       </label>
       <label className="field-wrap" htmlFor="seller-shop-district">Quận / huyện
-        <select id="seller-shop-district" className="select-field" name="districtId" required value={selectedDistrict}
-          disabled={!selectedProvince} onChange={(event) => { setSelectedDistrict(event.target.value); setSelectedWard(""); }}>
-          <option value="">Chọn quận / huyện</option>
-          {existingDistrict && <option value={selectedDistrict}>Quận / huyện đã lưu</option>}
-          {districts.map(([id, district]) => <option key={id} value={id}>{district}</option>)}
-        </select>
+        <SelectBox
+          id="seller-shop-district"
+          name="districtId"
+          ariaLabel="Quận / huyện"
+          value={selectedDistrict}
+          disabled={!selectedProvince}
+          placeholder="Chọn quận / huyện"
+          options={[
+            ...(existingDistrict ? [{ value: selectedDistrict, label: "Quận / huyện đã lưu" }] : []),
+            ...districts.map(([id, district]) => ({ value: id, label: district })),
+          ]}
+          onChange={(next) => { setSelectedDistrict(next); setSelectedWard(""); }}
+        />
       </label>
       <label className="field-wrap" htmlFor="seller-shop-ward">Phường / xã
-        <select id="seller-shop-ward" className="select-field" name="wardCode" required value={selectedWard}
-          disabled={!selectedDistrict} onChange={(event) => setSelectedWard(event.target.value)}>
-          <option value="">Chọn phường / xã</option>
-          {existingWard && <option value={selectedWard}>Phường / xã đã lưu</option>}
-          {wards.map((place) => <option key={place.wardCode} value={place.wardCode}>{place.ward}</option>)}
-        </select>
+        <SelectBox
+          id="seller-shop-ward"
+          name="wardCode"
+          ariaLabel="Phường / xã"
+          value={selectedWard}
+          disabled={!selectedDistrict}
+          placeholder="Chọn phường / xã"
+          options={[
+            ...(existingWard ? [{ value: selectedWard, label: "Phường / xã đã lưu" }] : []),
+            ...wards.map((place) => ({ value: place.wardCode, label: place.ward })),
+          ]}
+          onChange={setSelectedWard}
+        />
       </label>
       <label className="field-wrap" htmlFor="seller-shop-street">Địa chỉ cụ thể
         <input id="seller-shop-street" className="field" name="streetAddress" required defaultValue={streetAddress} />

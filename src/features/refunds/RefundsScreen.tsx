@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { Badge, Card, NoData, PageHeading } from "@/components/ui/Primitives";
+import { AdminPagination, Badge, Card, NoData, PageHeading } from "@/components/ui/Primitives";
+import { TableSkeleton } from "@/components/ui/Skeleton";
 import { FluidChoiceBar } from "@/components/ui/FluidChoiceBar";
 import { ErrorState } from "@/components/ui/States";
 import { useApiResource } from "@/lib/api/use-api-resource";
@@ -60,7 +61,7 @@ export function RefundsScreen({ role }: { role: Role }) {
     <FluidChoiceBar mode="filter" ariaLabel="Lọc theo trạng thái hoàn tiền" options={REFUND_FILTERS.map(([value, label]) => ({ value, label }))} value={status} onChange={(next) => { setStatus(next); setPage(1); }} />
     {notice && <p className="form-success" role="status">{notice}</p>}
     {refunds.error != null && <ErrorState cause={refunds.error} operation="read" onRetry={refunds.reload} />}
-    {refunds.loading && !data ? <NoData title="Đang tải yêu cầu hoàn tiền…" /> : data?.items.length ? <Card>
+    {refunds.loading && !data ? <TableSkeleton rows={5} cols={5} label="Đang tải yêu cầu hoàn tiền…" /> : data?.items.length ? <Card>
       <div className="table-scroll"><table className="data-table">
         <thead><tr><th>Đơn con</th><th>Số tiền</th><th>Lý do</th><th>Trạng thái</th><th>Thời gian</th>{role !== "buyer" && <th>Xử lý</th>}</tr></thead>
         <tbody>{data.items.map((row) => <tr key={row.id}>
@@ -76,11 +77,17 @@ export function RefundsScreen({ role }: { role: Role }) {
         </tr>)}</tbody>
       </table></div>
     </Card> : !refunds.error && <NoData title="Chưa có yêu cầu hoàn tiền nào." />}
-    {data && data.pagination.totalPages > 1 && <div className="action-row">
-      <button className="button button-secondary" type="button" disabled={!data.pagination.hasPreviousPage || refunds.loading} onClick={() => setPage(page - 1)}>Trang trước</button>
-      <span>Trang {data.pagination.pageIndex}/{data.pagination.totalPages}</span>
-      <button className="button button-secondary" type="button" disabled={!data.pagination.hasNextPage || refunds.loading} onClick={() => setPage(page + 1)}>Trang sau</button>
-    </div>}
+    {data && data.pagination.totalPages > 1 && (
+      <AdminPagination
+        page={data.pagination.pageIndex}
+        pageSize={data.pagination.pageSize}
+        totalItems={data.pagination.totalCount}
+        totalPages={data.pagination.totalPages}
+        loading={refunds.loading}
+        onPageChange={setPage}
+        itemLabel="yêu cầu"
+      />
+    )}
     <ConfirmDialog open={decision !== null} title={decision?.kind === "approve" ? "Duyệt hoàn tiền?" : "Từ chối hoàn tiền?"} confirmLabel={decision?.kind === "approve" ? "Duyệt và hoàn tiền" : "Từ chối yêu cầu"} busy={busy} error={failure} onConfirm={() => void confirm()} onClose={() => setDecision(null)}>
       {decision?.kind === "approve"
         ? <p>Hoàn {decision ? formatMoney(decision.row.amount) : ""} vào ví người mua cho đơn {decision?.row.subOrderNo}. Không thể hoàn tác.</p>

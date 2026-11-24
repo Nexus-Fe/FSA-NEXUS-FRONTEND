@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Card, NoData } from "@/components/ui/Primitives";
+import { AdminPagination, Card, NoData } from "@/components/ui/Primitives";
 import { ErrorState } from "@/components/ui/States";
 import { api, fetchBlob, unwrap } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
@@ -59,11 +59,15 @@ export function InventoryLedgerPanel() {
         <thead><tr><th>Thời điểm</th><th>Loại</th><th>Số lượng</th><th>SKU</th><th>Kho</th><th>Ghi chú</th></tr></thead>
         <tbody>{data.rows.map((row) => <tr key={row.id}><td>{when(row.createdAt)}</td><td>{movementLabel(row.movementType)}</td><td>{row.quantity}</td><td className="mono">{row.skuId}</td><td>{row.warehouseName ?? "—"}</td><td>{row.note ?? "—"}</td></tr>)}</tbody>
       </table></div> : <NoData title="Không có biến động phù hợp." />}
-      {data.totalPages > 1 && <div className="action-row">
-        <button type="button" className="button button-secondary" disabled={!data.hasPreviousPage || ledger.loading} onClick={() => setPage(page - 1)}>Trang trước</button>
-        <span>Trang {page}/{data.totalPages}</span>
-        <button type="button" className="button button-secondary" disabled={!data.hasNextPage || ledger.loading} onClick={() => setPage(page + 1)}>Trang sau</button>
-      </div>}
+      {data.totalPages > 1 && (
+        <AdminPagination
+          page={page}
+          totalPages={data.totalPages}
+          loading={ledger.loading}
+          onPageChange={setPage}
+          itemLabel="giao dịch"
+        />
+      )}
     </>}
   </Card>;
 }
