@@ -74,3 +74,80 @@ export function parseGhnSelection(raw: string | null | undefined): GhnSelection 
     return EMPTY_GHN_SELECTION;
   }
 }
+
+// ---- Checking a saved selection against the lists GHN gave -------------------------------------------------------------------------------
+
+export type GhnLevel = "province" | "district" | "ward";
+
+type ListLike<T> = { items: T[]; source: string } | null | undefined;
+
+/** The lists loaded so far for one selection. `failed` is true when any of the three requests ended in an error. */
+export type GhnLists = {
+  provinces?: ListLike<{ provinceId: number }>;
+  districts?: ListLike<{ districtId: number; provinceId: number }>;
+  wards?: ListLike<{ wardCode: string; districtId: number }>;
+  failed?: boolean;
+};
+
+/**
+ * - empty: nothing chosen. pending: lists still loading. valid: every chosen level is in the GHN list of its parent.
+ * - unverifiable: the lists failed, or their origin is not known to be GHN. The address is kept and the user may retry; it is NOT called wrong.
+ * - stale: a trusted GHN list was loaded in full and the chosen code is not in it (or belongs to another parent).
+ */
+export type GhnCheck = { state: "empty" | "pending" | "valid" | "unverifiable" } | { state: "stale"; level: GhnLevel };
+
+const trusted = (list: { source: string }) => list.source === "ghn" || list.source === "ghn-cache";
+
+export function checkGhnSelection(value: GhnSelection, lists: GhnLists): GhnCheck {
+  if (!value.provinceId) return { state: "empty" };
+  const wait = (): GhnCheck => ({ state: lists.failed ? "unverifiable" : "pending" });
+
+  if (!lists.provinces) return wait();
+  if (!trusted(lists.provinces)) return { state: "unverifiable" };
+  if (!lists.provinces.items.some((entry) => entry.provinceId === value.provinceId)) return { state: "stale", level: "province" };
+  if (!value.districtId) return { state: "valid" };
+
+  if (!lists.districts) return wait();
+  if (!trusted(lists.districts)) return { state: "unverifiable" };
+  if (!lists.districts.items.some((entry) => entry.districtId === value.districtId && entry.provinceId === value.provinceId)) return { state: "stale", level: "district" };
+  if (!value.wardCode) return { state: "valid" };
+
+  if (!lists.wards) return wait();
+  if (!trusted(lists.wards)) return { state: "unverifiable" };
+  if (!lists.wards.items.some((entry) => entry.wardCode === value.wardCode && entry.districtId === value.districtId)) return { state: "stale", level: "ward" };
+  return { state: "valid" };
+}
+
+/** Drops the stale level and everything below it; the levels above it are kept. */
+export function clearGhnFrom(value: GhnSelection, level: GhnLevel): GhnSelection {
+  if (level === "province") return EMPTY_GHN_SELECTION;
+  if (level === "district") return { ...value, districtId: null, districtName: "", wardCode: "", wardName: "" };
+  return { ...value, wardCode: "", wardName: "" };
+}
+
+/** Names for the codes a saved address carries, read from the lists. Returns null when there is nothing to fill in. */
+export function fillGhnNames(
+  value: GhnSelection,
+  lists: {
+    provinces?: { items: { provinceId: number; provinceName: string }[] } | null;
+    districts?: { items: { districtId: number; districtName: string }[] } | null;
+    wards?: { items: { wardCode: string; wardName: string }[] } | null;
+  },
+): GhnSelection | null {
+  const provinceName = lists.provinces?.items.find((entry) => entry.provinceId === value.provinceId)?.provinceName;
+  const districtName = lists.districts?.items.find((entry) => entry.districtId === value.districtId)?.districtName;
+  const wardName = lists.wards?.items.find((entry) => entry.wardCode === value.wardCode)?.wardName;
+  const next: GhnSelection = {
+    ...value,
+    provinceName: provinceName ?? value.provinceName,
+    districtName: districtName ?? value.districtName,
+    wardName: wardName ?? value.wardName,
+  };
+  return next.provinceName === value.provinceName && next.districtName === value.districtName && next.wardName === value.wardName ? null : next;
+}
+
+export const GHN_STALE_MESSAGE: Record<GhnLevel, string> = {
+  province: "Tỉnh / thành phố đã lưu không còn trong danh sách GHN. Địa chỉ cần cập nhật, hãy chọn lại.",
+  district: "Quận / huyện đã lưu không còn trong danh sách GHN. Địa chỉ cần cập nhật, hãy chọn lại.",
+  ward: "Phường / xã đã lưu không còn trong danh sách GHN. Địa chỉ cần cập nhật, hãy chọn lại.",
+};

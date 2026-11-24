@@ -24,7 +24,7 @@ import { clearUnknownOrderMarker, describeCartFailure, describePlaceOrderFailure
 import { GhnLocationSelect } from "@/features/shipping/GhnLocationSelect";
 import { SavedAddressPicker } from "@/features/profile/SavedAddressPicker";
 import { toGhnSelection } from "@/features/profile/address-rules";
-import { EMPTY_GHN_SELECTION, buildShippingAddress, formatAddressLine, parseGhnSelection, validateGhnSelection, type GhnSelection } from "@/features/shipping/ghn-address";
+import { EMPTY_GHN_SELECTION, buildShippingAddress, formatAddressLine, parseGhnSelection, validateGhnSelection, type GhnCheck, type GhnSelection } from "@/features/shipping/ghn-address";
 import { ErrorState, LoadingState } from "@/components/ui/States";
 import { EmptyState } from "@/components/ui/EmptyState";
 
@@ -472,6 +472,8 @@ export function CheckoutScreen() {
   const [errors, setErrors] = useState<ShippingErrors>({});
   const [extra, setExtra] = useState<ShippingExtra>(loadShippingExtra);
   const [ghn, setGhn] = useState<GhnSelection>(loadGhn);
+  // What the session kept is only a draft: the codes are checked against the GHN lists before a quote is asked for.
+  const [ghnCheck, setGhnCheck] = useState<GhnCheck>({ state: "empty" });
   const [quoteState, setQuoteState] = useState<{ key: string; baseKey: string; data: CheckoutQuoteResponse } | null>(null);
   const [editingShipping, setEditingShipping] = useState(true);
   const [quoting, setQuoting] = useState(false);
@@ -555,6 +557,12 @@ export function CheckoutScreen() {
     setSubmitError("");
     const found = validateShipping(form, ghn);
     setErrors(found);
+    if (Object.keys(found).length === 0 && (ghnCheck.state === "pending" || ghnCheck.state === "unverifiable")) {
+      setQuoteError(ghnCheck.state === "pending"
+        ? "Đang xác minh địa chỉ với GHN, hãy thử lại sau giây lát."
+        : "Chưa xác minh được địa chỉ vì danh sách GHN tạm thời không khả dụng. Hãy bấm Tải lại danh sách rồi thử lại.");
+      return;
+    }
     if (Object.keys(found).length) {
       const order: Array<keyof ShippingErrors> = ["receiverName", "phone", "address", "province", "district", "ward"];
       const firstKey = order.find((key) => Boolean(found[key]));
@@ -666,6 +674,14 @@ export function CheckoutScreen() {
         fullAddress,
       });
       clearUnknownOrderMarker(window.sessionStorage);
+      try {
+        // The order is placed: the address kept for this checkout is not offered again as if it were still being typed.
+        window.sessionStorage.removeItem(SHIPPING_STORAGE_KEY);
+        window.sessionStorage.removeItem(SHIPPING_EXTRA_KEY);
+        window.sessionStorage.removeItem(SHIPPING_GHN_KEY);
+      } catch {
+        // Browser storage may be disabled.
+      }
       cart.reload();
       wallet.reload();
     } catch (reason) {
@@ -762,7 +778,7 @@ export function CheckoutScreen() {
           <label className="field-wrap"><span>Số điện thoại <abbr className="checkout-required" title="Bắt buộc">*</abbr></span><input className="field" name="phone" type="tel" required autoComplete="tel" inputMode="tel" value={form.phone} onChange={(event) => setField("phone", event.target.value)} onBlur={() => blurField("phone")} aria-invalid={Boolean(errors.phone)} placeholder="Ví dụ: 0901234567" />{errors.phone && <small className="checkout-field-error" role="alert">{errors.phone}</small>}</label></div>
           <label className="field-wrap"><span>Địa chỉ cụ thể <abbr className="checkout-required" title="Bắt buộc">*</abbr></span><input className="field" name="address" required autoComplete="street-address" value={form.address} onChange={(event) => setField("address", event.target.value)} onBlur={() => blurField("address")} aria-invalid={Boolean(errors.address)} placeholder="Số nhà, tên đường" />{errors.address && <small className="checkout-field-error" role="alert">{errors.address}</small>}</label>
           <label className="field-wrap">Quốc gia<input className="field checkout-country" value="Việt Nam" readOnly aria-readonly="true" /></label>
-          <GhnLocationSelect value={ghn} errors={errors} onChange={(next) => { setGhn(next); setErrors((current) => ({ ...current, province: undefined, district: undefined, ward: undefined })); setSubmitError(""); }} />
+          <GhnLocationSelect value={ghn} errors={errors} onCheck={setGhnCheck} onChange={(next) => { setGhn(next); setErrors((current) => ({ ...current, province: undefined, district: undefined, ward: undefined })); setSubmitError(""); }} />
           <label className="field-wrap">Ghi chú giao hàng<textarea className="field" rows={3} value={extra.note} onChange={(event) => setExtra((current) => ({ ...current, note: event.target.value }))} placeholder="Ví dụ: Giao hàng ngoài giờ hành chính" /></label>
           </>}
 

@@ -13,14 +13,13 @@ import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatMoney, resolveImageUrl } from "@/lib/presentation";
 import { countFailedAttempts, fulfillmentService, hasShipmentToTrack, shipmentStatusLabel } from "@/features/fulfillment";
 import { loadSafeRegistrationDraft, sellerService } from "./services/seller.service";
-import { SellerShopAddressFields } from "./components/SellerShopAddressFields";
+import { SavedShopArea, SellerShopAddressFields } from "./components/SellerShopAddressFields";
 import { ConfirmReturnButton } from "./components/ConfirmReturnButton";
 import { canConfirmReturn } from "./return-rules";
 import { SellerWarehouseGate } from "./components/SellerWarehouseForm";
 import { describeShipmentRetryFailure, needsShipmentRetry } from "./shipment-retry-outcome";
 import { useWarehouseReadiness } from "./use-warehouse-readiness";
 import { acceptOrderBlock, warehouseReadiness } from "./warehouse-readiness";
-import { ghnPresets } from "./ghn-presets";
 import { isSellerWarehouse, sellerCatalogService, type InventoryBalance, type ProductVariant, type SellerProductDetail } from "./services/catalog.service";
 import { sellerOrdersService } from "./services/seller-orders.service";
 import { SellerBuyerReview } from "./SellerBuyerReview";
@@ -2966,8 +2965,6 @@ export function SellerShopScreen() {
       draft?.warehouseAddress.streetAddress ??
       "",
   );
-  const selectedArea = ghnPresets.find((place) => place.provinceId === resolvedProvinceId &&
-    place.districtId === resolvedDistrictId && place.wardCode === resolvedWardCode);
 
   return (
     <>
@@ -2989,7 +2986,7 @@ export function SellerShopScreen() {
             <div><dt>Tên gian hàng</dt><dd>{resolvedShopName || "—"}</dd></div>
             <div><dt>Hotline</dt><dd>{resolvedHotline || "—"}</dd></div>
             <div><dt>Địa chỉ lấy hàng</dt><dd>{resolvedStreetAddress || "—"}</dd></div>
-            <div><dt>Khu vực lấy hàng</dt><dd>{selectedArea ? `${selectedArea.city} · ${selectedArea.district} · ${selectedArea.ward}` : resolvedProvinceId ? "Địa chỉ đã lưu" : "Chưa khai báo"}</dd></div>
+            <div><dt>Khu vực lấy hàng</dt><dd>{resolvedProvinceId ? <SavedShopArea provinceId={resolvedProvinceId} districtId={resolvedDistrictId} wardCode={resolvedWardCode} /> : "Chưa khai báo"}</dd></div>
           </dl>
           <p className="status-note">Trạng thái hồ sơ UserService không chứng minh kho đã được tạo ở Fulfillment. Chỉ xác nhận đồng bộ khi backend cung cấp mã kho hoặc truy vấn kho theo Seller.</p>
         </Card>

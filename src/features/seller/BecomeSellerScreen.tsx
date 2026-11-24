@@ -126,9 +126,9 @@ export function BecomeSellerScreen() {
     shopName: "",
     businessEmail: "",
     hotline: "",
-    provinceId: "202",
-    districtId: "1442",
-    wardCode: "20101",
+    provinceId: "",
+    districtId: "",
+    wardCode: "",
     streetAddress: "",
   });
 
@@ -249,9 +249,9 @@ export function BecomeSellerScreen() {
             shopName: prev.shopName || savedDraft.shopName,
             businessEmail: prev.businessEmail || savedDraft.businessEmail,
             hotline: prev.hotline || savedDraft.hotline,
-            provinceId: String(savedDraft.warehouseAddress.provinceId || prev.provinceId || "202"),
-            districtId: String(savedDraft.warehouseAddress.districtId || prev.districtId || "1442"),
-            wardCode: savedDraft.warehouseAddress.wardCode || prev.wardCode || "20101",
+            provinceId: String(savedDraft.warehouseAddress.provinceId || prev.provinceId || ""),
+            districtId: String(savedDraft.warehouseAddress.districtId || prev.districtId || ""),
+            wardCode: savedDraft.warehouseAddress.wardCode || prev.wardCode || "",
             streetAddress: prev.streetAddress || savedDraft.warehouseAddress.streetAddress,
           }));
         } else if (meShopName) {
