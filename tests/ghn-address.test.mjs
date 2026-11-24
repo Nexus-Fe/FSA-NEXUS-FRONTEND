@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { EMPTY_GHN_SELECTION, buildShippingAddress, checkGhnSelection, clearGhnFrom, fillGhnNames, formatAddressLine, parseGhnSelection, validateGhnSelection } from "../src/features/shipping/ghn-address.ts";
+import { EMPTY_GHN_SELECTION, buildShippingAddress, checkGhnSelection, clearGhnFrom, fillGhnNames, formatAddressLine, ghnWriteBlock, selectionFromCodes, parseGhnSelection, validateGhnSelection } from "../src/features/shipping/ghn-address.ts";
 
 const full = { provinceId: 202, provinceName: "Hồ Chí Minh", districtId: 1446, districtName: "Quận 1", wardCode: "20201", wardName: "Phường Bến Nghé" };
 
@@ -101,4 +101,20 @@ test("names are filled from the lists for a saved address that carries only code
   assert.equal(filled.districtName, "Quận 1");
   assert.equal(filled.wardName, "Phường Bến Nghé");
   assert.equal(fillGhnNames(filled, lists()), null, "nothing left to fill in");
+});
+
+test("a write is allowed only when the current codes are confirmed (valid)", () => {
+  assert.equal(ghnWriteBlock({ state: "valid" }), undefined);
+  for (const check of [{ state: "empty" }, { state: "pending" }, { state: "unverifiable" }, { state: "stale", level: "ward" }]) {
+    assert.ok(ghnWriteBlock(check), `${check.state} must block`);
+  }
+  assert.match(ghnWriteBlock({ state: "stale", level: "district" }), /Quận \/ huyện/);
+  assert.match(ghnWriteBlock({ state: "unverifiable" }), /Tải lại danh sách/);
+});
+
+test("codes from a saved address become a selection, and a ward without its parents is dropped", () => {
+  assert.deepEqual(selectionFromCodes("202", "1442", "20101"), { ...EMPTY_GHN_SELECTION, provinceId: 202, districtId: 1442, wardCode: "20101" });
+  assert.deepEqual(selectionFromCodes("", "1442", "20101"), EMPTY_GHN_SELECTION);
+  assert.equal(selectionFromCodes("202", "", "20101").wardCode, "");
+  assert.equal(selectionFromCodes(202, 1442, " 20101 ").wardCode, "20101");
 });

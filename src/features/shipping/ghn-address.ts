@@ -151,3 +151,24 @@ export const GHN_STALE_MESSAGE: Record<GhnLevel, string> = {
   district: "Quận / huyện đã lưu không còn trong danh sách GHN. Địa chỉ cần cập nhật, hãy chọn lại.",
   ward: "Phường / xã đã lưu không còn trong danh sách GHN. Địa chỉ cần cập nhật, hãy chọn lại.",
 };
+
+/** A selection built from the three codes a saved address or draft carries (names are filled in later from the lists). */
+export function selectionFromCodes(provinceId: string | number | null | undefined, districtId: string | number | null | undefined, wardCode: string | null | undefined): GhnSelection {
+  const province = Number(provinceId) > 0 ? Number(provinceId) : null;
+  const district = province && Number(districtId) > 0 ? Number(districtId) : null;
+  return { ...EMPTY_GHN_SELECTION, provinceId: province, districtId: district, wardCode: province && district ? String(wardCode ?? "").trim() : "" };
+}
+
+/**
+ * A write (quote, save, submit) needs the CURRENT codes to be confirmed by a trusted GHN list: only "valid" passes. Returns the reason
+ * it does not, or undefined when it does.
+ */
+export function ghnWriteBlock(check: GhnCheck): string | undefined {
+  switch (check.state) {
+    case "valid": return undefined;
+    case "pending": return "Đang xác minh địa chỉ với GHN, hãy thử lại sau giây lát.";
+    case "unverifiable": return "Chưa xác minh được địa chỉ vì danh sách GHN tạm thời không khả dụng. Hãy bấm Tải lại danh sách rồi thử lại.";
+    case "stale": return GHN_STALE_MESSAGE[check.level];
+    default: return "Chọn tỉnh, quận và phường cho địa chỉ.";
+  }
+}

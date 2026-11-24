@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Card, SectionHeading } from "@/components/ui/Primitives";
 import { GhnLocationSelect } from "@/features/shipping/GhnLocationSelect";
-import { EMPTY_GHN_SELECTION, type GhnErrors, type GhnSelection } from "@/features/shipping/ghn-address";
+import { selectionFromCodes, type GhnCheck, type GhnErrors, type GhnSelection } from "@/features/shipping/ghn-address";
 
 export type ShopRegistrationFields = {
   identityCardNumber: string;
@@ -52,13 +52,6 @@ export function validateShopRegistrationFields(value: ShopRegistrationFields): S
   return errors;
 }
 
-/** The form keeps the three GHN codes as text (that is what the draft and the API use); the select works on a selection that also carries names. */
-function selectionFromCodes(value: Pick<ShopRegistrationFields, "provinceId" | "districtId" | "wardCode">): GhnSelection {
-  const provinceId = Number(value.provinceId) > 0 ? Number(value.provinceId) : null;
-  const districtId = provinceId && Number(value.districtId) > 0 ? Number(value.districtId) : null;
-  return { ...EMPTY_GHN_SELECTION, provinceId, districtId, wardCode: provinceId && districtId ? value.wardCode.trim() : "" };
-}
-
 const codesOf = (selection: GhnSelection) => `${selection.provinceId ?? ""}|${selection.districtId ?? ""}|${selection.wardCode}`;
 
 export function ShopRegistrationForm({
@@ -66,20 +59,23 @@ export function ShopRegistrationForm({
   onChange,
   errors = {},
   idPrefix = "shop-registration",
+  onLocationCheck,
 }: {
   value: ShopRegistrationFields;
   onChange: (value: ShopRegistrationFields) => void;
   errors?: ShopRegistrationErrors;
   idPrefix?: string;
+  /** Result of checking the chosen codes against the GHN lists; the caller waits for "valid" before it sends or keeps the address. */
+  onLocationCheck?: (check: GhnCheck) => void;
 }) {
   const [showIdentityCard, setShowIdentityCard] = useState(false);
-  const [selection, setSelection] = useState<GhnSelection>(() => selectionFromCodes(value));
+  const [selection, setSelection] = useState<GhnSelection>(() => selectionFromCodes(value.provinceId, value.districtId, value.wardCode));
   // A draft restored by the parent replaces the codes; what the user is choosing is never overwritten by a re-render with the same codes.
-  const parentCodes = codesOf(selectionFromCodes(value));
+  const parentCodes = codesOf(selectionFromCodes(value.provinceId, value.districtId, value.wardCode));
   const [seenParentCodes, setSeenParentCodes] = useState(parentCodes);
   if (seenParentCodes !== parentCodes) {
     setSeenParentCodes(parentCodes);
-    if (codesOf(selection) !== parentCodes) setSelection(selectionFromCodes(value));
+    if (codesOf(selection) !== parentCodes) setSelection(selectionFromCodes(value.provinceId, value.districtId, value.wardCode));
   }
   const chooseLocation = (next: GhnSelection) => {
     setSelection(next);
@@ -122,7 +118,7 @@ export function ShopRegistrationForm({
     <Card className="card-pad">
       <SectionHeading title="Địa chỉ kho lấy hàng" hint="Chọn tỉnh, quận và phường theo danh mục GHN để dùng khi hồ sơ được tiếp nhận." />
       <div className="form-grid seller-ghn-grid">
-        <GhnLocationSelect value={selection} errors={locationErrors} onChange={chooseLocation} />
+        <GhnLocationSelect value={selection} errors={locationErrors} onChange={chooseLocation} onCheck={onLocationCheck} />
         <label className="field-wrap" htmlFor={fieldId("streetAddress")}>Địa chỉ cụ thể *
           <input id={fieldId("streetAddress")} className="field" required minLength={5} value={value.streetAddress} aria-invalid={Boolean(errors.streetAddress)} aria-describedby={errors.streetAddress ? `${fieldId("streetAddress")}-error` : undefined} onChange={(event) => update("streetAddress", event.target.value)} placeholder="Số nhà, đường, phường/xã" />
           {errors.streetAddress && <small id={`${fieldId("streetAddress")}-error`} className="field-error" role="alert">{errors.streetAddress}</small>}

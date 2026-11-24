@@ -63,9 +63,9 @@ export function GhnLocationSelect({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [checkState, provinces.data, districts.data, wards.data, value.provinceId, value.districtId, value.wardCode]);
   const retry = () => {
-    if (provinces.error) provinces.reload();
-    if (districts.error) districts.reload();
-    if (wards.error) wards.reload();
+    provinces.reload();
+    if (value.provinceId) districts.reload();
+    if (value.districtId) wards.reload();
   };
 
   return (
@@ -131,6 +131,12 @@ export function GhnLocationSelect({
       </label>
       {staleLevel && (staleLevel === "province" ? !value.provinceId : staleLevel === "district" ? !value.districtId : !value.wardCode) && (
         <p className="notice" role="alert" data-testid="ghn-stale-notice">{GHN_STALE_MESSAGE[staleLevel]}</p>
+      )}
+      {!failed && check.state === "unverifiable" && (
+        <p className="notice" role="alert">
+          Chưa xác nhận được nguồn danh sách GHN nên địa chỉ chưa được xác minh. Địa chỉ của bạn vẫn được giữ nguyên.{" "}
+          <button type="button" className="button button-secondary button-small" onClick={retry}>Tải lại danh sách</button>
+        </p>
       )}
       {failed && (
         <p className="notice" role="alert">

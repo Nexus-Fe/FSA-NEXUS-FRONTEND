@@ -24,7 +24,7 @@ import { clearUnknownOrderMarker, describeCartFailure, describePlaceOrderFailure
 import { GhnLocationSelect } from "@/features/shipping/GhnLocationSelect";
 import { SavedAddressPicker } from "@/features/profile/SavedAddressPicker";
 import { toGhnSelection } from "@/features/profile/address-rules";
-import { EMPTY_GHN_SELECTION, buildShippingAddress, formatAddressLine, parseGhnSelection, validateGhnSelection, type GhnCheck, type GhnSelection } from "@/features/shipping/ghn-address";
+import { EMPTY_GHN_SELECTION, buildShippingAddress, formatAddressLine, ghnWriteBlock, parseGhnSelection, validateGhnSelection, type GhnCheck, type GhnSelection } from "@/features/shipping/ghn-address";
 import { ErrorState, LoadingState } from "@/components/ui/States";
 import { EmptyState } from "@/components/ui/EmptyState";
 
@@ -557,10 +557,10 @@ export function CheckoutScreen() {
     setSubmitError("");
     const found = validateShipping(form, ghn);
     setErrors(found);
-    if (Object.keys(found).length === 0 && (ghnCheck.state === "pending" || ghnCheck.state === "unverifiable")) {
-      setQuoteError(ghnCheck.state === "pending"
-        ? "Đang xác minh địa chỉ với GHN, hãy thử lại sau giây lát."
-        : "Chưa xác minh được địa chỉ vì danh sách GHN tạm thời không khả dụng. Hãy bấm Tải lại danh sách rồi thử lại.");
+    // A quote is a write: it needs the current codes confirmed by a trusted GHN list ("valid"), not only present.
+    const locationBlock = Object.keys(found).length === 0 ? ghnWriteBlock(ghnCheck) : undefined;
+    if (locationBlock) {
+      setQuoteError(locationBlock);
       return;
     }
     if (Object.keys(found).length) {
@@ -659,6 +659,15 @@ export function CheckoutScreen() {
         }),
       );
 
+      try {
+        // The order exists (paid or not, COD included): the address kept for this checkout is not offered again as if it were still being typed.
+        window.sessionStorage.removeItem(SHIPPING_STORAGE_KEY);
+        window.sessionStorage.removeItem(SHIPPING_EXTRA_KEY);
+        window.sessionStorage.removeItem(SHIPPING_GHN_KEY);
+      } catch {
+        // Browser storage may be disabled.
+      }
+
       if (created.status.replace(/[^a-z]/gi, "").toUpperCase() !== "PAID") {
         router.push(ROUTES.buyer.order(created.orderId));
         return;
@@ -674,14 +683,6 @@ export function CheckoutScreen() {
         fullAddress,
       });
       clearUnknownOrderMarker(window.sessionStorage);
-      try {
-        // The order is placed: the address kept for this checkout is not offered again as if it were still being typed.
-        window.sessionStorage.removeItem(SHIPPING_STORAGE_KEY);
-        window.sessionStorage.removeItem(SHIPPING_EXTRA_KEY);
-        window.sessionStorage.removeItem(SHIPPING_GHN_KEY);
-      } catch {
-        // Browser storage may be disabled.
-      }
       cart.reload();
       wallet.reload();
     } catch (reason) {

@@ -14,6 +14,7 @@ import { formatMoney, resolveImageUrl } from "@/lib/presentation";
 import { countFailedAttempts, fulfillmentService, hasShipmentToTrack, shipmentStatusLabel } from "@/features/fulfillment";
 import { loadSafeRegistrationDraft, sellerService } from "./services/seller.service";
 import { SavedShopArea, SellerShopAddressFields } from "./components/SellerShopAddressFields";
+import { ghnWriteBlock, type GhnCheck } from "@/features/shipping/ghn-address";
 import { ConfirmReturnButton } from "./components/ConfirmReturnButton";
 import { canConfirmReturn } from "./return-rules";
 import { SellerWarehouseGate } from "./components/SellerWarehouseForm";
@@ -2912,6 +2913,9 @@ export function SellerShopScreen() {
   const [error, setError] = useState("");
   const [saved, setSaved] = useState("");
   const [busy, setBusy] = useState(false);
+  // Once the seller changes anything, a reload of the profile must not replace the form; a successful save hands the form back to the saved data.
+  const [dirty, setDirty] = useState(false);
+  const [locationCheck, setLocationCheck] = useState<GhnCheck>({ state: "empty" });
 
   useEffect(() => {
     if (!saved) return;
@@ -2924,6 +2928,11 @@ export function SellerShopScreen() {
     const values = new FormData(event.currentTarget);
     setError("");
     setSaved("");
+    const locationBlock = ghnWriteBlock(locationCheck);
+    if (locationBlock) {
+      setError(locationBlock);
+      return;
+    }
     setBusy(true);
     try {
       await api.patch("/api/v1/sellers/profile", {
@@ -2936,6 +2945,7 @@ export function SellerShopScreen() {
         wardCode: String(values.get("wardCode") ?? ""),
       });
       setSaved("Đã cập nhật hồ sơ gian hàng.");
+      setDirty(false);
       shop.reload();
     } catch (reason) {
       setError(msg(reason as Error));
@@ -2995,7 +3005,8 @@ export function SellerShopScreen() {
         <h2>Chỉnh sửa gian hàng</h2>
         <form
           className="auth-fields"
-          key={JSON.stringify([
+          onChange={() => setDirty(true)}
+          key={dirty ? "editing" : JSON.stringify([
             resolvedShopName,
             resolvedHotline,
             resolvedProvinceId,
@@ -3018,7 +3029,7 @@ export function SellerShopScreen() {
             <textarea className="textarea-field" name="description" defaultValue={String(data.description ?? "")} />
           </label>
           <SellerShopAddressFields provinceId={resolvedProvinceId} districtId={resolvedDistrictId}
-            wardCode={resolvedWardCode} streetAddress={resolvedStreetAddress} />
+            wardCode={resolvedWardCode} streetAddress={resolvedStreetAddress} frozen={dirty} onCheck={setLocationCheck} />
           {error && (
             <p role="alert" className="notice">
               {error}

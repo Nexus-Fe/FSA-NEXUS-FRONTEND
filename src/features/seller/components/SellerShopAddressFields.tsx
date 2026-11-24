@@ -2,16 +2,9 @@
 
 import { useState } from "react";
 import { GhnLocationSelect } from "@/features/shipping/GhnLocationSelect";
-import { EMPTY_GHN_SELECTION, type GhnSelection } from "@/features/shipping/ghn-address";
+import { selectionFromCodes, type GhnCheck, type GhnSelection } from "@/features/shipping/ghn-address";
 import { locationService } from "@/features/shipping/location.service";
 import { useApiResource } from "@/lib/api/use-api-resource";
-
-/** The shop profile keeps only the GHN codes; the select needs a selection, so the codes are turned into one (names are filled in from the lists). */
-function selectionFromCodes(provinceId: string, districtId: string, wardCode: string): GhnSelection {
-  const province = Number(provinceId) > 0 ? Number(provinceId) : null;
-  const district = province && Number(districtId) > 0 ? Number(districtId) : null;
-  return { ...EMPTY_GHN_SELECTION, provinceId: province, districtId: district, wardCode: province && district ? wardCode.trim() : "" };
-}
 
 /**
  * Pickup address of the shop: province, district and ward come from the GHN lists, like every other address form. The three codes are sent
@@ -19,11 +12,14 @@ function selectionFromCodes(provinceId: string, districtId: string, wardCode: st
  * A saved code that GHN no longer lists is cleared with the levels below it and the user is asked to choose again (see GhnLocationSelect);
  * the form cannot be saved until the three levels are chosen, because the selects are required.
  */
-export function SellerShopAddressFields({ provinceId, districtId, wardCode, streetAddress }: {
+export function SellerShopAddressFields({ provinceId, districtId, wardCode, streetAddress, frozen = false, onCheck }: {
   provinceId: string;
   districtId: string;
   wardCode: string;
   streetAddress: string;
+  /** True while the seller has changed something: a reload of the profile must not replace what is being edited. */
+  frozen?: boolean;
+  onCheck?: (check: GhnCheck) => void;
 }) {
   const [selection, setSelection] = useState<GhnSelection>(() => selectionFromCodes(provinceId, districtId, wardCode));
 
@@ -32,13 +28,13 @@ export function SellerShopAddressFields({ provinceId, districtId, wardCode, stre
   const [seenParentCodes, setSeenParentCodes] = useState(parentCodes);
   if (seenParentCodes !== parentCodes) {
     setSeenParentCodes(parentCodes);
-    setSelection(selectionFromCodes(provinceId, districtId, wardCode));
+    if (!frozen) setSelection(selectionFromCodes(provinceId, districtId, wardCode));
   }
 
   return <>
     <h3>Địa chỉ lấy hàng</h3>
     <div className="form-grid">
-      <GhnLocationSelect value={selection} onChange={setSelection} />
+      <GhnLocationSelect value={selection} onChange={setSelection} onCheck={onCheck} />
       <input type="hidden" name="provinceId" value={selection.provinceId ?? ""} />
       <input type="hidden" name="districtId" value={selection.districtId ?? ""} />
       <input type="hidden" name="wardCode" value={selection.wardCode} />
