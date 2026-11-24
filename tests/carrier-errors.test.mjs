@@ -4,6 +4,13 @@ import { describeError } from "../src/lib/errors/error-messages.ts";
 
 const api = (status, errorCode) => ({ status, errorCode });
 
+test("an unavailable address source keeps the address and is not blamed on the user", () => {
+  const d = describeError(api(503, "LOCATION_SOURCE_UNAVAILABLE"), { operation: "read" });
+  assert.equal(d.code, "LOCATION_SOURCE_UNAVAILABLE");
+  assert.equal(d.kind, "unavailable");
+  assert.match(d.hint ?? "", /vẫn được giữ nguyên/i);
+});
+
 test("a carrier failure at checkout is not blamed on the buyer's address", () => {
   for (const code of ["SHIPPING_CARRIER_NOT_CONFIGURED", "SHIPPING_CARRIER_UNAVAILABLE", "SHIPPING_CARRIER_TIMEOUT"]) {
     const d = describeError(api(503, code), { operation: "read" });

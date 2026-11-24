@@ -106,6 +106,7 @@ export const ERROR_DICTIONARY: Record<string, Entry> = {
   SHIPPING_CARRIER_NOT_CONFIGURED: { message: "Dịch vụ vận chuyển chưa được cấu hình nên chưa tính được phí giao hàng.", hint: "Đây không phải lỗi địa chỉ của bạn. Hãy liên hệ quản trị viên hoặc thử lại sau.", kind: "unavailable" },
   SHIPPING_CARRIER_UNAVAILABLE: { message: "Đơn vị vận chuyển tạm thời không phản hồi nên chưa tính được phí giao hàng.", hint: "Thử lại sau ít phút.", kind: "unavailable" },
   SHIPPING_CARRIER_TIMEOUT: { message: "Đơn vị vận chuyển phản hồi quá chậm nên chưa tính được phí giao hàng.", hint: "Thử lại sau ít phút.", kind: "unavailable" },
+  LOCATION_SOURCE_UNAVAILABLE: { message: "Danh sách tỉnh, quận, phường của GHN tạm thời không khả dụng.", hint: "Địa chỉ của bạn vẫn được giữ nguyên. Bấm tải lại danh sách hoặc thử lại sau ít phút.", kind: "unavailable" },
   STOCK_CHECK_UNAVAILABLE: { message: "Chưa kiểm tra được tồn kho nên chưa thể đặt đơn.", hint: "Thử lại sau ít phút.", kind: "unavailable" },
   SELLER_WAREHOUSE_MISSING: { message: "Cửa hàng này chưa có kho gửi hàng nên chưa thể nhận đơn.", hint: "Bỏ sản phẩm của cửa hàng này khỏi đơn hoặc thử lại sau." },
   SELLER_WAREHOUSE_INCOMPLETE: { message: "Kho của cửa hàng này thiếu thông tin quận, phường gửi hàng nên chưa thể nhận đơn.", hint: "Bỏ sản phẩm của cửa hàng này khỏi đơn hoặc thử lại sau." },
