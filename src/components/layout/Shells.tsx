@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Suspense, useEffect, useState, type ReactNode } from "react";
+import { memo, Suspense, useEffect, useState, type ReactNode } from "react";
 import { AccountMenu, type AccountMenuItem } from "./AccountMenu";
 import type { NavigationItem } from "@/constants/navigation";
 import { buyerNavigation } from "@/constants/navigation";
@@ -314,25 +314,91 @@ function PortalAccountMenu({ role }: { role: string }) {
   );
 }
 
+function BuyerCategoryMenu() {
+  const categories = useApiResource("/api/v1/categories", loadCategories);
+  return (
+    <nav aria-label="Danh mục sản phẩm" className="buyer-category-menu">
+      <div className="buyer-category-menu-head">
+        <strong>Khám phá danh mục</strong>
+        <Link href={ROUTES.catalog.index}>
+          Tất cả sản phẩm <Icon name="arrow" size={14} />
+        </Link>
+      </div>
+      {categories.error ? (
+        <div className="buyer-category-menu-state" role="alert">
+          Không tải được danh mục.{" "}
+          <button type="button" onClick={categories.reload}>
+            Thử lại
+          </button>
+        </div>
+      ) : categories.loading ? (
+        <p className="buyer-category-menu-state" role="status">
+          Đang tải danh mục…
+        </p>
+      ) : categories.data?.length ? (
+        <div className="buyer-category-menu-grid">
+          {categoryGroups(categories.data).map(({ parent, children }) => (
+            <section className="buyer-category-menu-group" key={parent.id}>
+              <Link className="buyer-category-menu-parent" href={`${ROUTES.catalog.index}?categoryId=${encodeURIComponent(parent.id)}`}>
+                {parent.name}
+              </Link>
+              {children.length > 0 && (
+                <div className="buyer-category-menu-children">
+                  {children.map((child) => (
+                    <Link key={child.id} href={`${ROUTES.catalog.index}?categoryId=${encodeURIComponent(child.id)}`}>
+                      {child.name}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </section>
+          ))}
+        </div>
+      ) : (
+        <p className="buyer-category-menu-state">Chưa có danh mục.</p>
+      )}
+    </nav>
+  );
+}
+
+function BuyerHeaderNav({ isSeller }: { isSeller: boolean }) {
+  const enabledBuyerNav = useEnabledNavigation(buyerNavigation);
+  const dynamicBuyerNav = enabledBuyerNav.filter((item) => !(item.href === ROUTES.buyer.becomeSeller && isSeller));
+
+  return (
+    <div className="buyer-nav-wrap">
+      <Suspense fallback={null}>
+        <NavLinks
+          items={dynamicBuyerNav}
+          variant="top"
+          ariaLabel="Điều hướng mua sắm"
+          catalogMenu={<BuyerCategoryMenu />}
+        />
+      </Suspense>
+    </div>
+  );
+}
+
+const SiteFooter = memo(function SiteFooter() {
+  return (
+    <footer className="site-footer">
+      <div>
+        <Brand compact />
+        <p>Copyright 2026</p>
+      </div>
+      <p>© NEXUS</p>
+    </footer>
+  );
+});
+
 export function BuyerShell({ children }: { children: ReactNode }) {
   const { user } = useSession();
-  const categories = useApiResource("/api/v1/categories", loadCategories);
   const userRoles = user?.roles ?? (user?.role ? [user.role] : []);
   const dashboardLinks = dashboardsForRoles(userRoles);
   const hasPrivilegedRole = dashboardLinks.length > 0;
   const homeHref = getRoleHomeRoute(user);
   const homeLabel = getRoleHomeLabel(user);
   const isSeller = getNormalizedRoles(user).includes("seller");
-
-  const enabledBuyerNav = useEnabledNavigation(buyerNavigation);
-  const dynamicBuyerNav = enabledBuyerNav.filter((item) => {
-    // Nếu người dùng đã là người bán, họ đã có nút "Kênh người bán" ở góc phải header-actions.
-    // Ẩn tab đăng ký bán hàng khỏi thanh nav mua sắm để tránh trùng lặp.
-    if (item.href === ROUTES.buyer.becomeSeller && isSeller) {
-      return false;
-    }
-    return true;
-  });
 
   return (
     <div className="site-shell buyer-glass-shell">
@@ -382,17 +448,7 @@ export function BuyerShell({ children }: { children: ReactNode }) {
             <AccountNavigation />
           </div>
         </div>
-        <div className="buyer-nav-wrap">
-          <Suspense fallback={null}>
-            <NavLinks items={dynamicBuyerNav} variant="top" ariaLabel="Điều hướng mua sắm" catalogMenu={<nav aria-label="Danh mục sản phẩm" className="buyer-category-menu">
-              <div className="buyer-category-menu-head"><strong>Khám phá danh mục</strong><Link href={ROUTES.catalog.index}>Tất cả sản phẩm <Icon name="arrow" size={14} /></Link></div>
-              {categories.error ? <div className="buyer-category-menu-state" role="alert">Không tải được danh mục. <button type="button" onClick={categories.reload}>Thử lại</button></div> : categories.loading ? <p className="buyer-category-menu-state" role="status">Đang tải danh mục…</p> : categories.data?.length ? <div className="buyer-category-menu-grid">{categoryGroups(categories.data).map(({ parent, children }) => <section className="buyer-category-menu-group" key={parent.id}>
-                <Link className="buyer-category-menu-parent" href={`${ROUTES.catalog.index}?categoryId=${encodeURIComponent(parent.id)}`}>{parent.name}</Link>
-                {children.length > 0 && <div className="buyer-category-menu-children">{children.map((child) => <Link key={child.id} href={`${ROUTES.catalog.index}?categoryId=${encodeURIComponent(child.id)}`}>{child.name}</Link>)}</div>}
-              </section>)}</div> : <p className="buyer-category-menu-state">Chưa có danh mục.</p>}
-            </nav>} />
-          </Suspense>
-        </div>
+        <BuyerHeaderNav isSeller={isSeller} />
       </header>
       <main id="main-content" className="buyer-main">
         <Suspense fallback={null}>
@@ -400,13 +456,7 @@ export function BuyerShell({ children }: { children: ReactNode }) {
         </Suspense>
         {children}
       </main>
-      <footer className="site-footer">
-        <div>
-          <Brand compact />
-          <p>Copyright 2026</p>
-        </div>
-        <p>© NEXUS</p>
-      </footer>
+      <SiteFooter />
       <BackToTop />
     </div>
   );
