@@ -88,3 +88,20 @@ test("warehouse retry messages", () => {
   assert.match(describeWarehouseRetry({ warehouseReady: true }), /sẵn sàng/);
   assert.match(describeWarehouseRetry({ warehouseReady: false }), /Chưa tạo được/);
 });
+
+import { nextShopFormKey } from "../src/features/seller/shop-form-key.ts";
+
+test("the shop form keeps its key from the first edit on, so the first character typed is not lost", () => {
+  const saved = '["Shop","0900","202","1442","20101","1 Le Loi"]';
+  // not editing: the form follows the saved data
+  assert.equal(nextShopFormKey("old", saved, false), saved);
+  // the first edit: the key must be exactly what the form already has
+  assert.equal(nextShopFormKey(saved, saved, true), saved);
+});
+
+test("a reload while the seller is editing does not change the form key; a save hands the form back to the saved data", () => {
+  const before = '["Shop","0900","202","1442","20101","1 Le Loi"]';
+  const reloaded = '["Shop","0900","202","1442","20101","2 Le Loi"]';
+  assert.equal(nextShopFormKey(before, reloaded, true), before, "editing: keep the key");
+  assert.equal(nextShopFormKey(before, reloaded, false), reloaded, "after the save: adopt the saved data");
+});

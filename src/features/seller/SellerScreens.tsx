@@ -14,6 +14,7 @@ import { formatMoney, resolveImageUrl } from "@/lib/presentation";
 import { countFailedAttempts, fulfillmentService, hasShipmentToTrack, shipmentStatusLabel } from "@/features/fulfillment";
 import { loadSafeRegistrationDraft, sellerService } from "./services/seller.service";
 import { SavedShopArea, SellerShopAddressFields } from "./components/SellerShopAddressFields";
+import { nextShopFormKey } from "./shop-form-key";
 import { ghnWriteBlock, type GhnCheck } from "@/features/shipping/ghn-address";
 import { ConfirmReturnButton } from "./components/ConfirmReturnButton";
 import { canConfirmReturn } from "./return-rules";
@@ -2976,6 +2977,12 @@ export function SellerShopScreen() {
       "",
   );
 
+  // The form keeps its key while the seller edits (see nextShopFormKey): changing it would re-create the form and lose what was just typed.
+  const savedKey = JSON.stringify([resolvedShopName, resolvedHotline, resolvedProvinceId, resolvedDistrictId, resolvedWardCode, resolvedStreetAddress]);
+  const [formKey, setFormKey] = useState(savedKey);
+  const nextKey = nextShopFormKey(formKey, savedKey, dirty);
+  if (nextKey !== formKey) setFormKey(nextKey);
+
   return (
     <>
       <PageHeading
@@ -3006,14 +3013,7 @@ export function SellerShopScreen() {
         <form
           className="auth-fields"
           onChange={() => setDirty(true)}
-          key={dirty ? "editing" : JSON.stringify([
-            resolvedShopName,
-            resolvedHotline,
-            resolvedProvinceId,
-            resolvedDistrictId,
-            resolvedWardCode,
-            resolvedStreetAddress,
-          ])}
+          key={formKey}
           onSubmit={(e) => void submit(e)}
         >
           <label className="field-wrap">
