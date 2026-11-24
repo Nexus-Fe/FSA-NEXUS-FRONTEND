@@ -1,5 +1,7 @@
 "use client";
 
+import { PaginationBar } from "./PaginationBar";
+
 export type AdminPaginationProps = {
   page: number;
   pageSize?: number;
@@ -34,7 +36,6 @@ export function AdminPagination({
 
   const hasPrevious = page > 1;
   const hasNext = page < totalPages;
-  const pageItems = getPageNumbers(page, totalPages);
 
   const from = totalItems !== undefined && totalItems > 0 ? (page - 1) * pageSize + 1 : 0;
   const to = totalItems !== undefined ? Math.min(page * pageSize, totalItems) : 0;
@@ -59,61 +60,7 @@ export function AdminPagination({
           </button>
         )}
 
-        {/* Nút Trang trước */}
-        <button
-          type="button"
-          className="admin-pagination-btn admin-pagination-nav-btn is-prev"
-          disabled={!hasPrevious || loading}
-          onClick={() => onPageChange(Math.max(1, page - 1))}
-          aria-label="Trang trước"
-        >
-          <span aria-hidden="true">‹</span>
-          <span className="admin-pagination-nav-label">Trang trước</span>
-        </button>
-
-        {/* Danh sách các số trang */}
-        <div className="admin-pagination-pages" role="group" aria-label="Các trang">
-          {pageItems.map((item, idx) => {
-            if (item === "ellipsis") {
-              return (
-                <span
-                  key={`ellipsis-${idx}`}
-                  className="admin-pagination-ellipsis"
-                  aria-hidden="true"
-                >
-                  …
-                </span>
-              );
-            }
-
-            const isCurrent = item === page;
-            return (
-              <button
-                key={item}
-                type="button"
-                className={"admin-pagination-btn is-number" + (isCurrent ? " is-active" : "")}
-                disabled={loading}
-                aria-current={isCurrent ? "page" : undefined}
-                aria-label={`Trang ${item}`}
-                onClick={() => onPageChange(item)}
-              >
-                {item}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Nút Trang sau */}
-        <button
-          type="button"
-          className="admin-pagination-btn admin-pagination-nav-btn is-next"
-          disabled={!hasNext || loading}
-          onClick={() => onPageChange(Math.min(totalPages, page + 1))}
-          aria-label="Trang sau"
-        >
-          <span className="admin-pagination-nav-label">Trang sau</span>
-          <span aria-hidden="true">›</span>
-        </button>
+        <PaginationBar page={page} totalPages={totalPages} onPageChange={onPageChange} disabled={loading} />
 
         {/* Nút Đến trang cuối (khi có nhiều hơn 5 trang và không ở trang cuối) */}
         {totalPages > 5 && (
@@ -148,28 +95,4 @@ export function AdminPagination({
       </div>
     </nav>
   );
-}
-
-function getPageNumbers(currentPage: number, totalPages: number): (number | "ellipsis")[] {
-  if (totalPages <= 7) {
-    return Array.from({ length: totalPages }, (_, i) => i + 1);
-  }
-
-  if (currentPage <= 4) {
-    return [1, 2, 3, 4, 5, "ellipsis", totalPages];
-  }
-
-  if (currentPage >= totalPages - 3) {
-    return [
-      1,
-      "ellipsis",
-      totalPages - 4,
-      totalPages - 3,
-      totalPages - 2,
-      totalPages - 1,
-      totalPages,
-    ];
-  }
-
-  return [1, "ellipsis", currentPage - 1, currentPage, currentPage + 1, "ellipsis", totalPages];
 }

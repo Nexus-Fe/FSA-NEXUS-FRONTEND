@@ -4,6 +4,7 @@ import "@/styles/theme.css";
 import "@/styles/globals.css";
 import "@/styles/home-glass.css";
 import { SessionProvider } from "@/components/auth/SessionProvider";
+import { ToastProvider } from "@/components/ui/Toast";
 import { FeatureProvider } from "@/lib/features/FeatureProvider";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
@@ -20,7 +21,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="vi" className={plusJakartaSans.variable}>
-      <body><FeatureProvider><SessionProvider>{children}</SessionProvider></FeatureProvider></body>
+      <body><FeatureProvider><SessionProvider><ToastProvider>{children}</ToastProvider></SessionProvider></FeatureProvider></body>
     </html>
   );
 }
