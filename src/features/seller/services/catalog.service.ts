@@ -96,6 +96,7 @@ export type WarehouseInfo = {
   address?: string | null;
   contactPhone?: string | null;
   provinceName?: string | null;
+  provinceId?: number | null;
   districtId?: number | null;
   wardCode?: string | null;
   isDisabled?: boolean;

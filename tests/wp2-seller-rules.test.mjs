@@ -112,3 +112,13 @@ test("every value the shop form starts from is part of the form key, so a reload
     assert.notEqual(shopFormSavedKey(saved), shopFormSavedKey({ ...saved, [field]: saved[field] + "x" }), `${field} is part of the key`);
   }
 });
+
+import { warehouseReadiness } from "../src/features/seller/warehouse-readiness.ts";
+
+test("a warehouse is ready only with its province, district and ward; one made before the province id was kept must be saved again", () => {
+  assert.equal(warehouseReadiness({ provinceId: 202, districtId: 1442, wardCode: "20101" }), "ready");
+  assert.equal(warehouseReadiness({ districtId: 1442, wardCode: "20101" }), "incomplete");
+  assert.equal(warehouseReadiness({ provinceId: null, districtId: 1442, wardCode: "20101" }), "incomplete");
+  assert.equal(warehouseReadiness({ provinceId: 202, districtId: 1442, wardCode: " " }), "incomplete");
+  assert.equal(warehouseReadiness(null), "none");
+});
