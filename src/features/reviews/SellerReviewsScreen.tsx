@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useSession } from "@/components/auth/SessionProvider";
 import { ReputationHistoryBlock, ReputationPolicyBlock } from "@/features/account/ReputationDetails";
-import { Badge, Card, NoData, PageHeading } from "@/components/ui/Primitives";
+import { AdminPagination, Badge, Card, NoData, PageHeading } from "@/components/ui/Primitives";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { reviewService } from "./services/review.service";
 
@@ -42,10 +42,16 @@ export function SellerReviewsScreen() {
         <span>{review.comment || "Không có nhận xét."}</span>
       </div>)}
     </Card> : !reviews.error && <NoData title="Chưa có đánh giá nào." />}
-    {reviews.data && reviews.data.pagination.totalPages > 1 && <div className="action-row">
-      <button className="button button-secondary" type="button" disabled={!reviews.data.pagination.hasPreviousPage || reviews.loading} onClick={() => setPage(page - 1)}>Trang trước</button>
-      <span>Trang {reviews.data.pagination.pageIndex}/{reviews.data.pagination.totalPages}</span>
-      <button className="button button-secondary" type="button" disabled={!reviews.data.pagination.hasNextPage || reviews.loading} onClick={() => setPage(page + 1)}>Trang sau</button>
-    </div>}
+    {reviews.data && reviews.data.pagination.totalPages > 1 && (
+      <AdminPagination
+        page={reviews.data.pagination.pageIndex}
+        pageSize={reviews.data.pagination.pageSize}
+        totalItems={reviews.data.pagination.totalCount}
+        totalPages={reviews.data.pagination.totalPages}
+        loading={reviews.loading}
+        onPageChange={setPage}
+        itemLabel="đánh giá"
+      />
+    )}
   </>;
 }

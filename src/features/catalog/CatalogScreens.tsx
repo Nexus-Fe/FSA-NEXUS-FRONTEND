@@ -5,9 +5,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ROUTES } from "@/constants/routes";
 import { Icon } from "@/components/ui/Icon";
-import { ButtonLink, Card, NoData, PageHeading, SectionHeading } from "@/components/ui/Primitives";
+import { AdminPagination, ButtonLink, Card, NoData, PageHeading, SectionHeading } from "@/components/ui/Primitives";
 import { BackendImage } from "@/components/ui/BackendImage";
 import { SwipeCarousel } from "@/components/ui/SwipeCarousel";
+import { CardGridSkeleton } from "@/components/ui/Skeleton";
+import { SelectBox } from "@/components/ui/SelectBox";
 import { api, unwrap, type ApiResponse } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatMoney, resolveImageUrl } from "@/lib/presentation";
@@ -35,15 +37,6 @@ function catalogHref(filters: CatalogFilterValues, page: number, pageSize: numbe
   if (page > 1) params.set("page", String(page));
   if (pageSize !== 10) params.set("pageSize", String(pageSize));
   return `${basePath}${params.size ? `?${params}` : ""}`;
-}
-
-function pageChoices(current: number, total: number): Array<number | "…"> {
-  if (total <= 7) return Array.from({ length: total }, (_, index) => index + 1);
-  const start = Math.max(2, Math.min(current - 1, total - 3));
-  const end = Math.min(total - 1, start + 2);
-  return [1, ...(start > 2 ? ["…" as const] : []),
-    ...Array.from({ length: end - start + 1 }, (_, index) => start + index),
-    ...(end < total - 1 ? ["…" as const] : []), total];
 }
 
 function ProductCard({ product }: { product: Product }) {
@@ -121,7 +114,7 @@ export function HomeScreen() {
     <section className="home-section" aria-labelledby="home-products-title">
       <SectionHeading id="home-products-title" title="Sản phẩm niêm yết mua ngay" hint="Xem các sản phẩm đang được đăng bán." action={<Link href={ROUTES.catalog.index}>Tất cả sản phẩm <Icon name="arrow" size={15}/></Link>} />
       {products.error && <p role="alert" className="notice">{problem(products.error)}</p>}
-      <div className="product-grid">{products.data?.items.length ? products.data.items.slice(0, 4).map((product) => <ProductCard key={product.id} product={product} />) : <NoData className="empty-grid" title={products.loading ? "Đang tải sản phẩm…" : products.error ? "Không tải được sản phẩm" : "Chưa có sản phẩm"} />}</div>
+      <div className="product-grid">{products.data?.items.length ? products.data.items.slice(0, 4).map((product) => <ProductCard key={product.id} product={product} />) : products.loading ? <div className="empty-grid"><CardGridSkeleton count={4} label="Đang tải sản phẩm…" /></div> : <NoData className="empty-grid" title={products.error ? "Không tải được sản phẩm" : "Chưa có sản phẩm"} />}</div>
     </section>
 
     <section className="home-section home-categories" aria-labelledby="home-categories-title">
@@ -147,6 +140,17 @@ function CatalogFilters({ initialFilters, pageSize, categories, categoriesError,
   const [brand, setBrand] = useState(initialFilters.brand);
   const [minRating, setMinRating] = useState(initialFilters.minRating);
   const [filterError, setFilterError] = useState("");
+  const [mobileExpanded, setMobileExpanded] = useState(false);
+
+  const activeFilterCount = [
+    initialFilters.keyword,
+    initialFilters.categoryId,
+    initialFilters.sortBy,
+    initialFilters.minPrice,
+    initialFilters.maxPrice,
+    initialFilters.brand,
+    initialFilters.minRating,
+  ].filter(Boolean).length;
 
   const applyFilters = () => {
     if ((minPrice && !Number.isSafeInteger(Number(minPrice))) || (maxPrice && !Number.isSafeInteger(Number(maxPrice))) ||
@@ -164,7 +168,16 @@ function CatalogFilters({ initialFilters, pageSize, categories, categoriesError,
     router.push(catalogHref(emptyCatalogFilters, 1, pageSize, basePath), { scroll: false });
   };
 
-  return <Card className="card-pad catalog-filters"><h2 style={{fontSize:16}}>Bộ lọc tìm kiếm</h2><form onSubmit={(e) => { e.preventDefault(); applyFilters(); }}><div className="field-wrap"><label htmlFor="catalog-search">Tìm sản phẩm</label><input id="catalog-search" value={search} onChange={(e) => setSearch(e.target.value)} type="search" className="field" placeholder="Tên hoặc từ khóa" maxLength={100} /></div><div className="field-wrap" style={{marginTop:18}}><label htmlFor="catalog-category">Danh mục sản phẩm</label><select id="catalog-category" className="select-field" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}><option value="">Tất cả danh mục</option>{categoryGroups(categories).map(({ parent, children }) => children.length ? <optgroup key={parent.id} label={parent.name}>{children.map((child) => <option key={child.id} value={child.id}>{child.name}</option>)}</optgroup> : <option key={parent.id} value={parent.id}>{parent.name}</option>)}</select>{categoriesError && <small role="alert">{problem(categoriesError)}</small>}</div><div className="field-wrap" style={{marginTop:18}}><label htmlFor="catalog-sort">Sắp xếp giá</label><select id="catalog-sort" className="select-field" value={sortBy} onChange={(e) => setSortBy(e.target.value)}><option value="">Mặc định</option><option value="price_asc">Giá thấp đến cao</option><option value="price_desc">Giá cao đến thấp</option></select></div><div className="catalog-price-fields"><label className="field-wrap" htmlFor="catalog-min-price">Giá từ<input id="catalog-min-price" className="field" type="number" min="0" step="1" inputMode="numeric" value={minPrice} onChange={(e) => setMinPrice(e.target.value)} placeholder="₫" /></label><label className="field-wrap" htmlFor="catalog-max-price">Giá đến<input id="catalog-max-price" className="field" type="number" min="0" step="1" inputMode="numeric" value={maxPrice} onChange={(e) => setMaxPrice(e.target.value)} placeholder="₫" /></label></div><div className="field-wrap" style={{marginTop:18}}><label htmlFor="catalog-brand">Thương hiệu</label><input id="catalog-brand" className="field" value={brand} onChange={(e) => setBrand(e.target.value)} maxLength={80} placeholder="Tên thương hiệu" /></div><div className="field-wrap" style={{marginTop:18, marginBottom:18}}><label htmlFor="catalog-rating">Đánh giá tối thiểu</label><select id="catalog-rating" className="select-field" value={minRating} onChange={(e) => setMinRating(e.target.value)}><option value="">Tất cả đánh giá</option><option value="3">Từ 3 sao</option><option value="4">Từ 4 sao</option><option value="5">5 sao</option></select></div>{filterError && <p className="notice" role="alert">{filterError}</p>}<div className="action-row"><button className="button button-primary" type="submit">Tìm kiếm</button><button className="button button-secondary" type="button" onClick={clearFilters}>Xóa lọc</button></div></form></Card>;
+  const categoryOptions = [
+    { value: "", label: "Tất cả danh mục" },
+    ...categoryGroups(categories).flatMap(({ parent, children }) =>
+      children.length
+        ? children.map((child) => ({ value: child.id, label: child.name, group: parent.name }))
+        : [{ value: parent.id, label: parent.name }],
+    ),
+  ];
+
+  return <Card className="card-pad catalog-filters"><h2 className="catalog-filters-heading" style={{fontSize:16}}>Bộ lọc tìm kiếm</h2><button type="button" className="catalog-filters-toggle" aria-expanded={mobileExpanded} aria-controls="catalog-filters-form" onClick={() => setMobileExpanded((prev) => !prev)}><span className="catalog-filters-toggle-label"><span>Bộ lọc tìm kiếm</span>{activeFilterCount > 0 && <span className="catalog-filters-badge">{activeFilterCount}</span>}</span><span className={`catalog-filters-chevron${mobileExpanded ? " is-open" : ""}`} aria-hidden="true"><Icon name="chevronDown" size={16} /></span></button><form id="catalog-filters-form" className={`catalog-filters-form${mobileExpanded ? " is-open" : ""}`} onSubmit={(e) => { e.preventDefault(); applyFilters(); }}><div className="field-wrap"><label htmlFor="catalog-search">Tìm sản phẩm</label><input id="catalog-search" value={search} onChange={(e) => setSearch(e.target.value)} type="search" className="field" placeholder="Tên hoặc từ khóa" maxLength={100} /></div><div className="field-wrap" style={{marginTop:18}}><label htmlFor="catalog-category">Danh mục sản phẩm</label><SelectBox id="catalog-category" ariaLabel="Danh mục sản phẩm" value={categoryId} options={categoryOptions} onChange={setCategoryId} placeholder="Tất cả danh mục" />{categoriesError && <small role="alert">{problem(categoriesError)}</small>}</div><div className="field-wrap" style={{marginTop:18}}><label htmlFor="catalog-sort">Sắp xếp giá</label><SelectBox id="catalog-sort" ariaLabel="Sắp xếp giá" value={sortBy} options={[{ value: "", label: "Mặc định" }, { value: "price_asc", label: "Giá thấp đến cao" }, { value: "price_desc", label: "Giá cao đến thấp" }]} onChange={setSortBy} /></div><div className="catalog-price-fields"><label className="field-wrap" htmlFor="catalog-min-price">Giá từ<input id="catalog-min-price" className="field" type="number" min="0" step="1" inputMode="numeric" value={minPrice} onChange={(e) => setMinPrice(e.target.value)} placeholder="₫" /></label><label className="field-wrap" htmlFor="catalog-max-price">Giá đến<input id="catalog-max-price" className="field" type="number" min="0" step="1" inputMode="numeric" value={maxPrice} onChange={(e) => setMaxPrice(e.target.value)} placeholder="₫" /></label></div><div className="field-wrap" style={{marginTop:18}}><label htmlFor="catalog-brand">Thương hiệu</label><input id="catalog-brand" className="field" value={brand} onChange={(e) => setBrand(e.target.value)} maxLength={80} placeholder="Tên thương hiệu" /></div><div className="field-wrap" style={{marginTop:18, marginBottom:18}}><label htmlFor="catalog-rating">Đánh giá tối thiểu</label><SelectBox id="catalog-rating" ariaLabel="Đánh giá tối thiểu" value={minRating} options={[{ value: "", label: "Tất cả đánh giá" }, { value: "3", label: "Từ 3 sao" }, { value: "4", label: "Từ 4 sao" }, { value: "5", label: "5 sao" }]} onChange={setMinRating} /></div>{filterError && <p className="notice" role="alert">{filterError}</p>}<div className="action-row"><button className="button button-primary" type="submit">Tìm kiếm</button><button className="button button-secondary" type="button" onClick={clearFilters}>Xóa lọc</button></div></form></Card>;
 }
 
 export function CatalogScreen({ sellerId = "", title = "Danh sách sản phẩm", description = "Khám phá các sản phẩm đang được bán trên sàn.", showHeading = true }: { sellerId?: string; title?: string; description?: string; showHeading?: boolean } = {}) {
@@ -212,16 +225,18 @@ export function CatalogScreen({ sellerId = "", title = "Danh sách sản phẩm"
           </label>
         </div>
         {products.error && <p role="alert" className="notice">{problem(products.error)}</p>}
-        <div className="product-grid catalog-products">{productRows.length ? productRows.map((product) => <ProductCard key={product.id} product={product} />) : <NoData className="empty-grid" title={products.loading ? "Đang tải sản phẩm…" : products.error ? "Không tải được sản phẩm" : "Không tìm thấy sản phẩm"} />}</div>
-        {totalPages > 1 && <nav className="catalog-pagination" aria-label="Phân trang sản phẩm">
-          <button type="button" className="button button-secondary button-small" disabled={pageIndex <= 1 || products.loading} onClick={() => goToPage(pageIndex - 1)}>Trang trước</button>
-          <div className="catalog-page-numbers">
-            {pageChoices(pageIndex, totalPages).map((choice, index) => choice === "…"
-              ? <span key={`gap-${index}`} aria-hidden="true">…</span>
-              : <button key={choice} type="button" className={choice === pageIndex ? "catalog-page-number active" : "catalog-page-number"} aria-label={`Trang ${choice}`} aria-current={choice === pageIndex ? "page" : undefined} disabled={products.loading} onClick={() => goToPage(choice)}>{choice}</button>)}
-          </div>
-          <button type="button" className="button button-secondary button-small" disabled={pageIndex >= totalPages || products.loading} onClick={() => goToPage(pageIndex + 1)}>Trang sau</button>
-        </nav>}
+        {products.loading && !productRows.length ? <CardGridSkeleton count={8} label="Đang tải sản phẩm…" /> : <div className="product-grid catalog-products">{productRows.length ? productRows.map((product) => <ProductCard key={product.id} product={product} />) : <NoData className="empty-grid" title={products.error ? "Không tải được sản phẩm" : "Không tìm thấy sản phẩm"} />}</div>}
+        {totalPages > 1 && (
+          <AdminPagination
+            page={pageIndex}
+            pageSize={pageSize}
+            totalItems={pagination?.totalCount}
+            totalPages={totalPages}
+            loading={products.loading}
+            onPageChange={goToPage}
+            itemLabel="sản phẩm"
+          />
+        )}
       </div>
     </div>
   </>;

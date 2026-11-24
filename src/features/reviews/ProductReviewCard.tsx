@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { Card } from "@/components/ui/Primitives";
+import { FileDropZone, IMAGE_UPLOAD_PRESET } from "@/components/ui/FileDropZone";
+import { StarRatingInput } from "@/components/ui/StarRatingInput";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { reviewErrorText } from "./PartnerReviewCard";
 import { REVIEW_REASON_TEXT, reviewService } from "./services/review.service";
@@ -111,9 +113,9 @@ export function ProductReviewCard({ productId, productName, subOrderId }: { prod
     {answer && !answer.canReview && !existing && !notice && <p className="status-note" role="status">{REVIEW_REASON_TEXT[answer.reason ?? ""] ?? "Chưa thể đánh giá sản phẩm này."}</p>}
 
     {showForm && <form className="auth-fields" onSubmit={(event) => void submit(event)}>
-      <label className="field-wrap">Số sao<select className="select-field" value={rating} onChange={(event) => setRating(Number(event.target.value))}>{[5, 4, 3, 2, 1].map((value) => <option key={value} value={value}>{value} sao</option>)}</select></label>
+      <StarRatingInput value={rating} onChange={setRating} />
       <label className="field-wrap">Nhận xét<textarea className="textarea-field" minLength={3} maxLength={2000} required value={comment} onChange={(event) => setComment(event.target.value)} /></label>
-      <label className="field-wrap">{editing ? "Ảnh mới (thay toàn bộ ảnh cũ, tối đa 5)" : "Ảnh đánh giá (tối đa 5)"}<input className="field" type="file" accept={IMAGE_TYPES.join(",")} multiple onChange={(event) => setImages(Array.from(event.target.files ?? []))} /></label>
+      <div className="field-wrap"><span>{editing ? "Ảnh mới (thay toàn bộ ảnh cũ, tối đa 5)" : "Ảnh đánh giá (tối đa 5)"}</span><FileDropZone {...IMAGE_UPLOAD_PRESET} onFilesChange={setImages} /></div>
       {!editing && answer?.expiresAt && <small>Có thể đánh giá đến {DATE.format(new Date(answer.expiresAt))}.</small>}
       <div className="action-row">
         <button className="button button-primary" type="submit" disabled={busy}>{busy ? "Đang gửi…" : editing ? "Lưu thay đổi" : "Gửi đánh giá sản phẩm"}</button>

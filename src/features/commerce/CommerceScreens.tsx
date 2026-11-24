@@ -5,6 +5,7 @@ import { useState } from "react";
 import { describeError, formatError } from "@/lib/errors/error-messages";
 import { evidenceRequired, parseReportPrefill } from "./order-report";
 import { Badge, Card, NoData, PageHeading } from "@/components/ui/Primitives";
+import { FileDropZone, IMAGE_UPLOAD_PRESET } from "@/components/ui/FileDropZone";
 import { api, type ApiResponse } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { REPORT_REFUND_STATUS, REPORT_STATUS, statusLabel } from "@/lib/status-labels";
@@ -33,7 +34,7 @@ export function BuyerReportsScreen() {
           <label className="field-wrap">Mã người dùng bị báo cáo<input className="field" required value={targetId} onChange={e=>setTargetId(e.target.value)} placeholder="UUID" /></label>
           <label className="field-wrap">Loại vi phạm<select className="select-field" value={violationType} onChange={e=>setType(e.target.value)}><option value="Fraud">Gian lận</option><option value="Harassment">Quấy rối</option><option value="Counterfeit">Hàng giả</option><option value="Spam">Spam</option><option value="Other">Khác</option></select></label>
           <label className="field-wrap">Mô tả<textarea className="textarea-field" required minLength={10} value={description} onChange={e=>setDescription(e.target.value)} /></label>
-          <label className="field-wrap">Ảnh bằng chứng (tối đa 5 ảnh)<input className="field" type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={e=>{const files=Array.from(e.target.files??[]);if(files.length>5||files.some(file=>file.size>5*1024*1024)){setError("Chọn tối đa 5 ảnh JPG, PNG hoặc WEBP, mỗi ảnh không quá 5 MB.");setEvidence([]);}else{setError("");setEvidence(files);}}} /></label>
+          <div className="field-wrap"><span>Ảnh bằng chứng (tối đa 5 ảnh)</span><FileDropZone {...IMAGE_UPLOAD_PRESET} onFilesChange={(files) => { setError(""); setEvidence(files); }} /></div>
           {error&&<p className="notice" role="alert">{error}</p>}
           {success&&<p className="form-success" role="status">{success}</p>}
           <button className="button button-primary" type="submit" disabled={busy||Boolean(error)}>{busy?"Đang gửi…":"Gửi báo cáo"}</button>

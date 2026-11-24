@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { useSession } from "@/components/auth/SessionProvider";
 import { BackendImage } from "@/components/ui/BackendImage";
 import { Badge, Card, NoData, PageHeading, SectionHeading } from "@/components/ui/Primitives";
+import { ErrorState } from "@/components/ui/States";
 import { ROUTES } from "@/constants/routes";
 import { commerceService } from "@/features/commerce";
 import { ApiError, api, unwrap, type ApiResponse } from "@/lib/api/client";
@@ -180,10 +181,11 @@ export function ProductDetailScreen() {
   if (!product) {
     return <>
       <PageHeading title="Chi tiết sản phẩm" />
-      {productResource.error ? <div className="notice" role="alert">
-        <p>{productResource.error.message}</p>
-        <button type="button" className="button button-secondary button-small" onClick={productResource.reload}>Tải lại sản phẩm</button>
-      </div> : <NoData title={productResource.loading ? "Đang tải sản phẩm…" : "Không tìm thấy sản phẩm"} />}
+      {productResource.error ? (
+        <ErrorState cause={productResource.error} onRetry={productResource.reload} retryLabel="Tải lại sản phẩm" />
+      ) : (
+        <NoData title={productResource.loading ? "Đang tải sản phẩm…" : "Không tìm thấy sản phẩm"} />
+      )}
     </>;
   }
 
@@ -341,10 +343,37 @@ export function ProductDetailScreen() {
             ? "Sản phẩm hiện chưa thể mua." : selectedVariant ? "Phiên bản này chưa thể mua." : canChooseAttributes
               ? "Chọn màu sắc và kích cỡ để thêm vào giỏ." : "Chọn phiên bản để thêm vào giỏ."}
         </p>
-        <label className="field-wrap" htmlFor="product-detail-quantity">Số lượng
-          <input id="product-detail-quantity" className="field product-detail-quantity" type="number" min="1" step="1"
-            inputMode="numeric" value={quantity} onChange={(event) => setQuantity(event.target.value)} aria-invalid={!validQuantity} />
-        </label>
+        <div className="field-wrap">
+          <label htmlFor="product-detail-quantity">Số lượng</label>
+          <div className="cart-quantity-control" style={{ width: "fit-content" }} role="group" aria-label="Chọn số lượng">
+            <button
+              type="button"
+              disabled={adding || !validQuantity || parsedQuantity <= 1}
+              aria-label="Giảm số lượng"
+              onClick={() => setQuantity(String(Math.max(1, parsedQuantity - 1)))}
+            >
+              <span aria-hidden="true">−</span>
+            </button>
+            <input
+              id="product-detail-quantity"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={quantity}
+              disabled={adding}
+              onChange={(event) => setQuantity(event.target.value)}
+              aria-invalid={!validQuantity}
+            />
+            <button
+              type="button"
+              disabled={adding}
+              aria-label="Tăng số lượng"
+              onClick={() => setQuantity(String(validQuantity ? parsedQuantity + 1 : 1))}
+            >
+              <span aria-hidden="true">+</span>
+            </button>
+          </div>
+        </div>
         {!validQuantity && <p className="product-detail-field-error" role="alert">Nhập số lượng nguyên lớn hơn 0.</p>}
         <div className="product-detail-actions">
           <button type="button" className="button button-primary" disabled={!canAdd || adding} onClick={() => void addToCart()}>
