@@ -3029,7 +3029,7 @@ export function SellerShopScreen() {
             <textarea className="textarea-field" name="description" defaultValue={String(data.description ?? "")} />
           </label>
           <SellerShopAddressFields provinceId={resolvedProvinceId} districtId={resolvedDistrictId}
-            wardCode={resolvedWardCode} streetAddress={resolvedStreetAddress} frozen={dirty} onCheck={setLocationCheck} />
+            wardCode={resolvedWardCode} streetAddress={resolvedStreetAddress} onCheck={setLocationCheck} />
           {error && (
             <p role="alert" className="notice">
               {error}

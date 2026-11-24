@@ -12,29 +12,30 @@ import { useApiResource } from "@/lib/api/use-api-resource";
  * A saved code that GHN no longer lists is cleared with the levels below it and the user is asked to choose again (see GhnLocationSelect);
  * the form cannot be saved until the three levels are chosen, because the selects are required.
  */
-export function SellerShopAddressFields({ provinceId, districtId, wardCode, streetAddress, frozen = false, onCheck }: {
+export function SellerShopAddressFields({ provinceId, districtId, wardCode, streetAddress, onCheck }: {
   provinceId: string;
   districtId: string;
   wardCode: string;
   streetAddress: string;
-  /** True while the seller has changed something: a reload of the profile must not replace what is being edited. */
-  frozen?: boolean;
   onCheck?: (check: GhnCheck) => void;
 }) {
   const [selection, setSelection] = useState<GhnSelection>(() => selectionFromCodes(provinceId, districtId, wardCode));
+  // Only an address the seller chose herself is protected from a reload of the profile; typing in other fields while the profile is still
+  // loading must not stop the saved address from arriving.
+  const [chosenByUser, setChosenByUser] = useState(false);
 
   // The profile can arrive after the form first renders, or be reloaded after a save: take the new codes when they change.
   const parentCodes = `${provinceId}|${districtId}|${wardCode}`;
   const [seenParentCodes, setSeenParentCodes] = useState(parentCodes);
   if (seenParentCodes !== parentCodes) {
     setSeenParentCodes(parentCodes);
-    if (!frozen) setSelection(selectionFromCodes(provinceId, districtId, wardCode));
+    if (!chosenByUser) setSelection(selectionFromCodes(provinceId, districtId, wardCode));
   }
 
   return <>
     <h3>Địa chỉ lấy hàng</h3>
     <div className="form-grid">
-      <GhnLocationSelect value={selection} onChange={setSelection} onCheck={onCheck} />
+      <GhnLocationSelect value={selection} onChange={(next, source) => { if (source === "user") setChosenByUser(true); setSelection(next); }} onCheck={onCheck} />
       <input type="hidden" name="provinceId" value={selection.provinceId ?? ""} />
       <input type="hidden" name="districtId" value={selection.districtId ?? ""} />
       <input type="hidden" name="wardCode" value={selection.wardCode} />

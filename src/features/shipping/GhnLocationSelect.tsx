@@ -24,7 +24,8 @@ export function GhnLocationSelect({
   onCheck,
 }: {
   value: GhnSelection;
-  onChange: (next: GhnSelection) => void;
+  /** `source` is "user" when the person chose something and "auto" when the select itself filled in names or cleared a stale code. */
+  onChange: (next: GhnSelection, source?: "user" | "auto") => void;
   errors?: GhnErrors;
   disabled?: boolean;
   onCheck?: (check: GhnCheck) => void;
@@ -53,12 +54,12 @@ export function GhnLocationSelect({
 
   useEffect(() => {
     if (check.state === "stale") {
-      onChange(clearGhnFrom(value, check.level));
+      onChange(clearGhnFrom(value, check.level), "auto");
       return;
     }
     if (check.state === "valid") {
       const named = fillGhnNames(value, { provinces: provinces.data, districts: districts.data, wards: wards.data });
-      if (named) onChange(named);
+      if (named) onChange(named, "auto");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [checkState, provinces.data, districts.data, wards.data, value.provinceId, value.districtId, value.wardCode]);
@@ -82,7 +83,7 @@ export function GhnLocationSelect({
           onChange={(event) => {
             const id = Number(event.target.value);
             const found = provinces.data?.items.find((entry) => entry.provinceId === id);
-            onChange(found ? { ...EMPTY_GHN_SELECTION, provinceId: found.provinceId, provinceName: found.provinceName } : EMPTY_GHN_SELECTION);
+            onChange(found ? { ...EMPTY_GHN_SELECTION, provinceId: found.provinceId, provinceName: found.provinceName } : EMPTY_GHN_SELECTION, "user");
           }}
         >
           <option value="">{provinces.loading ? "Đang tải…" : "Chọn tỉnh / thành phố"}</option>
@@ -102,7 +103,7 @@ export function GhnLocationSelect({
           onChange={(event) => {
             const id = Number(event.target.value);
             const found = districts.data?.items.find((entry) => entry.districtId === id);
-            onChange({ ...value, districtId: found?.districtId ?? null, districtName: found?.districtName ?? "", wardCode: "", wardName: "" });
+            onChange({ ...value, districtId: found?.districtId ?? null, districtName: found?.districtName ?? "", wardCode: "", wardName: "" }, "user");
           }}
         >
           <option value="">{!value.provinceId ? "Chọn tỉnh / thành phố trước" : districts.loading ? "Đang tải…" : "Chọn quận / huyện"}</option>
@@ -121,7 +122,7 @@ export function GhnLocationSelect({
           aria-invalid={Boolean(errors.ward)}
           onChange={(event) => {
             const found = wards.data?.items.find((entry) => entry.wardCode === event.target.value);
-            onChange({ ...value, wardCode: found?.wardCode ?? "", wardName: found?.wardName ?? "" });
+            onChange({ ...value, wardCode: found?.wardCode ?? "", wardName: found?.wardName ?? "" }, "user");
           }}
         >
           <option value="">{!value.districtId ? "Chọn quận / huyện trước" : wards.loading ? "Đang tải…" : "Chọn phường / xã"}</option>
