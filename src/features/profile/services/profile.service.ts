@@ -37,11 +37,40 @@ export type ReceivedReviewsPage = {
   pagination: { pageIndex: number; totalCount: number; totalPages: number; hasPreviousPage: boolean; hasNextPage: boolean };
 };
 
+export type MyPenaltyItem = {
+  penaltyId: string;
+  targetRole: "Buyer" | "Seller" | "Account" | string;
+  violationType: string;
+  reason: string;
+  penaltyApplied: "Warning" | "DeductPoints" | "Restriction" | "BanAccount" | "Other" | string;
+  pointsDeducted: number;
+  status: "Active" | "Expired" | "Revoked" | string;
+  policyClauseCode?: string | null;
+  issuedAt: string;
+  expiresAt?: string | null;
+  isCurrentlyActive: boolean;
+};
+
+export type MyPenaltiesPage = {
+  items: MyPenaltyItem[];
+  pagination: { currentPage: number; pageSize: number; totalCount: number; totalPages: number; hasPrevious: boolean; hasNext: boolean };
+};
+
 export const profileService = {
   getProfile: async (signal?: AbortSignal) =>
     unwrap(await api.get<ApiResponse<UserProfile> | UserProfile>("/api/v1/me", { signal })),
   updateProfile: async (changes: UpdateUserProfile) =>
     unwrap(await api.patch<ApiResponse<UserProfile> | UserProfile>("/api/v1/me", changes)),
+  uploadAvatar: async (file: File) => {
+    const body = new FormData();
+    body.append("file", file);
+    return unwrap(
+      await api.post<ApiResponse<{ avatarUrl: string; updatedAt: string }> | { avatarUrl: string; updatedAt: string }>(
+        "/api/v1/me/avatar",
+        body,
+      ),
+    );
+  },
   getReputationPolicy: async (signal?: AbortSignal) =>
     unwrap(await api.get<ApiResponse<ReputationPolicy> | ReputationPolicy>("/api/v1/reputation/policy", { signal })),
   getMyReputation: async (signal?: AbortSignal) =>
@@ -50,5 +79,9 @@ export const profileService = {
     const params = new URLSearchParams({ page: String(page), pageSize: "10" });
     if (rating) params.set("rating", String(rating));
     return unwrap(await api.get<ApiResponse<ReceivedReviewsPage> | ReceivedReviewsPage>(`/api/v1/users/${encodeURIComponent(userId)}/reviews?${params}`, { signal }));
+  },
+  getMyPenalties: async (page = 1, pageSize = 10, signal?: AbortSignal) => {
+    const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+    return unwrap(await api.get<ApiResponse<MyPenaltiesPage> | MyPenaltiesPage>(`/api/v1/me/penalties?${params}`, { signal }));
   },
 };

@@ -24,6 +24,7 @@ export type AuthUser = {
   displayName?: string | null;
   firstName?: string | null;
   lastName?: string | null;
+  avatarUrl?: string | null;
   role?: string | null;
   roles?: string[];
   permissions?: string[];

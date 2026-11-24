@@ -1,5 +1,7 @@
 "use client";
 
+import { clearApiResourceCache } from "./use-api-resource";
+
 export type ApiResponse<T> = {
   success: true;
   statusCode: number;
@@ -118,6 +120,7 @@ export function getStoredRoles(): string[] {
 export function clearSessionTokens(): void {
   lastAccountVerified = null;
   meGetInFlight = null;
+  clearApiResourceCache();
   if (typeof window === "undefined") return;
   window.localStorage.removeItem(SESSION_ACCESS_KEY);
   window.localStorage.removeItem(SESSION_REFRESH_KEY);

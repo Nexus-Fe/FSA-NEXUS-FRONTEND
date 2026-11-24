@@ -9,7 +9,7 @@ import { useSession } from "@/components/auth/SessionProvider";
 import { ROUTES } from "@/constants/routes";
 import { unwrap } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
-import { formatMoney, resolveImageUrl } from "@/lib/presentation";
+import { describeProductStatus, formatMoney, resolveImageUrl } from "@/lib/presentation";
 import { sellerService } from "./services/seller.service";
 import {
   sellerCatalogService,
@@ -474,7 +474,7 @@ export function SellerProductDetailScreen() {
             <div className="seller-product-summary">
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-                  <Badge>{data.status}</Badge>
+                  <Badge>{describeProductStatus(data.status)}</Badge>
                   <span style={{ fontSize: 13, color: "var(--muted)" }}>
                     Danh mục: <strong>{data.categoryName ?? data.categoryId}</strong>
                   </span>

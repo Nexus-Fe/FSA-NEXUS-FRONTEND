@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { Badge, Card, NoData, PageHeading } from "@/components/ui/Primitives";
+import { AdminPagination, Badge, Card, NoData, PageHeading } from "@/components/ui/Primitives";
 import { FluidChoiceBar } from "@/components/ui/FluidChoiceBar";
 import { ErrorState } from "@/components/ui/States";
 import { useApiResource } from "@/lib/api/use-api-resource";
@@ -27,11 +27,7 @@ export function NotificationCenterScreen({ canWrite }: { canWrite: boolean }) {
 
 function Pager({ page, setPage, info }: { page: number; setPage: (page: number) => void; info: { totalPages: number; hasPreviousPage: boolean; hasNextPage: boolean } }) {
   if (info.totalPages <= 1) return null;
-  return <div className="action-row">
-    <button type="button" className="button button-secondary" disabled={!info.hasPreviousPage} onClick={() => setPage(page - 1)}>Trang trước</button>
-    <span>Trang {page}/{info.totalPages}</span>
-    <button type="button" className="button button-secondary" disabled={!info.hasNextPage} onClick={() => setPage(page + 1)}>Trang sau</button>
-  </div>;
+  return <AdminPagination page={page} totalPages={info.totalPages} onPageChange={setPage} itemLabel="mục" />;
 }
 
 function Deliveries({ canWrite }: { canWrite: boolean }) {

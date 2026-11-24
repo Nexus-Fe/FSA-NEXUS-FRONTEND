@@ -87,7 +87,7 @@ function HoldsTab() {
                   <td className="mono">{hold.ownerUserId}</td>
                   <td>{hold.referenceType}<br /><small className="mono">{hold.auctionId ?? hold.referenceId}</small></td>
                   <td className="tabular-nums">{formatMoney(hold.amount)}</td>
-                  <td><Badge tone="slate">{hold.status}</Badge></td>
+                  <td><Badge tone="slate">{({ HELD: "Đang giữ", RELEASED: "Đã giải tỏa", CAPTURED: "Đã thu", EXPIRED: "Hết hạn", CANCELLED: "Đã hủy" } as Record<string, string>)[hold.status.toUpperCase()] ?? hold.status}</Badge></td>
                   <td>{transactionDate(hold.createdAt)}</td>
                   <td>{hold.resolvedAt ? transactionDate(hold.resolvedAt) : "Chưa"}</td>
                 </tr>

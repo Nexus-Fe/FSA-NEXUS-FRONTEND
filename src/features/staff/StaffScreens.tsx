@@ -84,7 +84,6 @@ export function StaffSellersScreen() {
                   <th>Người nộp / Email DN</th>
                   <th>Kho GHN</th>
                   <th>Trạng thái</th>
-                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -101,7 +100,11 @@ export function StaffSellersScreen() {
                       onClick={() => router.push(ROUTES.staff.seller(regId))}
                       title="Nhấn để xem chi tiết & duyệt hồ sơ"
                     >
-                      <td>{regId}</td>
+                      <td>
+                        <Link href={ROUTES.staff.seller(regId)} onClick={(e) => e.stopPropagation()}>
+                          <code>{regId}</code>
+                        </Link>
+                      </td>
                       <td>
                         <strong>{x.shopName ?? x.businessName ?? "—"}</strong>
                       </td>
@@ -113,15 +116,6 @@ export function StaffSellersScreen() {
                       </td>
                       <td>
                         <Badge tone={statusTone(normalized)}>{normalized}</Badge>
-                      </td>
-                      <td>
-                        <Link
-                          className="button button-secondary button-small"
-                          href={ROUTES.staff.seller(regId)}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          Chi tiết & Duyệt
-                        </Link>
                       </td>
                     </tr>
                   );

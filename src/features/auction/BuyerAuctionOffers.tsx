@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AdminPagination, Badge, ButtonLink, Card, NoData } from "@/components/ui/Primitives";
+import { ErrorState } from "@/components/ui/States";
 import { ROUTES } from "@/constants/routes";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatMoney } from "@/lib/presentation";
@@ -37,7 +38,7 @@ export function BuyerAuctionOffers() {
 
   return <section className="auction-offers" aria-labelledby="auction-offers-title">
     <div className="auction-section-heading"><div><h2 id="auction-offers-title">Lời mời tiếp nhận kết quả</h2><p>Hệ thống có thể mời bạn khi người thắng trước không hoàn tất.</p></div><button type="button" className="button button-secondary button-small" onClick={offers.reload}>Làm mới</button></div>
-    {offers.error && <p className="notice" role="alert">{offers.error.message}</p>}{error && <p className="notice" role="alert">{error}</p>}{notice && <p className="form-success" role="status">{notice}</p>}
+    {offers.error && <ErrorState title="Không tải được lời mời" cause={offers.error} onRetry={offers.reload} />}{error && <p className="notice" role="alert">{error}</p>}{notice && <p className="form-success" role="status">{notice}</p>}
     {offers.loading && !offers.data ? <NoData title="Đang tải lời mời…" /> : offers.data?.items.length ? <div className="auction-offer-list">{offers.data.items.map((offer) => {
       const expired = offer.isExpired || Boolean(now && new Date(offer.expiresAt).getTime() <= now);
       const pending = offer.status.toUpperCase() === "PENDING" && !expired;

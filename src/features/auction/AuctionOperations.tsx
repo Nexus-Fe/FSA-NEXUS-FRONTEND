@@ -221,7 +221,7 @@ export function OperationsDetailScreen({ role }: { role: Role }) {
           <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
             {/* Dải chỉ số phiên */}
             <Card style={{ padding: "18px 20px", borderRadius: "10px" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "16px", textAlign: "center" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: "16px", textAlign: "center" }}>
                 <div style={{ borderRight: "1px solid var(--border)", paddingRight: "12px" }}>
                   <span style={{ fontSize: "12px", color: "var(--muted)", textTransform: "uppercase", fontWeight: 600 }}>
                     Trạng thái

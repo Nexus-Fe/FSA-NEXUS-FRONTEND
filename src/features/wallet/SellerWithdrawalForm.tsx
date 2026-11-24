@@ -1,7 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Badge, Card, NoData, PageHeading } from "@/components/ui/Primitives";
+import { AdminPagination, Badge, Card, NoData, PageHeading } from "@/components/ui/Primitives";
+import { ErrorState } from "@/components/ui/States";
 import { ApiError } from "@/lib/api/client";
 import { createIntentKeyStore, isDefiniteOutcome } from "@/lib/idempotency/intent-key";
 import { useApiResource } from "@/lib/api/use-api-resource";
@@ -103,7 +104,7 @@ export function SellerWithdrawalForm() {
         <button className="button button-primary" type="submit" disabled={busy || !balance.data || balance.data.status.toUpperCase() !== "ACTIVE"}>{busy ? "Đang gửi…" : "Gửi yêu cầu rút"}</button>
       </form>
     </Card><Card className="card-pad seller-withdrawal-balance"><h2>Số dư có thể rút</h2>
-      {balance.error && <p className="notice" role="alert">{balance.error.message}</p>}
+      {balance.error && <ErrorState title="Không tải được số dư" cause={balance.error} onRetry={balance.reload} />}
       {balance.data ? <strong className="seller-money-amount">{formatMoney(balance.data.availableBalance)}</strong> : !balance.error && <NoData title={balance.loading ? "Đang tải số dư…" : "Chưa có dữ liệu"} />}
       {created && <div className="wallet-withdrawal-result" role="status"><h3>{created.status.toUpperCase() === "PENDING" ? "Đang chờ staff xử lý" : "Đã ghi nhận yêu cầu rút"}</h3><p>Mã yêu cầu: <strong>{created.withdrawalId}</strong></p><p>Số tiền: <strong>{formatMoney(created.amount)}</strong></p><p>Phí: {formatMoney(created.fee)}</p><p>Staff sẽ chuyển khoản thủ công sau khi duyệt. Trạng thái đã duyệt chưa xác nhận tiền đã được chuyển.</p></div>}
     </Card></div>
@@ -111,7 +112,7 @@ export function SellerWithdrawalForm() {
     <h2 className="section-title">Yêu cầu rút của bạn</h2>
     {cancelMessage && <p className="form-success" role="status">{cancelMessage}</p>}
     {cancelError && <p className="notice" role="alert">{cancelError}</p>}
-    {requests.error && <p className="notice" role="alert">{requests.error.message} <button type="button" className="button button-secondary" onClick={requests.reload}>Thử lại</button></p>}
+    {requests.error && <ErrorState title="Không tải được yêu cầu rút" cause={requests.error} onRetry={requests.reload} />}
     {requests.loading && !requests.data ? <NoData title="Đang tải yêu cầu rút…" /> : requests.data?.items.length ? <Card>
       <div className="table-scroll"><table className="data-table"><thead><tr><th>Gửi lúc</th><th>Số tiền</th><th>Tài khoản nhận</th><th>Trạng thái</th><th>Ghi chú</th><th>Thao tác</th></tr></thead><tbody>
         {requests.data.items.map((item) => {
@@ -131,10 +132,16 @@ export function SellerWithdrawalForm() {
       footer={<><button type="button" className="button button-secondary" disabled={cancelling} onClick={() => setCancelTarget(null)}>Giữ yêu cầu</button><button type="button" className="button button-primary" disabled={cancelling} onClick={() => void confirmCancel()}>{cancelling ? "Đang hủy…" : "Hủy yêu cầu"}</button></>}>
       <p>{cancelTarget ? `Yêu cầu rút ${formatMoney(cancelTarget.amount)} sẽ bị hủy và số tiền đang giữ trả lại số dư khả dụng.` : ""}</p>
     </Modal>
-    {requests.data && requests.data.pagination.totalPages > 1 && <div className="action-row">
-      <button className="button button-secondary" type="button" disabled={!requests.data.pagination.hasPreviousPage || requests.loading} onClick={() => setPage(page - 1)}>Trang trước</button>
-      <span>Trang {requests.data.pagination.pageIndex}/{requests.data.pagination.totalPages}</span>
-      <button className="button button-secondary" type="button" disabled={!requests.data.pagination.hasNextPage || requests.loading} onClick={() => setPage(page + 1)}>Trang sau</button>
-    </div>}
+    {requests.data && requests.data.pagination.totalPages > 1 && (
+      <AdminPagination
+        page={requests.data.pagination.pageIndex}
+        pageSize={requests.data.pagination.pageSize}
+        totalItems={requests.data.pagination.totalCount}
+        totalPages={requests.data.pagination.totalPages}
+        loading={requests.loading}
+        onPageChange={setPage}
+        itemLabel="yêu cầu"
+      />
+    )}
   </>;
 }

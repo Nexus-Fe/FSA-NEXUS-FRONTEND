@@ -150,12 +150,8 @@ export function StaffProductModerationScreen() {
       <Card className="card-pad" style={{ marginBottom: "16px" }}>
         <form
           onSubmit={handleSearch}
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr)) auto",
-            gap: "12px",
-            alignItems: "end",
-          }}
+          className="ops-filters"
+          style={{ alignItems: "end", margin: 0 }}
         >
           <label className="field-wrap" style={{ margin: 0 }}>
             <span>Tìm kiếm từ khóa</span>
