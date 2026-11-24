@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Card, NoData, PageHeading, SectionHeading, Badge } from "@/components/ui/Primitives";
+import { ErrorState } from "@/components/ui/States";
 import { ROUTES } from "@/constants/routes";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatMoney } from "@/lib/presentation";
@@ -56,9 +57,7 @@ export function WalletScreen() {
         <div>
           <h2>Số dư ví</h2>
           {balance.error && (
-            <p className="notice" role="alert">
-              Không tải được số dư: {balance.error.message}
-            </p>
+            <ErrorState title="Không tải được số dư" cause={balance.error} onRetry={balance.reload} />
           )}
           {balance.loading ? (
             <NoData title="Đang kiểm tra ví…" />
@@ -82,14 +81,12 @@ export function WalletScreen() {
       </Card>
 
       <Card className="card-pad wallet-pending-topups"><div className="section-heading"><div><h2>Lượt nạp đang chờ</h2><p>Thanh toán hoặc webhook có thể vẫn đang được xử lý.</p></div><Link href={ROUTES.buyer.topUps}>Xem tất cả lượt nạp</Link></div>
-        {topups.error ? <p className="notice" role="alert">Không tải được lượt nạp: {topups.error.message} <button className="button button-secondary" onClick={topups.reload}>Thử lại</button></p> : topups.loading ? <p>Đang tải lượt nạp…</p> : pendingTopups.length ? <ul className="wallet-pending-list">{pendingTopups.map((item) => <li key={item.transactionId}><Link href={ROUTES.buyer.topUpDetail(item.transactionId)}>{formatMoney(item.amount)}</Link><Badge tone="amber">Đang xác nhận</Badge></li>)}</ul> : <p>Không có lượt nạp đang chờ trong 10 lượt gần nhất.</p>}
+        {topups.error ? <ErrorState title="Không tải được lượt nạp" cause={topups.error} onRetry={topups.reload} /> : topups.loading ? <p>Đang tải lượt nạp…</p> : pendingTopups.length ? <ul className="wallet-pending-list">{pendingTopups.map((item) => <li key={item.transactionId}><Link href={ROUTES.buyer.topUpDetail(item.transactionId)}>{formatMoney(item.amount)}</Link><Badge tone="amber">Đang xác nhận</Badge></li>)}</ul> : <p>Không có lượt nạp đang chờ trong 10 lượt gần nhất.</p>}
       </Card>
 
       <SectionHeading title="10 giao dịch gần nhất" />
       {transactions.error && (
-        <p className="notice" role="alert">
-          Không tải được lịch sử: {transactions.error.message}
-        </p>
+        <ErrorState title="Không tải được lịch sử" cause={transactions.error} onRetry={transactions.reload} />
       )}
 
       {transactions.loading ? (
