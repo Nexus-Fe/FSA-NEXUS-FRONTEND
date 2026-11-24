@@ -14,7 +14,7 @@ import { formatMoney, resolveImageUrl } from "@/lib/presentation";
 import { countFailedAttempts, fulfillmentService, hasShipmentToTrack, shipmentStatusLabel } from "@/features/fulfillment";
 import { loadSafeRegistrationDraft, sellerService } from "./services/seller.service";
 import { SavedShopArea, SellerShopAddressFields } from "./components/SellerShopAddressFields";
-import { nextShopFormKey } from "./shop-form-key";
+import { nextShopFormKey, shopFormSavedKey } from "./shop-form-key";
 import { ghnWriteBlock, type GhnCheck } from "@/features/shipping/ghn-address";
 import { ConfirmReturnButton } from "./components/ConfirmReturnButton";
 import { canConfirmReturn } from "./return-rules";
@@ -2978,7 +2978,7 @@ export function SellerShopScreen() {
   );
 
   // The form keeps its key while the seller edits (see nextShopFormKey): changing it would re-create the form and lose what was just typed.
-  const savedKey = JSON.stringify([resolvedShopName, resolvedHotline, resolvedProvinceId, resolvedDistrictId, resolvedWardCode, resolvedStreetAddress]);
+  const savedKey = shopFormSavedKey({ shopName: resolvedShopName, hotline: resolvedHotline, description: String(data.description ?? ""), provinceId: resolvedProvinceId, districtId: resolvedDistrictId, wardCode: resolvedWardCode, streetAddress: resolvedStreetAddress });
   const [formKey, setFormKey] = useState(savedKey);
   const nextKey = nextShopFormKey(formKey, savedKey, dirty);
   if (nextKey !== formKey) setFormKey(nextKey);

@@ -9,3 +9,16 @@
 export function nextShopFormKey(currentKey: string, savedKey: string, editing: boolean): string {
   return editing ? currentKey : savedKey;
 }
+
+/** Every value the shop form starts from. A field missing here would keep showing its old text when only that field changes on a reload. */
+export function shopFormSavedKey(saved: {
+  shopName: string;
+  hotline: string;
+  description: string;
+  provinceId: string;
+  districtId: string;
+  wardCode: string;
+  streetAddress: string;
+}): string {
+  return JSON.stringify([saved.shopName, saved.hotline, saved.description, saved.provinceId, saved.districtId, saved.wardCode, saved.streetAddress]);
+}

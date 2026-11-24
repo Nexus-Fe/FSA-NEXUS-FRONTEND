@@ -89,7 +89,7 @@ test("warehouse retry messages", () => {
   assert.match(describeWarehouseRetry({ warehouseReady: false }), /Chưa tạo được/);
 });
 
-import { nextShopFormKey } from "../src/features/seller/shop-form-key.ts";
+import { nextShopFormKey, shopFormSavedKey } from "../src/features/seller/shop-form-key.ts";
 
 test("the shop form keeps its key from the first edit on, so the first character typed is not lost", () => {
   const saved = '["Shop","0900","202","1442","20101","1 Le Loi"]';
@@ -104,4 +104,12 @@ test("a reload while the seller is editing does not change the form key; a save 
   const reloaded = '["Shop","0900","202","1442","20101","2 Le Loi"]';
   assert.equal(nextShopFormKey(before, reloaded, true), before, "editing: keep the key");
   assert.equal(nextShopFormKey(before, reloaded, false), reloaded, "after the save: adopt the saved data");
+});
+
+test("a reload that changes only the description changes the form key, so the description field shows the saved text", () => {
+  const saved = { shopName: "Shop", hotline: "0900", description: "Mô tả cũ", provinceId: "202", districtId: "1442", wardCode: "20101", streetAddress: "1 Le Loi" };
+  assert.notEqual(shopFormSavedKey(saved), shopFormSavedKey({ ...saved, description: "Mô tả mới" }));
+  for (const field of Object.keys(saved)) {
+    assert.notEqual(shopFormSavedKey(saved), shopFormSavedKey({ ...saved, [field]: saved[field] + "x" }), `${field} is part of the key`);
+  }
 });
