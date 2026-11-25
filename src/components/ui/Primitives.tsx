@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { CSSProperties, ReactNode } from "react";
+import type { CSSProperties, KeyboardEvent, MouseEvent, ReactNode } from "react";
 
 export function ButtonLink({
   href,
@@ -56,6 +56,26 @@ export function NoData({ className = "", title = "Chưa có dữ liệu" }: { cl
 
 export function EmptyTable({ columns }: { columns: string[] }) {
   return <div className="table-scroll"><table className="data-table"><thead><tr>{columns.map((column) => <th key={column}>{column}</th>)}</tr></thead><tbody><tr className="table-empty"><td colSpan={columns.length}><NoData /></td></tr></tbody></table></div>;
+}
+
+export function clickableRowProps(onActivate: () => void, title?: string) {
+  return {
+    className: "clickable-row",
+    tabIndex: 0,
+    title,
+    onClick: (event: MouseEvent<HTMLTableRowElement>) => {
+      if (typeof window !== "undefined" && window.getSelection()?.toString()) return;
+      if ((event.target as HTMLElement | null)?.closest("a, button, input, select, textarea, .row-actions-wrap")) return;
+      onActivate();
+    },
+    onKeyDown: (event: KeyboardEvent<HTMLTableRowElement>) => {
+      if (event.target !== event.currentTarget) return;
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        onActivate();
+      }
+    },
+  };
 }
 
 export { AdminPagination } from "./AdminPagination";

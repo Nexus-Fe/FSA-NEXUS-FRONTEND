@@ -4,6 +4,8 @@ import { useState, type FormEvent } from "react";
 import { AdminPagination, Badge, Card, NoData, PageHeading, SectionHeading } from "@/components/ui/Primitives";
 import { CopyableId } from "@/components/ui/CopyableId";
 import { FluidChoiceBar } from "@/components/ui/FluidChoiceBar";
+import { EmailInput } from "@/components/ui/EmailInput";
+import { TableSkeleton } from "@/components/ui/Skeleton";
 import { ApiError } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { adminUsersService, type AdminUserReputationLog } from "./services/admin-users.service";
@@ -570,14 +572,14 @@ export function AdminUsersScreen() {
               </tbody>
             </table>
           </div>
+        ) : users.loading ? (
+          <TableSkeleton rows={6} cols={5} label="Đang tải tài khoản…" />
         ) : (
           <NoData
             title={
-              users.loading
-                ? "Đang tải tài khoản…"
-                : users.error
-                  ? "Không tải được tài khoản"
-                  : "Không có tài khoản phù hợp"
+              users.error
+                ? "Không tải được tài khoản"
+                : "Không có tài khoản phù hợp"
             }
           />
         )}
@@ -1480,7 +1482,7 @@ export function AdminUsersScreen() {
                           backgroundColor: delta > 0 ? "#f0fdf4" : delta < 0 ? "#fef2f2" : "#f8fafc",
                           border: `1px solid ${delta > 0 ? "#bbf7d0" : delta < 0 ? "#fecaca" : "#e2e8f0"}`,
                           display: "grid",
-                          gridTemplateColumns: "1fr auto 1fr",
+                          gridTemplateColumns: "repeat(auto-fit, minmax(90px, 1fr))",
                           alignItems: "center",
                           gap: "12px",
                         }}
@@ -1697,17 +1699,13 @@ export function AdminUsersScreen() {
 
             <form className="auth-fields" onSubmit={(e) => void submitCreateUser(e)}>
               <div className="form-grid">
-                <label className="field-wrap">
-                  Email đăng nhập <span style={{ color: "var(--red)" }}>*</span>
-                  <input
-                    className="field"
-                    type="email"
-                    required
-                    placeholder="staff.new@nexus.local"
-                    value={createForm.email}
-                    onChange={(e) => setCreateForm((prev) => ({ ...prev, email: e.target.value }))}
-                  />
-                </label>
+                <EmailInput
+                  label={<>Email đăng nhập <span style={{ color: "var(--red)" }}>*</span></>}
+                  required
+                  placeholder="staff.new@nexus.local"
+                  value={createForm.email}
+                  onChange={(next) => setCreateForm((prev) => ({ ...prev, email: next }))}
+                />
 
                 <label className="field-wrap">
                   Mật khẩu khởi tạo (8 – 72 ký tự) <span style={{ color: "var(--red)" }}>*</span>

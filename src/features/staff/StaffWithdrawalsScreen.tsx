@@ -1,8 +1,11 @@
 "use client";
 
 import { Fragment, useState, type FormEvent } from "react";
-import { Badge, Card, NoData, PageHeading } from "@/components/ui/Primitives";
+import { AdminPagination, Badge, Card, NoData, PageHeading } from "@/components/ui/Primitives";
 import { FluidChoiceBar } from "@/components/ui/FluidChoiceBar";
+import { RowActionsMenu } from "@/components/ui/RowActionsMenu";
+import { TableSkeleton } from "@/components/ui/Skeleton";
+import { useToast } from "@/components/ui/Toast";
 import { CopyableId } from "@/components/ui/CopyableId";
 import { useSession } from "@/components/auth/SessionProvider";
 import { ApiError } from "@/lib/api/client";
@@ -41,6 +44,7 @@ export function StaffWithdrawalsScreen() {
   const [panel, setPanel] = useState<Panel>(null);
   const [historyId, setHistoryId] = useState("");
   const [success, setSuccess] = useState("");
+  const { showToast } = useToast();
 
   function choose(next: string) { setStatus(next); setPage(1); setPanel(null); setHistoryId(""); }
 
@@ -49,7 +53,7 @@ export function StaffWithdrawalsScreen() {
     <FluidChoiceBar mode="filter" ariaLabel="Lọc theo trạng thái" options={FILTERS} value={status} onChange={choose} />
     {success && <p className="form-success" role="status">{success}</p>}
     {list.error && <p className="notice" role="alert">{list.error.message} <button type="button" className="button button-secondary" onClick={list.reload}>Thử lại</button></p>}
-    {list.loading && !list.data ? <NoData title="Đang tải yêu cầu rút…" /> : list.data?.items.length ? <Card>
+    {list.loading && !list.data ? <TableSkeleton rows={5} cols={5} label="Đang tải yêu cầu rút…" /> : list.data?.items.length ? <Card>
       <div className="table-scroll"><table className="data-table"><thead><tr><th>Gửi lúc</th><th>Số tiền</th><th>Chuyển tới</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>
         {list.data.items.map((item) => {
           const state = withdrawalStatus(item.status);
@@ -60,23 +64,57 @@ export function StaffWithdrawalsScreen() {
               <td><strong>{formatMoney(item.amount)}</strong></td>
               <td>{item.bankName}<br /><CopyableId id={item.bankAccountNumber} length={20} showFull /><br /><small>{item.accountHolderName}</small></td>
               <td><Badge tone={state.tone}>{state.label}</Badge>{item.statusReason && <><br /><small>Lý do: {item.statusReason}</small></>}{item.transferReference && <><br /><small>Mã CK: {item.transferReference}</small></>}</td>
-              <td><div className="action-row">
-                {actions.map((entry) => <button key={entry.action} type="button" className="button button-secondary" onClick={() => { setPanel({ id: item.withdrawalId, action: entry.action }); setSuccess(""); }}>{entry.label}</button>)}
-                <button type="button" className="button button-secondary" aria-expanded={historyId === item.withdrawalId} onClick={() => setHistoryId(historyId === item.withdrawalId ? "" : item.withdrawalId)}>Lịch sử</button>
-              </div></td>
+              <td>
+                <RowActionsMenu
+                  ariaLabel={`Thao tác rút tiền ${item.withdrawalId}`}
+                  primary={
+                    actions.length > 0
+                      ? {
+                          label: actions[0].label,
+                          variant: "primary",
+                          onClick: () => { setPanel({ id: item.withdrawalId, action: actions[0].action }); setSuccess(""); },
+                        }
+                      : {
+                          label: historyId === item.withdrawalId ? "Ẩn lịch sử" : "Lịch sử",
+                          onClick: () => setHistoryId(historyId === item.withdrawalId ? "" : item.withdrawalId),
+                        }
+                  }
+                  items={
+                    actions.length > 0
+                      ? [
+                          ...actions.slice(1).map((entry) => ({
+                            label: entry.label,
+                            onClick: () => { setPanel({ id: item.withdrawalId, action: entry.action }); setSuccess(""); },
+                          })),
+                          {
+                            label: historyId === item.withdrawalId ? "Ẩn lịch sử" : "Lịch sử",
+                            dividerBefore: actions.length > 1,
+                            onClick: () => setHistoryId(historyId === item.withdrawalId ? "" : item.withdrawalId),
+                          },
+                        ]
+                      : []
+                  }
+                />
+              </td>
             </tr>
             {panel?.id === item.withdrawalId && <tr><td colSpan={5}><ActionPanel item={item} action={panel.action} onCancel={() => setPanel(null)}
-              onDone={(message) => { setPanel(null); setSuccess(message); list.reload(); }} onConflict={() => { setPanel(null); list.reload(); }} /></td></tr>}
+              onDone={(message) => { setPanel(null); setSuccess(message); showToast(message, "success"); list.reload(); }} onConflict={() => { setPanel(null); list.reload(); }} /></td></tr>}
             {historyId === item.withdrawalId && <tr><td colSpan={5}><History id={item.withdrawalId} /></td></tr>}
           </Fragment>;
         })}
       </tbody></table></div>
     </Card> : !list.error && <NoData title="Không có yêu cầu nào ở trạng thái này." />}
-    {list.data && list.data.pagination.totalPages > 1 && <div className="action-row">
-      <button className="button button-secondary" type="button" disabled={!list.data.pagination.hasPreviousPage || list.loading} onClick={() => setPage(page - 1)}>Trang trước</button>
-      <span>Trang {list.data.pagination.pageIndex}/{list.data.pagination.totalPages}</span>
-      <button className="button button-secondary" type="button" disabled={!list.data.pagination.hasNextPage || list.loading} onClick={() => setPage(page + 1)}>Trang sau</button>
-    </div>}
+    {list.data && list.data.pagination.totalPages > 1 && (
+      <AdminPagination
+        page={list.data.pagination.pageIndex}
+        pageSize={list.data.pagination.pageSize}
+        totalItems={list.data.pagination.totalCount}
+        totalPages={list.data.pagination.totalPages}
+        loading={list.loading}
+        onPageChange={setPage}
+        itemLabel="yêu cầu"
+      />
+    )}
   </>;
 }
 

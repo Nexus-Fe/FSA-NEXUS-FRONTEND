@@ -138,12 +138,8 @@ export function AdminPenaltiesScreen() {
       <Card className="card-pad" style={{ marginBottom: "16px" }}>
         <form
           onSubmit={handleSearch}
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr)) auto",
-            gap: "12px",
-            alignItems: "end",
-          }}
+          className="ops-filters"
+          style={{ alignItems: "end", margin: 0 }}
         >
           <label className="field-wrap" style={{ margin: 0 }}>
             <span>Tìm theo User ID (GUID)</span>
@@ -232,8 +228,8 @@ export function AdminPenaltiesScreen() {
             <table className="data-table" style={{ width: "100%", tableLayout: "fixed", minWidth: 0 }}>
               <thead>
                 <tr>
-                  <th style={{ width: "21%", padding: "10px 8px", whiteSpace: "normal" }}>Người vi phạm</th>
-                  <th style={{ width: "8%", padding: "10px 8px", whiteSpace: "normal" }}>Vai trò</th>
+                  <th style={{ width: "20%", padding: "10px 8px", whiteSpace: "normal" }}>Người vi phạm</th>
+                  <th style={{ width: "10%", padding: "10px 8px", whiteSpace: "normal" }}>Vai trò</th>
                   <th style={{ width: "15%", padding: "10px 8px", whiteSpace: "normal" }}>Hình thức xử phạt</th>
                   <th style={{ width: "14%", padding: "10px 8px", whiteSpace: "normal" }}>Loại vi phạm</th>
                   <th style={{ width: "16%", padding: "10px 8px", whiteSpace: "normal" }}>Lý do</th>
@@ -271,7 +267,7 @@ export function AdminPenaltiesScreen() {
                     </td>
                     <td style={{ padding: "10px 8px" }}>
                       <Badge tone={targetRoleTone(item.targetRole)}>
-                        {item.targetRole}
+                        {item.targetRole?.toUpperCase() === "ACCOUNT" ? "Tài khoản" : item.targetRole?.toUpperCase() === "SELLER" ? "Người bán" : item.targetRole}
                       </Badge>
                     </td>
                     <td style={{ padding: "10px 8px", wordBreak: "break-word" }}>

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Card, SectionHeading } from "@/components/ui/Primitives";
+import { EmailInput } from "@/components/ui/EmailInput";
 import { GhnLocationSelect } from "@/features/shipping/GhnLocationSelect";
 import { selectionFromCodes, type GhnCheck, type GhnErrors, type GhnSelection } from "@/features/shipping/ghn-address";
 
@@ -109,10 +110,17 @@ export function ShopRegistrationForm({
         </label>
       </div>
       <div className="field-wrap seller-shop-email">
-        <label htmlFor={fieldId("businessEmail")}>Email doanh nghiệp * <span>(nhận OTP mở shop)</span></label>
-        <input id={fieldId("businessEmail")} className="field" type="email" autoComplete="email" required value={value.businessEmail} aria-invalid={Boolean(errors.businessEmail)} aria-describedby={errors.businessEmail ? `${fieldId("businessEmail")}-error` : undefined} onChange={(event) => update("businessEmail", event.target.value)} placeholder="shop-contact@example.com" />
+        <EmailInput
+          id={fieldId("businessEmail")}
+          label={<>Email doanh nghiệp * <span>(nhận OTP mở shop)</span></>}
+          required
+          value={value.businessEmail}
+          placeholder="shop-contact@example.com"
+          helpText="Mã OTP kích hoạt shop sẽ được gửi tới email này"
+          externalError={errors.businessEmail}
+          onChange={(next) => update("businessEmail", next)}
+        />
       </div>
-      {errors.businessEmail && <small id={`${fieldId("businessEmail")}-error`} className="field-error" role="alert">{errors.businessEmail}</small>}
     </Card>
 
     <Card className="card-pad">

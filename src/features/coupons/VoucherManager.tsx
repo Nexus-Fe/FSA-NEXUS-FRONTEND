@@ -4,6 +4,8 @@ import { useState, type FormEvent } from "react";
 import { AdminPagination, Badge, Card, PageHeading } from "@/components/ui/Primitives";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Modal } from "@/components/ui/Modal";
+import { RowActionsMenu } from "@/components/ui/RowActionsMenu";
+import { useToast } from "@/components/ui/Toast";
 import { DataState, ErrorState } from "@/components/ui/States";
 import { FeatureUnavailable, useFeature } from "@/lib/features/FeatureProvider";
 import { useApiResource } from "@/lib/api/use-api-resource";
@@ -31,6 +33,7 @@ function VoucherManagerContent({ scope }: { scope: "admin" | "seller" }) {
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<unknown>(null);
   const [notice, setNotice] = useState("");
+  const { showToast } = useToast();
   const resource = useApiResource(`vouchers:${scope}:${page}:${search}:${status}:${scopeType}`, (signal) => discountService.list({ page, pageSize: 20, search, status, scopeType }, signal));
   const scopeOptions = Object.entries(scopeName).filter(([key]) => scope === "admin" || key !== "System");
 
@@ -41,10 +44,14 @@ function VoucherManagerContent({ scope }: { scope: "admin" | "seller" }) {
     try {
       if (pending.kind === "status") {
         await discountService.setStatus(pending.item.id, pending.next);
-        setNotice(`Đã cập nhật trạng thái mã ${pending.item.code}.`);
+        const msgText = `Đã cập nhật trạng thái mã ${pending.item.code}.`;
+        setNotice(msgText);
+        showToast(msgText, "success");
       } else {
         await discountService.remove(pending.item.id);
-        setNotice(`Đã xóa mã ${pending.item.code}.`);
+        const msgText = `Đã xóa mã ${pending.item.code}.`;
+        setNotice(msgText);
+        showToast(msgText, "success");
       }
       setPending(null);
       resource.reload();
@@ -82,11 +89,24 @@ function VoucherManagerContent({ scope }: { scope: "admin" | "seller" }) {
                       <td>{localDate(item.startsAt)} – {localDate(item.endsAt)}{expired && <><br /><Badge tone="red">Đã hết hạn</Badge></>}</td>
                       <td><Badge tone={item.status === "Active" ? "green" : "slate"}>{statusName[item.status] ?? item.status}</Badge></td>
                       <td>
-                        <div className="voucher-row-actions">
-                          <button type="button" className="button button-secondary button-small" disabled={busy} onClick={() => setEditing(item)}>Sửa</button>
-                          {!expired && <button type="button" className="button button-secondary button-small" disabled={busy} onClick={() => { setFailure(null); setPending({ kind: "status", item, next: item.status === "Active" ? "Inactive" : "Active" }); }}>{item.status === "Active" ? "Tạm dừng" : "Kích hoạt"}</button>}
-                          <button type="button" className="button button-secondary button-small" disabled={busy} onClick={() => { setFailure(null); setPending({ kind: "delete", item }); }}>Xóa</button>
-                        </div>
+                        <RowActionsMenu
+                          ariaLabel={`Thao tác cho mã ${item.code}`}
+                          primary={{ label: "Sửa", disabled: busy, onClick: () => setEditing(item) }}
+                          items={[
+                            ...(!expired ? [{
+                              label: item.status === "Active" ? "Tạm dừng" : "Kích hoạt",
+                              disabled: busy,
+                              onClick: () => { setFailure(null); setPending({ kind: "status", item, next: item.status === "Active" ? "Inactive" : "Active" }); },
+                            }] : []),
+                            {
+                              label: "Xóa",
+                              danger: true,
+                              dividerBefore: !expired,
+                              disabled: busy,
+                              onClick: () => { setFailure(null); setPending({ kind: "delete", item }); },
+                            },
+                          ]}
+                        />
                       </td>
                     </tr>
                   );
@@ -97,7 +117,7 @@ function VoucherManagerContent({ scope }: { scope: "admin" | "seller" }) {
         </DataState>
         {resource.data && resource.data.pagination.totalPages > 1 && <AdminPagination page={page} pageSize={resource.data.pagination.pageSize} totalItems={resource.data.pagination.totalCount} totalPages={resource.data.pagination.totalPages} onPageChange={setPage} itemLabel="mã" />}
       </Card>
-      {editing && <VoucherFormDialog scope={scope} item={editing === "new" ? null : editing} onClose={() => setEditing(null)} onSaved={(message) => { setEditing(null); setNotice(message); resource.reload(); }} />}
+      {editing && <VoucherFormDialog scope={scope} item={editing === "new" ? null : editing} onClose={() => setEditing(null)} onSaved={(message) => { setEditing(null); setNotice(message); showToast(message, "success"); resource.reload(); }} />}
       <ConfirmDialog
         open={pending !== null}
         title={pending?.kind === "delete" ? `Xóa mã ${pending.item.code}?` : pending?.kind === "status" ? `${pending.next === "Active" ? "Kích hoạt" : "Tạm dừng"} mã ${pending.item.code}?` : ""}

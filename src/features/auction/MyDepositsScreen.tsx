@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Badge, Card, NoData, PageHeading } from "@/components/ui/Primitives";
+import { AdminPagination, Badge, Card, NoData, PageHeading } from "@/components/ui/Primitives";
+import { TableSkeleton } from "@/components/ui/Skeleton";
 import { FluidChoiceBar } from "@/components/ui/FluidChoiceBar";
 import { ROUTES } from "@/constants/routes";
 import { useApiResource } from "@/lib/api/use-api-resource";
@@ -10,7 +11,6 @@ import { describeError, formatError } from "@/lib/errors/error-messages";
 import { formatMoney } from "@/lib/presentation";
 import { depositStatusLabel } from "./auction-outcome";
 import { auctionService } from "./services/auction.service";
-import { LoadingState } from "@/components/ui/States";
 
 const DATE = new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium", timeStyle: "short" });
 /** The auction service names why a deposit was taken in English; the buyer reads it in Vietnamese. */
@@ -34,7 +34,7 @@ export function MyDepositsScreen() {
     <PageHeading title="Cọc của tôi" description="Khoản cọc giữ trong Ví Nexus cho từng phiên đấu giá. Màn này chỉ để xem." />
     <FluidChoiceBar mode="filter" ariaLabel="Lọc theo trạng thái cọc" options={FILTERS.map(([value, label]) => ({ value, label }))} value={status} onChange={(next) => { setStatus(next); setPage(1); }} />
     {deposits.error && <p className="notice" role="alert">{formatError(describeError(deposits.error, { operation: "read" }))} <button type="button" className="button button-secondary" onClick={deposits.reload}>Thử lại</button></p>}
-    {deposits.loading && !deposits.data ? <LoadingState label="Đang tải danh sách cọc…" /> : deposits.data?.items.length ? <Card>
+    {deposits.loading && !deposits.data ? <TableSkeleton rows={5} cols={4} label="Đang tải danh sách cọc…" /> : deposits.data?.items.length ? <Card>
       <div className="table-scroll"><table className="data-table"><thead><tr><th>Phiên</th><th>Số tiền</th><th>Tỷ lệ</th><th>Trạng thái</th><th>Mục đích trừ cọc</th><th>Mốc thời gian</th></tr></thead><tbody>
         {deposits.data.items.map((item) => <tr key={item.depositId}>
           <td><Link href={ROUTES.auction.room(item.auctionId)}>{item.auctionTitle || item.auctionId}</Link></td>
@@ -46,10 +46,16 @@ export function MyDepositsScreen() {
         </tr>)}
       </tbody></table></div>
     </Card> : !deposits.error && <NoData title="Bạn chưa có khoản cọc nào." />}
-    {deposits.data && deposits.data.pagination.totalPages > 1 && <div className="action-row">
-      <button className="button button-secondary" type="button" disabled={!deposits.data.pagination.hasPreviousPage || deposits.loading} onClick={() => setPage(page - 1)}>Trang trước</button>
-      <span>Trang {deposits.data.pagination.pageIndex}/{deposits.data.pagination.totalPages}</span>
-      <button className="button button-secondary" type="button" disabled={!deposits.data.pagination.hasNextPage || deposits.loading} onClick={() => setPage(page + 1)}>Trang sau</button>
-    </div>}
+    {deposits.data && deposits.data.pagination.totalPages > 1 && (
+      <AdminPagination
+        page={deposits.data.pagination.pageIndex}
+        pageSize={deposits.data.pagination.pageSize}
+        totalItems={deposits.data.pagination.totalCount}
+        totalPages={deposits.data.pagination.totalPages}
+        loading={deposits.loading}
+        onPageChange={setPage}
+        itemLabel="khoản cọc"
+      />
+    )}
   </div>;
 }

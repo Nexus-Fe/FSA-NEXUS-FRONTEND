@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Badge, Card, NoData, PageHeading, SectionHeading } from "@/components/ui/Primitives";
+import { ErrorState } from "@/components/ui/States";
 import { ROUTES } from "@/constants/routes";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatMoney } from "@/lib/presentation";
@@ -9,7 +10,6 @@ import { walletService } from "./services/wallet.service";
 import { transactionDirection, transactionTypeLabel } from "./transaction-display";
 import { WalletTopUpForm } from "./WalletTopUpFlow";
 import { SellerWithdrawalForm } from "./SellerWithdrawalForm";
-import { ErrorState } from "@/components/ui/States";
 
 
 function sellerTransactionType(type: string): string {

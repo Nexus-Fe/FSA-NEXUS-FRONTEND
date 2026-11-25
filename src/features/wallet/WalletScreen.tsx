@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { Card, NoData, PageHeading, SectionHeading, Badge } from "@/components/ui/Primitives";
+import { ErrorState, LoadingState } from "@/components/ui/States";
 import { ROUTES } from "@/constants/routes";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatMoney } from "@/lib/presentation";
 import { walletService } from "./services/wallet.service";
 import { transactionDirection, transactionTypeLabel } from "./transaction-display";
-import { ErrorState, LoadingState } from "@/components/ui/States";
 
 export function transactionType(type: string): string {
   return transactionTypeLabel(type);

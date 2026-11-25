@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from "react"
 import { ROUTES } from "@/constants/routes";
 import { useSession } from "@/components/auth/SessionProvider";
 import { Icon } from "@/components/ui/Icon";
+import { OtpCodeInput } from "@/components/ui/OtpCodeInput";
 import { Badge, ButtonLink, Card, PageHeading, SectionHeading } from "@/components/ui/Primitives";
 import { ApiError, api, type ApiResponse } from "@/lib/api/client";
 import {
@@ -145,6 +146,8 @@ export function BecomeSellerScreen() {
   const [otpEmail, setOtpEmail] = useState("");
   const [otpBusy, setOtpBusy] = useState(false);
   const [otpError, setOtpError] = useState("");
+  const [otpSignal, setOtpSignal] = useState(0);
+  const [otpSuccess, setOtpSuccess] = useState(false);
   const [otpNotice, setOtpNotice] = useState("");
   const otpInputRef = useRef<HTMLInputElement>(null);
 
@@ -452,6 +455,10 @@ export function BecomeSellerScreen() {
     try {
       const result = unwrap(await sellerService.verifyOtp(otpEmail, otpCode));
       if (result.status.toUpperCase() !== "PENDING") throw new Error("Chưa xác nhận được trạng thái hồ sơ. Vui lòng kiểm tra lại.");
+      setOtpSuccess(true);
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (!reduceMotion) await new Promise((resolve) => window.setTimeout(resolve, 650));
+      setOtpSuccess(false);
       setCurrentStatus("PENDING_APPROVAL");
       setRegistrationId(result.sellerId);
       setNextStep("AWAITING_STAFF_APPROVAL");
@@ -487,6 +494,8 @@ export function BecomeSellerScreen() {
         setClassifiedError({ category: "BUSINESS_RULE", categoryLabel: "Xác thực email", title: "Cần gửi lại hồ sơ", detail: message });
       } else {
         setOtpError(message);
+        setOtpCode("");
+        setOtpSignal((value) => value + 1);
       }
     } finally {
       setOtpBusy(false);
@@ -842,7 +851,7 @@ export function BecomeSellerScreen() {
                 <p id="seller-otp-description" className="seller-otp-description">Mã OTP đã gửi tới <strong>{otpEmail}</strong>. Xác thực thành công sẽ nộp hồ sơ để Staff duyệt.</p>
                 <form className="seller-otp-form" onSubmit={(event) => void verifyBusinessOtp(event)}>
                   <label className="seller-otp-label" htmlFor="seller-business-otp">Mã xác thực gồm 6 chữ số</label>
-                  <input ref={otpInputRef} id="seller-business-otp" className="field seller-otp-input" type="text" inputMode="numeric" pattern="[0-9]{6}" autoComplete="one-time-code" maxLength={6} required value={otpCode} onChange={(event) => { setOtpCode(event.target.value.replace(/\D/g, "").slice(0, 6)); setOtpError(""); }} />
+                  <OtpCodeInput id="seller-business-otp" firstInputRef={otpInputRef} value={otpCode} onChange={(code) => { setOtpCode(code); setOtpError(""); }} status={otpSuccess ? "success" : otpBusy ? "busy" : otpError ? "error" : "idle"} errorSignal={otpSignal} />
                   {otpError && <p className="form-error" role="alert">{otpError}</p>}
                   {otpNotice && <p className="form-success" role="status">{otpNotice}</p>}
                   <div className="seller-otp-actions">

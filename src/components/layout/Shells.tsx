@@ -2,12 +2,15 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Suspense, useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { memo, Suspense, useEffect, useState, type ReactNode } from "react";
+import { AccountMenu, type AccountMenuItem } from "./AccountMenu";
 import type { NavigationItem } from "@/constants/navigation";
 import { buyerNavigation } from "@/constants/navigation";
 import { ROUTES } from "@/constants/routes";
 import { Icon } from "@/components/ui/Icon";
+import { BackToTop } from "@/components/ui/BackToTop";
 import { useSession } from "@/components/auth/SessionProvider";
+import { useResolvedAvatar } from "@/lib/auth/avatar-storage";
 import { authService } from "@/features/auth";
 import { NotificationBell } from "@/features/notification";
 import { notificationService, notificationsChangedEvent } from "@/features/notification/services/notification.service";
@@ -158,6 +161,7 @@ export function Brand({
 
 function AccountNavigation() {
   const { user, clearSession } = useSession();
+  const avatarUrl = useResolvedAvatar(user);
   const router = useRouter();
   const displayName =
     user?.displayName ||
@@ -180,97 +184,34 @@ function AccountNavigation() {
     }
   };
 
+  const buyerItems: AccountMenuItem[] = user
+    ? [
+        isSeller
+          ? { href: ROUTES.seller.shop, label: "Hồ sơ gian hàng & Kho", icon: "warehouse", dividerAfter: true }
+          : { href: ROUTES.buyer.becomeSeller, label: "Đăng ký bán hàng", icon: "warehouse", dividerAfter: true },
+        { href: ROUTES.buyer.wallet, label: "Ví của tôi", icon: "wallet" },
+        { href: ROUTES.buyer.reports, label: "Báo cáo", icon: "flag" },
+        { href: ROUTES.auth.profile, label: "Hồ sơ cá nhân", icon: "user" },
+        { href: ROUTES.auth.addresses, label: "Sổ địa chỉ", icon: "warehouse" },
+        { href: ROUTES.auth.sessions, label: "Phiên đăng nhập", icon: "shield" },
+        { href: ROUTES.auth.notificationPreferences, label: "Tuỳ chọn thông báo", icon: "flag" },
+        { href: ROUTES.auth.changePassword, label: "Đổi mật khẩu", icon: "shield" },
+      ]
+    : [];
+
   return (
     <div className="account-nav">
       {user ? (
-        <details className="account-menu">
-          <summary>
-            <Icon name="user" size={22} />
-            <span>Tài khoản {displayName}</span>
-            <Icon name="chevronDown" size={16} />
-          </summary>
-          <div className="account-menu-panel">
-            <div className="account-menu-user-info">
-              <div className="account-menu-user-name">{displayName}</div>
-              {roleInfo && (
-                <div style={{ marginTop: 4 }}>
-                  <span
-                    className={`role-pill role-pill-${roleInfo.tone}`}
-                    style={{ fontSize: 9.5, padding: "2px 7px" }}
-                  >
-                    {roleInfo.label}
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {isSeller ? (
-              <div className="account-menu-section">
-                <Link href={ROUTES.seller.shop}>
-                  <Icon name="warehouse" size={16} />
-                  <span>Hồ sơ gian hàng &amp; Kho</span>
-                </Link>
-              </div>
-            ) : (
-              <div className="account-menu-section">
-                <Link href={ROUTES.buyer.becomeSeller}>
-                  <Icon name="warehouse" size={16} />
-                  <span>Đăng ký bán hàng</span>
-                </Link>
-              </div>
-            )}
-
-            <div className="account-menu-section">
-              <Link href={ROUTES.buyer.wallet}>
-                <Icon name="wallet" size={16} />
-                <span>Ví của tôi</span>
-              </Link>
-              <Link href={ROUTES.buyer.reports}>
-                <Icon name="flag" size={16} />
-                <span>Báo cáo</span>
-              </Link>
-              <Link href={ROUTES.auth.profile}>
-                <Icon name="user" size={16} />
-                <span>Hồ sơ cá nhân</span>
-              </Link>
-              <Link href={ROUTES.auth.addresses}>
-                <Icon name="warehouse" size={16} />
-                <span>Sổ địa chỉ</span>
-              </Link>
-              <Link href={ROUTES.auth.sessions}>
-                <Icon name="shield" size={16} />
-                <span>Phiên đăng nhập</span>
-              </Link>
-              <Link href={ROUTES.auth.notificationPreferences}>
-                <Icon name="flag" size={16} />
-                <span>Tuỳ chọn thông báo</span>
-              </Link>
-              <Link href={ROUTES.auth.sessions}>
-              <Icon name="shield" size={16} />
-              <span>Phiên đăng nhập</span>
-            </Link>
-            <Link href={ROUTES.auth.notificationPreferences}>
-              <Icon name="flag" size={16} />
-              <span>Tuỳ chọn thông báo</span>
-            </Link>
-            <Link href={ROUTES.auth.changePassword}>
-                <Icon name="shield" size={16} />
-                <span>Đổi mật khẩu</span>
-              </Link>
-            </div>
-
-            <div className="account-menu-footer">
-              <button
-                type="button"
-                className="account-logout-btn"
-                onClick={() => void logout()}
-              >
-                <Icon name="arrow" size={16} />
-                <span>Đăng xuất</span>
-              </button>
-            </div>
-          </div>
-        </details>
+        <AccountMenu
+          placement="down"
+          triggerVariant="avatar"
+          displayName={displayName}
+          avatarUrl={avatarUrl}
+          subtitle={user.email ?? user.username ?? undefined}
+          rolePill={roleInfo}
+          items={buyerItems}
+          onLogout={() => void logout()}
+        />
       ) : (
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <Link className="account-login" href={ROUTES.auth.login}>
@@ -287,27 +228,20 @@ function AccountNavigation() {
 
 function PortalAccountMenu({ role }: { role: string }) {
   const { user, clearSession } = useSession();
+  const avatarUrl = useResolvedAvatar(user);
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const isSeller = role === "Người bán";
-  const [accountOpen, setAccountOpen] = useState(false);
-  const accountMenuRef = useRef<HTMLDivElement>(null);
-  const accountMenuId = useId();
-  const notifications = useApiResource(isSeller && user?.id ? `notifications:portal:${user.id}` : null,
-    async (signal) => (await notificationService.getNotifications(1, 1, false, signal)).pagination.totalCount);
+  const notifications = useApiResource(
+    isSeller && user?.id ? `notifications:portal:${user.id}` : null,
+    async (signal) => (await notificationService.getNotifications(1, 1, false, signal)).pagination.totalCount,
+  );
   useEffect(() => {
     if (!isSeller) return;
     window.addEventListener(notificationsChangedEvent, notifications.reload);
     return () => window.removeEventListener(notificationsChangedEvent, notifications.reload);
   }, [isSeller, notifications.reload]);
-  useEffect(() => {
-    if (!accountOpen) return;
-    const closeOnOutsideClick = (event: PointerEvent) => {
-      if (!accountMenuRef.current?.contains(event.target as Node)) setAccountOpen(false);
-    };
-    document.addEventListener("pointerdown", closeOnOutsideClick);
-    return () => document.removeEventListener("pointerdown", closeOnOutsideClick);
-  }, [accountOpen]);
+
   const unreadCount = notifications.data ?? 0;
   const unreadLabel = unreadCount > 99 ? "99+" : unreadCount;
   const roleInfo = resolveUserRole(user, role);
@@ -339,91 +273,132 @@ function PortalAccountMenu({ role }: { role: string }) {
     router.replace(ROUTES.auth.login);
   }
 
-  const accountTrigger = <>
-        <div className="avatar" aria-hidden="true">
-          {displayName.charAt(0).toLocaleUpperCase("vi-VN")}
-        </div>
-        <div className="portal-account-trigger-copy">
-          <strong title={displayName}>{displayName}</strong>
-          <span>{displayRole}</span>
-        </div>
-        {unreadCount > 0 && <span className="notification-count portal-account-unread" aria-label={`${unreadCount} thông báo chưa đọc`}>{unreadLabel}</span>}
-        {unreadCount === 0 && <Icon name="chevronDown" size={16} />}
-  </>;
-  const accountPanel = <div id={accountMenuId} className="account-menu-panel portal-account-menu-panel"
-    onClickCapture={(event) => { if ((event.target as HTMLElement).closest("a")) setAccountOpen(false); }}>
-        {canAccessMarketplace && (
-          <Link className="portal-marketplace-link" href={ROUTES.home}>
-            <Icon name="bag" size={16} />
-            <span>Xem sàn thương mại</span>
-          </Link>
-        )}
-        {user ? (
-          <>
-            <Link href={ROUTES.auth.profile}>
-              <Icon name="user" size={16} />
-              <span>Hồ sơ cá nhân</span>
-            </Link>
-            <Link href={ROUTES.auth.addresses}>
-              <Icon name="warehouse" size={16} />
-              <span>Sổ địa chỉ</span>
-            </Link>
-            <Link href={ROUTES.auth.changePassword}>
-              <Icon name="shield" size={16} />
-              <span>Đổi mật khẩu</span>
-            </Link>
-            {isSeller && <Link href={ROUTES.seller.notifications} aria-label={unreadCount ? `Thông báo, ${unreadCount} chưa đọc` : "Thông báo"}>
-              <Icon name="bell" size={16} />
-              <span>Thông báo</span>
-              {unreadCount > 0 && <span className="notification-count portal-notification-unread" aria-hidden="true">{unreadLabel}</span>}
-            </Link>}
-            <button
-              type="button"
-              className="portal-logout-btn"
-              disabled={busy}
-              onClick={() => void logout()}
-            >
-              <Icon name="arrow" size={16} />
-              <span>{busy ? "Đang đăng xuất…" : "Đăng xuất"}</span>
-            </button>
-          </>
-        ) : (
-          <Link href={ROUTES.auth.login}>
-            <Icon name="user" size={16} />
-            <span>Đăng nhập</span>
-          </Link>
-        )}
-  </div>;
+  const portalItems: AccountMenuItem[] = [];
+  if (canAccessMarketplace) {
+    portalItems.push({ href: ROUTES.home, label: "Xem sàn thương mại", icon: "bag", highlight: true, dividerAfter: true });
+  }
+  if (user) {
+    portalItems.push(
+      { href: ROUTES.auth.profile, label: "Hồ sơ cá nhân", icon: "user" },
+      { href: ROUTES.auth.addresses, label: "Sổ địa chỉ", icon: "warehouse" },
+      { href: ROUTES.auth.changePassword, label: "Đổi mật khẩu", icon: "shield" },
+    );
+    if (isSeller) {
+      portalItems.push({
+        href: ROUTES.seller.notifications,
+        label: "Thông báo",
+        icon: "bell",
+        badge: unreadCount > 0 ? unreadLabel : null,
+        ariaLabel: unreadCount ? `Thông báo, ${unreadCount} chưa đọc` : "Thông báo",
+      });
+    }
+  }
 
-  return <div ref={accountMenuRef} className="portal-account-menu portal-account-menu-animated" data-open={accountOpen}
-    onKeyDown={(event) => { if (event.key === "Escape") { setAccountOpen(false); accountMenuRef.current?.querySelector<HTMLButtonElement>("button.sidebar-bottom")?.focus(); } }}>
-    <button type="button" className="sidebar-bottom" aria-expanded={accountOpen} aria-controls={accountMenuId}
-      onClick={() => { if (!accountOpen && isSeller) notifications.reload(); setAccountOpen((open) => !open); }}>
-      {accountTrigger}
-    </button>
-    {accountPanel}
-  </div>;
+  return (
+    <div className="portal-account-menu">
+      <AccountMenu
+        placement="up"
+        triggerVariant="sidebar"
+        displayName={displayName}
+        avatarUrl={avatarUrl}
+        subtitle={displayRole}
+        items={portalItems}
+        onLogout={user ? () => void logout() : undefined}
+        logoutBusy={busy}
+        loginHref={!user ? ROUTES.auth.login : undefined}
+        unreadBadge={unreadCount > 0 ? unreadLabel : null}
+        unreadLabel={unreadCount > 0 ? `${unreadCount} thông báo chưa đọc` : undefined}
+        onOpen={() => { if (isSeller) notifications.reload(); }}
+      />
+    </div>
+  );
 }
+
+function BuyerCategoryMenu() {
+  const categories = useApiResource("/api/v1/categories", loadCategories);
+  return (
+    <nav aria-label="Danh mục sản phẩm" className="buyer-category-menu">
+      <div className="buyer-category-menu-head">
+        <strong>Khám phá danh mục</strong>
+        <Link href={ROUTES.catalog.index}>
+          Tất cả sản phẩm <Icon name="arrow" size={14} />
+        </Link>
+      </div>
+      {categories.error ? (
+        <div className="buyer-category-menu-state" role="alert">
+          Không tải được danh mục.{" "}
+          <button type="button" onClick={categories.reload}>
+            Thử lại
+          </button>
+        </div>
+      ) : categories.loading ? (
+        <p className="buyer-category-menu-state" role="status">
+          Đang tải danh mục…
+        </p>
+      ) : categories.data?.length ? (
+        <div className="buyer-category-menu-grid">
+          {categoryGroups(categories.data).map(({ parent, children }) => (
+            <section className="buyer-category-menu-group" key={parent.id}>
+              <Link className="buyer-category-menu-parent" href={`${ROUTES.catalog.index}?categoryId=${encodeURIComponent(parent.id)}`}>
+                {parent.name}
+              </Link>
+              {children.length > 0 && (
+                <div className="buyer-category-menu-children">
+                  {children.map((child) => (
+                    <Link key={child.id} href={`${ROUTES.catalog.index}?categoryId=${encodeURIComponent(child.id)}`}>
+                      {child.name}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </section>
+          ))}
+        </div>
+      ) : (
+        <p className="buyer-category-menu-state">Chưa có danh mục.</p>
+      )}
+    </nav>
+  );
+}
+
+function BuyerHeaderNav({ isSeller }: { isSeller: boolean }) {
+  const enabledBuyerNav = useEnabledNavigation(buyerNavigation);
+  const dynamicBuyerNav = enabledBuyerNav.filter((item) => !(item.href === ROUTES.buyer.becomeSeller && isSeller));
+
+  return (
+    <div className="buyer-nav-wrap">
+      <Suspense fallback={null}>
+        <NavLinks
+          items={dynamicBuyerNav}
+          variant="top"
+          ariaLabel="Điều hướng mua sắm"
+          catalogMenu={<BuyerCategoryMenu />}
+        />
+      </Suspense>
+    </div>
+  );
+}
+
+const SiteFooter = memo(function SiteFooter() {
+  return (
+    <footer className="site-footer">
+      <div>
+        <Brand compact />
+        <p>Copyright 2026</p>
+      </div>
+      <p>© NEXUS</p>
+    </footer>
+  );
+});
 
 export function BuyerShell({ children }: { children: ReactNode }) {
   const { user } = useSession();
-  const categories = useApiResource("/api/v1/categories", loadCategories);
   const userRoles = user?.roles ?? (user?.role ? [user.role] : []);
   const dashboardLinks = dashboardsForRoles(userRoles);
   const hasPrivilegedRole = dashboardLinks.length > 0;
   const homeHref = getRoleHomeRoute(user);
   const homeLabel = getRoleHomeLabel(user);
   const isSeller = getNormalizedRoles(user).includes("seller");
-
-  const enabledBuyerNav = useEnabledNavigation(buyerNavigation);
-  const dynamicBuyerNav = enabledBuyerNav.filter((item) => {
-    // Nếu người dùng đã là người bán, họ đã có nút "Kênh người bán" ở góc phải header-actions.
-    // Ẩn tab đăng ký bán hàng khỏi thanh nav mua sắm để tránh trùng lặp.
-    if (item.href === ROUTES.buyer.becomeSeller && isSeller) {
-      return false;
-    }
-    return true;
-  });
 
   return (
     <div className="site-shell buyer-glass-shell">
@@ -473,17 +448,7 @@ export function BuyerShell({ children }: { children: ReactNode }) {
             <AccountNavigation />
           </div>
         </div>
-        <div className="buyer-nav-wrap">
-          <Suspense fallback={null}>
-            <NavLinks items={dynamicBuyerNav} variant="top" ariaLabel="Điều hướng mua sắm" catalogMenu={<nav aria-label="Danh mục sản phẩm" className="buyer-category-menu">
-              <div className="buyer-category-menu-head"><strong>Khám phá danh mục</strong><Link href={ROUTES.catalog.index}>Tất cả sản phẩm <Icon name="arrow" size={14} /></Link></div>
-              {categories.error ? <div className="buyer-category-menu-state" role="alert">Không tải được danh mục. <button type="button" onClick={categories.reload}>Thử lại</button></div> : categories.loading ? <p className="buyer-category-menu-state" role="status">Đang tải danh mục…</p> : categories.data?.length ? <div className="buyer-category-menu-grid">{categoryGroups(categories.data).map(({ parent, children }) => <section className="buyer-category-menu-group" key={parent.id}>
-                <Link className="buyer-category-menu-parent" href={`${ROUTES.catalog.index}?categoryId=${encodeURIComponent(parent.id)}`}>{parent.name}</Link>
-                {children.length > 0 && <div className="buyer-category-menu-children">{children.map((child) => <Link key={child.id} href={`${ROUTES.catalog.index}?categoryId=${encodeURIComponent(child.id)}`}>{child.name}</Link>)}</div>}
-              </section>)}</div> : <p className="buyer-category-menu-state">Chưa có danh mục.</p>}
-            </nav>} />
-          </Suspense>
-        </div>
+        <BuyerHeaderNav isSeller={isSeller} />
       </header>
       <main id="main-content" className="buyer-main">
         <Suspense fallback={null}>
@@ -491,13 +456,8 @@ export function BuyerShell({ children }: { children: ReactNode }) {
         </Suspense>
         {children}
       </main>
-      <footer className="site-footer">
-        <div>
-          <Brand compact />
-          <p>Copyright 2026</p>
-        </div>
-        <p>© NEXUS</p>
-      </footer>
+      <SiteFooter />
+      <BackToTop />
     </div>
   );
 }
@@ -559,6 +519,7 @@ export function PortalShell({
           {children}
         </main>
       </div>
+      <BackToTop />
     </div>
   );
 }

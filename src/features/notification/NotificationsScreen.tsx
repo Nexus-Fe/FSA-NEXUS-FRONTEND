@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useSession } from "@/components/auth/SessionProvider";
-import { Card, PageHeading } from "@/components/ui/Primitives";
+import { AdminPagination, Card, PageHeading } from "@/components/ui/Primitives";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { usePathname } from "next/navigation";
 import { NotificationAction } from "./NotificationAction";
@@ -62,10 +62,16 @@ export function NotificationsScreen() {
         </li>)}
       </ul> : resource.loading ? <LoadingState rows={4} label="Đang tải thông báo…" /> : resource.error ? null : <EmptyState title="Chưa có thông báo" description="Thông báo về đơn hàng, đấu giá và ví sẽ hiện ở đây." />}
     </Card>
-    {!!resource.data && resource.data.pagination.totalPages > 1 && <nav className="catalog-pagination" aria-label="Phân trang thông báo">
-      <button type="button" className="button button-secondary button-small" disabled={page <= 1 || resource.loading} onClick={() => setPage((value) => value - 1)}>Trang trước</button>
-      <span>Trang {page}/{resource.data.pagination.totalPages}</span>
-      <button type="button" className="button button-secondary button-small" disabled={!resource.data.pagination.hasNextPage || resource.loading} onClick={() => setPage((value) => value + 1)}>Trang sau</button>
-    </nav>}
+    {!!resource.data && resource.data.pagination.totalPages > 1 && (
+      <AdminPagination
+        page={page}
+        pageSize={20}
+        totalItems={resource.data.pagination.totalCount}
+        totalPages={resource.data.pagination.totalPages}
+        loading={resource.loading}
+        onPageChange={setPage}
+        itemLabel="thông báo"
+      />
+    )}
   </>;
 }

@@ -18,6 +18,14 @@ import { ShopRegistrationForm, ShopRegistrationReview, emptyShopRegistrationFiel
 import { keepSellerRegistrationHandoff } from "@/features/seller/services/seller-registration-handoff";
 import { AuthSplitLayout } from "./components/AuthSplitLayout";
 import { PasswordInput } from "@/components/ui/PasswordInput";
+import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
+import { SubmitMorphButton } from "@/components/auth/SubmitMorphButton";
+import { OtpCodeInput } from "@/components/ui/OtpCodeInput";
+import { EmailInput } from "@/components/ui/EmailInput";
+import { PasswordResetCard } from "@/components/auth/PasswordResetCard";
+import { AvatarCropEditor } from "@/components/auth/AvatarCropEditor";
+import { saveStoredAvatar, useStoredAvatar } from "@/lib/auth/avatar-storage";
+import { resolveImageUrl } from "@/lib/presentation";
 import { useOtpCooldown, clearStoredCooldown } from "./hooks/useOtpCooldown";
 
 function landingPath(user: AuthUser): string {
@@ -84,12 +92,15 @@ export function LoginScreen() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [googleSubmitting, setGoogleSubmitting] = useState(false);
+  const [succeeded, setSucceeded] = useState<"password" | "google" | null>(null);
+  const [shaking, setShaking] = useState(false);
   const authInFlightRef = useRef(false);
-  const busy = submitting || googleSubmitting;
+  const busy = submitting || googleSubmitting || succeeded !== null;
 
   async function runAuthAttempt(
     setLoading: (loading: boolean) => void,
     authenticate: () => Promise<{ user: AuthUser }>,
+    kind: "password" | "google",
     ignorePopupClose = false,
   ) {
     if (authInFlightRef.current) return;
@@ -99,12 +110,18 @@ export function LoginScreen() {
     try {
       const response = await authenticate();
       setAuthenticatedUser(response.user);
+      // Let the success check show briefly before leaving the page (skipped for reduced motion).
+      setLoading(false);
+      setSucceeded(kind);
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (!reduceMotion) await new Promise((resolve) => window.setTimeout(resolve, 650));
       router.replace(safeReturnPath(searchParams.get("returnTo"), response.user) ?? landingPath(response.user));
     } catch (reason) {
       if (ignorePopupClose && reason instanceof FirebaseClientError && reason.code === "POPUP_CLOSED") {
         return;
       }
       setError(formatLoginError(reason));
+      setShaking(true);
     } finally {
       authInFlightRef.current = false;
       setLoading(false);
@@ -113,7 +130,7 @@ export function LoginScreen() {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    await runAuthAttempt(setSubmitting, () => authService.login({ identifier, password }));
+    await runAuthAttempt(setSubmitting, () => authService.login({ identifier, password }), "password");
   }
 
   async function handleGoogleLogin() {
@@ -123,6 +140,7 @@ export function LoginScreen() {
         const idToken = await signInWithGooglePopup();
         return authService.loginWithGoogle({ idToken });
       },
+      "google",
       true,
     );
   }
@@ -136,26 +154,17 @@ export function LoginScreen() {
       {passwordChanged && <p className="form-success" role="status">Đã đổi mật khẩu. Đăng nhập lại bằng mật khẩu mới.</p>}
 
       {/* Đăng nhập nhanh với Google */}
-      <button
-        type="button"
-        className="auth-social-btn"
+      <GoogleSignInButton
+        status={succeeded === "google" ? "ok" : googleSubmitting ? "busy" : "idle"}
         disabled={busy}
         onClick={() => void handleGoogleLogin()}
-      >
-        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
-        </svg>
-        <span>{googleSubmitting ? "Đang xác thực Google…" : "Đăng nhập nhanh với Google"}</span>
-      </button>
+      />
 
       <div className="auth-divider">
         <span>Hoặc bằng tài khoản</span>
       </div>
 
-      <form className="auth-fields" onSubmit={submit}>
+      <form className={`auth-fields${shaking ? " u062-shake" : ""}`} onSubmit={submit} onAnimationEnd={(event) => { if (event.target === event.currentTarget) setShaking(false); }}>
         <div className="field-wrap">
           <label htmlFor="login-identifier">Email hoặc tên đăng nhập</label>
           <div className="input-icon-wrap">
@@ -195,19 +204,13 @@ export function LoginScreen() {
 
         {error && <p className="form-error" role="alert">{error}</p>}
 
-        <button className="auth-submit-btn" type="submit" disabled={busy}>
-          {submitting ? (
-            "Đang đăng nhập…"
-          ) : (
-            <>
-              <span>Đăng nhập</span>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <line x1="5" y1="12" x2="19" y2="12" />
-                <polyline points="12 5 19 12 12 19" />
-              </svg>
-            </>
-          )}
-        </button>
+        <SubmitMorphButton status={succeeded === "password" ? "ok" : submitting ? "busy" : "idle"} disabled={googleSubmitting}>
+          <span>Đăng nhập</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <line x1="5" y1="12" x2="19" y2="12" />
+            <polyline points="12 5 19 12 12 19" />
+          </svg>
+        </SubmitMorphButton>
       </form>
 
       <p className="auth-single-footnote">
@@ -251,6 +254,8 @@ export function RegisterScreen() {
   const [shop, setShop] = useState<ShopRegistrationFields>(emptyShopRegistrationFields);
   const [locationCheck, setLocationCheck] = useState<GhnCheck>({ state: "empty" });
   const [otp, setOtp] = useState("");
+  const [otpSignal, setOtpSignal] = useState(0);
+  const [otpSuccess, setOtpSuccess] = useState(false);
   const [step, setStep] = useState<RegistrationStep>("account");
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -338,6 +343,9 @@ export function RegisterScreen() {
       await authService.verifyOtp(fields.email, otp);
       clearStoredCooldown(fields.email);
       if (choice === "seller") keepSellerRegistrationHandoff(fields.email, shop);
+      setOtpSuccess(true);
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (!reduceMotion) await new Promise((resolve) => window.setTimeout(resolve, 650));
       setStep("signingIn");
       try {
         const session = await authService.login({ identifier: fields.email.trim(), password: fields.password });
@@ -352,6 +360,8 @@ export function RegisterScreen() {
     } catch (reason) {
       setStep("verify");
       setError(reason instanceof Error ? reason.message : "Mã xác minh không hợp lệ.");
+      setOtp("");
+      setOtpSignal((value) => value + 1);
     } finally {
       setSubmitting(false);
     }
@@ -468,19 +478,15 @@ export function RegisterScreen() {
                 />
               </label>
 
-              <label className="field-wrap" htmlFor="register-email">
-                Email nhận OTP
-                <input
-                  id="register-email"
-                  className="field"
-                  type="email"
-                  autoComplete="email"
-                  placeholder="name@example.com"
-                  required
-                  value={fields.email}
-                  onChange={(event) => updateField("email", event.target.value)}
-                />
-              </label>
+              <EmailInput
+                id="register-email"
+                label="Email nhận OTP"
+                placeholder="name@example.com"
+                required
+                value={fields.email}
+                helpText="Mã OTP xác thực sẽ được gửi tới email này"
+                onChange={(next) => updateField("email", next)}
+              />
             </div>
 
             {/* Grid hàng 2: Họ & Tên */}
@@ -613,22 +619,16 @@ export function RegisterScreen() {
 
       {step === "verify" && (
         <form className="auth-fields" onSubmit={verify}>
-          <label className="field-wrap" htmlFor="register-otp">
-            Mã OTP tài khoản (6 số)
-            <input
+          <div className="field-wrap">
+            <label htmlFor="register-otp">Mã OTP tài khoản (6 số)</label>
+            <OtpCodeInput
               id="register-otp"
-              className="field"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              minLength={6}
-              maxLength={6}
-              pattern="[0-9]{6}"
-              placeholder="123456"
-              required
               value={otp}
-              onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))}
+              onChange={(code) => { setOtp(code); if (error) setError(null); }}
+              status={otpSuccess ? "success" : submitting ? "busy" : error ? "error" : "idle"}
+              errorSignal={otpSignal}
             />
-          </label>
+          </div>
           {error && <p className="form-error" role="alert">{error}</p>}
           {message && <p className="form-success" role="status">{message}</p>}
           <button className="auth-submit-btn" type="submit" disabled={submitting || otp.length !== 6}>
@@ -668,31 +668,18 @@ export function ForgotPasswordScreen() {
   const [busy, setBusy] = useState(false);
   const { cooldown: resendIn, startCooldown } = useOtpCooldown(email);
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function requestPasswordResetOtp(isResend: boolean): Promise<boolean> {
     setBusy(true);
     setError("");
     try {
       const { api } = await import("@/lib/api/client");
       await api.post("/api/v1/auth/password/forgot", { email });
-      setSent(true);
+      if (!isResend) setSent(true);
       startCooldown(60);
+      return true;
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Không thể gửi yêu cầu.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function resendForgotPasswordOtp() {
-    setBusy(true);
-    setError("");
-    try {
-      const { api } = await import("@/lib/api/client");
-      await api.post("/api/v1/auth/password/forgot", { email });
-      startCooldown(60);
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Không thể gửi lại mã OTP.");
+      setError(reason instanceof Error ? reason.message : isResend ? "Không thể gửi lại mã OTP." : "Không thể gửi yêu cầu.");
+      return false;
     } finally {
       setBusy(false);
     }
@@ -704,34 +691,18 @@ export function ForgotPasswordScreen() {
         <h1>Quên mật khẩu</h1>
         <p>Nhập email đăng ký để nhận mã OTP đặt lại mật khẩu.</p>
       </div>
-      {sent ? (
-        <div className="auth-fields">
-          <p className="form-success" role="status">Nếu email tồn tại, hướng dẫn đặt lại mật khẩu đã được gửi.</p>
-          <div className="action-row">
-            <Link className="auth-submit-btn" href={ROUTES.auth.resetPassword} style={{ textDecoration: "none" }}>Nhập mã OTP</Link>
-            <button
-              className="button button-secondary"
-              type="button"
-              disabled={busy || resendIn > 0}
-              onClick={() => void resendForgotPasswordOtp()}
-            >
-              {resendIn > 0 ? `Gửi lại mã sau ${resendIn}s` : "Gửi lại mã OTP"}
-            </button>
-          </div>
-          {error && <p className="form-error" role="alert">{error}</p>}
-        </div>
-      ) : (
-        <form className="auth-fields" onSubmit={submit}>
-          <div className="field-wrap">
-            <label htmlFor="forgot-email">Email tài khoản</label>
-            <input id="forgot-email" className="field" type="email" autoComplete="email" placeholder="name@example.com" required value={email} onChange={event => setEmail(event.target.value)} />
-          </div>
-          {error && <p className="form-error" role="alert">{error}</p>}
-          <button className="auth-submit-btn" disabled={busy}>
-            {busy ? "Đang gửi…" : "Gửi mã OTP đặt lại"}
-          </button>
-        </form>
-      )}
+      <PasswordResetCard
+        email={email}
+        onEmailChange={setEmail}
+        sent={sent}
+        busy={busy}
+        error={error}
+        resendIn={resendIn}
+        onSend={() => requestPasswordResetOtp(false)}
+        onResend={() => requestPasswordResetOtp(true)}
+        onChangeEmail={() => { setSent(false); setError(""); }}
+        resetPasswordHref={ROUTES.auth.resetPassword}
+      />
       <p className="auth-single-footnote"><Link href={ROUTES.auth.login}>Quay lại đăng nhập</Link></p>
     </AuthSplitLayout>
   );
@@ -740,6 +711,7 @@ export function ForgotPasswordScreen() {
 export function ResetPasswordScreen() {
   const [email, setEmail] = useState("");
   const [otpCode, setOtp] = useState("");
+  const [otpSignal, setOtpSignal] = useState(0);
   const [newPassword, setPassword] = useState("");
   const [confirmPassword, setConfirm] = useState("");
   const [error, setError] = useState("");
@@ -749,6 +721,10 @@ export function ResetPasswordScreen() {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    if (otpCode.length !== 6) {
+      setError("Nhập đủ mã OTP gồm 6 chữ số.");
+      return;
+    }
     if (newPassword !== confirmPassword) {
       setError("Mật khẩu xác nhận không khớp.");
       return;
@@ -761,6 +737,8 @@ export function ResetPasswordScreen() {
       setDone(true);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Không thể đặt lại mật khẩu.");
+      setOtp("");
+      setOtpSignal((value) => value + 1);
     } finally {
       setBusy(false);
     }
@@ -782,14 +760,24 @@ export function ResetPasswordScreen() {
         </div>
       ) : (
         <form className="auth-fields" onSubmit={submit}>
-          <div className="field-wrap">
-            <label htmlFor="reset-email">Email tài khoản</label>
-            <input id="reset-email" className="field" type="email" placeholder="name@example.com" required value={email} onChange={e => setEmail(e.target.value)} />
-          </div>
+          <EmailInput
+            id="reset-email"
+            label="Email tài khoản"
+            placeholder="name@example.com"
+            required
+            value={email}
+            onChange={setEmail}
+          />
 
           <div className="field-wrap">
             <label htmlFor="reset-otp">Mã OTP (6 chữ số)</label>
-            <input id="reset-otp" className="field" inputMode="numeric" autoComplete="one-time-code" minLength={6} maxLength={6} placeholder="123456" required value={otpCode} onChange={e => setOtp(e.target.value.replace(/\D/g, ""))} />
+            <OtpCodeInput
+              id="reset-otp"
+              value={otpCode}
+              onChange={(code) => { setOtp(code); if (error) setError(""); }}
+              status={done ? "success" : busy ? "busy" : error ? "error" : "idle"}
+              errorSignal={otpSignal}
+            />
           </div>
 
           <PasswordInput
@@ -930,6 +918,8 @@ export function AccountProfileScreen() {
   const [error, setError] = useState("");
   const [saved, setSaved] = useState("");
   const [busy, setBusy] = useState(false);
+  const [avatarOpen, setAvatarOpen] = useState(false);
+  const storedAvatar = useStoredAvatar(user?.id);
   const profile = useApiResource("account-profile:" + revision, (signal) => profileService.getProfile(signal));
 
   useEffect(() => {
@@ -962,7 +952,8 @@ export function AccountProfileScreen() {
     }
   }
 
-  const p = profile.data ?? { firstName: "", lastName: "", email: "", username: null, phoneNumber: null, address: null, reputationScore: null, trustLevel: "", isSeller: false };
+  const p = profile.data ?? { firstName: "", lastName: "", email: "", username: null, phoneNumber: null, address: null, avatarUrl: null, reputationScore: null, trustLevel: "", isSeller: false };
+  const avatarUrl = resolveImageUrl(p.avatarUrl ?? null) ?? resolveImageUrl(user?.avatarUrl ?? null) ?? storedAvatar;
   const displayName = [p?.firstName, p?.lastName].filter(Boolean).join(" ") || user?.displayName || user?.username || "Tài khoản Nexus";
   const email = p?.email ?? user?.email ?? "";
   const isSeller = Boolean(p?.isSeller || user?.roles?.some((role) => role.toLowerCase() === "seller") || user?.role?.toLowerCase() === "seller");
@@ -977,7 +968,42 @@ export function AccountProfileScreen() {
   return <div className="profile-page">
     <div className="profile-layout">
       <aside className="profile-sidebar">
-        <div className="profile-identity"><span className="profile-avatar" aria-hidden="true">{String(displayName).charAt(0).toLocaleUpperCase("vi-VN")}</span><strong>{displayName}</strong>{email&&<small>{email}</small>}</div>
+        <div className="profile-identity">
+          <span className="profile-avatar" aria-hidden="true" style={{ overflow: "hidden" }}>
+            {avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={avatarUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+            ) : (
+              String(displayName).charAt(0).toLocaleUpperCase("vi-VN")
+            )}
+          </span>
+          <strong>{displayName}</strong>
+          {email && <small>{email}</small>}
+          <button
+            type="button"
+            className="button button-secondary button-small"
+            style={{ marginTop: 10 }}
+            onClick={() => setAvatarOpen((open) => !open)}
+          >
+            {avatarOpen ? "Đóng chỉnh ảnh" : "Đổi ảnh đại diện"}
+          </button>
+        </div>
+        {avatarOpen && (
+          <AvatarCropEditor
+            initialLetter={String(displayName).charAt(0).toLocaleUpperCase("vi-VN")}
+            currentAvatar={avatarUrl}
+            onSave={async (blob, previewDataUrl) => {
+              const file = new File([blob], "avatar.png", { type: blob.type || "image/png" });
+              const result = await profileService.uploadAvatar(file);
+              const resolved = resolveImageUrl(result.avatarUrl) ?? result.avatarUrl ?? previewDataUrl;
+              if (user) setAuthenticatedUser({ ...user, avatarUrl: resolved });
+              saveStoredAvatar(user?.id, resolved);
+              setSaved("Đã cập nhật ảnh đại diện.");
+              setRevision((value) => value + 1);
+            }}
+            onCancel={() => setAvatarOpen(false)}
+          />
+        )}
         <nav className="profile-nav" aria-label="Điều hướng tài khoản">
           <a href="#profile-information" aria-current="page">Hồ sơ cá nhân</a>
           <Link href={ROUTES.auth.changePassword}>Đổi mật khẩu &amp; bảo mật</Link>

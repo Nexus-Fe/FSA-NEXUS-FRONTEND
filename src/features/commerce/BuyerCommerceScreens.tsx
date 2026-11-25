@@ -5,7 +5,9 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useSession } from "@/components/auth/SessionProvider";
 import { BackendImage } from "@/components/ui/BackendImage";
-import { Badge, Card, PageHeading } from "@/components/ui/Primitives";
+import { AdminPagination, Badge, Card, PageHeading } from "@/components/ui/Primitives";
+import { ErrorState, LoadingState } from "@/components/ui/States";
+import { EmailInput } from "@/components/ui/EmailInput";
 import { ROUTES } from "@/constants/routes";
 import { ApiError, api, unwrap, type ApiResponse } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
@@ -25,7 +27,6 @@ import { GhnLocationSelect } from "@/features/shipping/GhnLocationSelect";
 import { SavedAddressPicker } from "@/features/profile/SavedAddressPicker";
 import { toGhnSelection } from "@/features/profile/address-rules";
 import { EMPTY_GHN_SELECTION, buildShippingAddress, formatAddressLine, ghnWriteBlock, parseGhnSelection, validateGhnSelection, type GhnCheck, type GhnSelection } from "@/features/shipping/ghn-address";
-import { ErrorState, LoadingState } from "@/components/ui/States";
 import { EmptyState } from "@/components/ui/EmptyState";
 
 
@@ -775,7 +776,7 @@ export function CheckoutScreen() {
           {(!quoteReady || editingShipping) && <>
           <SavedAddressPicker onPick={(saved) => { setForm({ receiverName: saved.recipientName, phone: saved.phone, address: saved.addressLine }); setGhn(toGhnSelection(saved)); setErrors({}); setSubmitError(""); setQuoteError(""); }} />
           <label className="field-wrap"><span>Họ tên người nhận <abbr className="checkout-required" title="Bắt buộc">*</abbr></span><input className="field" name="receiverName" required autoComplete="name" value={form.receiverName} onChange={(event) => setField("receiverName", event.target.value)} onBlur={() => blurField("receiverName")} aria-invalid={Boolean(errors.receiverName)} placeholder="Ví dụ: Nguyễn Văn A" />{errors.receiverName && <small className="checkout-field-error" role="alert">{errors.receiverName}</small>}</label>
-          <div className="checkout-contact-row"><label className="field-wrap">Email liên hệ<input className="field" type="email" autoComplete="email" value={extra.email} onChange={(event) => setExtra((current) => ({ ...current, email: event.target.value }))} placeholder="contact@example.com" /></label>
+          <div className="checkout-contact-row"><EmailInput label="Email liên hệ" value={extra.email} onChange={(next) => setExtra((current) => ({ ...current, email: next }))} placeholder="contact@example.com" helpText="Tùy chọn: nhận thông báo trạng thái đơn hàng" />
           <label className="field-wrap"><span>Số điện thoại <abbr className="checkout-required" title="Bắt buộc">*</abbr></span><input className="field" name="phone" type="tel" required autoComplete="tel" inputMode="tel" value={form.phone} onChange={(event) => setField("phone", event.target.value)} onBlur={() => blurField("phone")} aria-invalid={Boolean(errors.phone)} placeholder="Ví dụ: 0901234567" />{errors.phone && <small className="checkout-field-error" role="alert">{errors.phone}</small>}</label></div>
           <label className="field-wrap"><span>Địa chỉ cụ thể <abbr className="checkout-required" title="Bắt buộc">*</abbr></span><input className="field" name="address" required autoComplete="street-address" value={form.address} onChange={(event) => setField("address", event.target.value)} onBlur={() => blurField("address")} aria-invalid={Boolean(errors.address)} placeholder="Số nhà, tên đường" />{errors.address && <small className="checkout-field-error" role="alert">{errors.address}</small>}</label>
           <label className="field-wrap">Quốc gia<input className="field checkout-country" value="Việt Nam" readOnly aria-readonly="true" /></label>
@@ -864,7 +865,17 @@ export function OrdersScreen() {
       ) : (
         orders.loading ? <LoadingState rows={4} label="Đang tải đơn hàng…" /> : orders.error ? null : <EmptyState title="Bạn chưa có đơn hàng" description="Đơn hàng sau khi đặt sẽ xuất hiện tại đây." actionLabel="Bắt đầu mua sắm" actionHref={ROUTES.catalog.index} />
       )}
-      {orders.data && orders.data.pagination.totalPages > 1 && <div className="action-row"><button type="button" className="button button-secondary" disabled={page <= 1} onClick={() => setPage((value) => value - 1)}>Trang trước</button><span>Trang {page}/{orders.data.pagination.totalPages}</span><button type="button" className="button button-secondary" disabled={!orders.data.pagination.hasNextPage} onClick={() => setPage((value) => value + 1)}>Trang sau</button></div>}
+      {orders.data && orders.data.pagination.totalPages > 1 && (
+        <AdminPagination
+          page={page}
+          pageSize={orders.data.pagination.pageSize}
+          totalItems={orders.data.pagination.totalCount}
+          totalPages={orders.data.pagination.totalPages}
+          loading={orders.loading}
+          onPageChange={setPage}
+          itemLabel="đơn hàng"
+        />
+      )}
     </Card>
   </>;
 }

@@ -2,12 +2,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Card, NoData, PageHeading } from "@/components/ui/Primitives";
+import { AdminPagination, Card, NoData, PageHeading } from "@/components/ui/Primitives";
+import { ErrorState, LoadingState } from "@/components/ui/States";
 import { ROUTES } from "@/constants/routes";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { ReputationScore } from "./ReputationScore";
 import { profileService } from "./services/profile.service";
-import { ErrorState, LoadingState } from "@/components/ui/States";
 
 export function SellerReviewsScreen() {
   const [rating, setRating] = useState<number | null>(null);
@@ -37,11 +37,17 @@ export function SellerReviewsScreen() {
         <p>{review.comment || "Không có nhận xét"}</p>
         <small>{review.referenceType || "Đơn hàng"} · {new Date(review.createdAt).toLocaleDateString("vi-VN")}</small>
       </article>)}</div> : <NoData title="Chưa có đánh giá phù hợp" />)}
-      {reviews.data && reviews.data.pagination.totalPages > 1 && <nav className="pagination" aria-label="Trang đánh giá">
-        <button className="button button-secondary" type="button" disabled={!reviews.data.pagination.hasPreviousPage} onClick={() => setPage((value) => value - 1)}>Trang trước</button>
-        <span>Trang {page}/{reviews.data.pagination.totalPages}</span>
-        <button className="button button-secondary" type="button" disabled={!reviews.data.pagination.hasNextPage} onClick={() => setPage((value) => value + 1)}>Trang sau</button>
-      </nav>}
+      {reviews.data && reviews.data.pagination.totalPages > 1 && (
+        <AdminPagination
+          page={page}
+          pageSize={10}
+          totalItems={reviews.data.pagination.totalCount}
+          totalPages={reviews.data.pagination.totalPages}
+          loading={reviews.loading}
+          onPageChange={setPage}
+          itemLabel="đánh giá"
+        />
+      )}
     </Card>
   </div>;
 }

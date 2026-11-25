@@ -7,10 +7,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ROUTES } from "@/constants/routes";
 import { useSession } from "@/components/auth/SessionProvider";
 import { Icon } from "@/components/ui/Icon";
-import { Badge, ButtonLink, Card, NoData, PageHeading, SectionHeading } from "@/components/ui/Primitives";
+import { AdminPagination, Badge, ButtonLink, Card, clickableRowProps, NoData, PageHeading, SectionHeading } from "@/components/ui/Primitives";
+import { PaginationBar } from "@/components/ui/PaginationBar";
+import { RowActionsMenu } from "@/components/ui/RowActionsMenu";
+import { TableSkeleton } from "@/components/ui/Skeleton";
+import { useToast } from "@/components/ui/Toast";
 import { api, unwrap, type ApiResponse } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
-import { formatMoney, resolveImageUrl } from "@/lib/presentation";
+import { describeProductStatus, formatMoney, resolveImageUrl } from "@/lib/presentation";
 import { countFailedAttempts, fulfillmentService, hasShipmentToTrack, shipmentStatusLabel } from "@/features/fulfillment";
 import { loadSafeRegistrationDraft, sellerService } from "./services/seller.service";
 import { SavedShopArea, SellerShopAddressFields } from "./components/SellerShopAddressFields";
@@ -359,7 +363,7 @@ export function SellerProductsScreen() {
                       </td>
                       <td>{p.variantCount} SKU</td>
                       <td>
-                        <Badge>{p.status ?? ""}</Badge>
+                        <Badge>{describeProductStatus(p.status)}</Badge>
                       </td>
                       <td>
                         <ButtonLink
@@ -381,14 +385,14 @@ export function SellerProductsScreen() {
               </tbody>
             </table>
           </div>
+        ) : resource.loading ? (
+          <TableSkeleton rows={6} cols={6} label="Đang tải sản phẩm…" />
         ) : (
           <NoData
             title={
-              resource.loading
-                ? "Đang tải sản phẩm…"
-                : resource.error
-                  ? "Không tải được sản phẩm"
-                  : "Chưa có sản phẩm"
+              resource.error
+                ? "Không tải được sản phẩm"
+                : "Chưa có sản phẩm"
             }
           />
         )}
@@ -412,9 +416,7 @@ export function SellerProductsScreen() {
             sản phẩm/trang
           </label>
           <nav className="seller-products-page-controls" aria-label="Phân trang sản phẩm">
-            <button type="button" className="button button-secondary" disabled={page <= 1 || resource.loading} onClick={() => handlePageChange(page - 1)}>Trang trước</button>
-            <span>Trang {page}/{Math.max(1, resource.data.pagination.totalPages)}</span>
-            <button type="button" className="button button-secondary" disabled={!resource.data.pagination.hasNextPage || resource.loading} onClick={() => handlePageChange(page + 1)}>Trang sau</button>
+            <PaginationBar page={page} totalPages={Math.max(1, resource.data.pagination.totalPages)} onPageChange={handlePageChange} disabled={resource.loading} />
           </nav>
         </div>}
       </Card>
@@ -2177,6 +2179,7 @@ export function SellerInventoryScreen() {
 }
 
 export function SellerShipmentsScreen() {
+  const router = useRouter();
   const [page, setPage] = useState(1);
   const resource = useApiResource(
     `seller-shipments-list:${page}`,
@@ -2199,40 +2202,47 @@ export function SellerShipmentsScreen() {
                 <tr>
                   <th>Mã đơn gian hàng</th>
                   <th>Trạng thái</th>
-                  <th>Thao tác</th>
                 </tr>
               </thead>
               <tbody>
-                {rows.map((sub) => (
-                  <tr key={sub.subOrderId}>
-                    <td>
-                      <strong>{sub.subOrderNo}</strong>
-                      <div style={{ fontSize: 12, color: "var(--muted)" }}>{new Date(sub.createdAt).toLocaleString("vi-VN")}</div>
-                    </td>
-                    <td><Badge tone={sellerOrderStatusTone(sub.status)}>{describeSellerOrderStatus(sub.status)}</Badge></td>
-                    <td><ButtonLink href={ROUTES.seller.shipment(sub.subOrderId)} variant="secondary">Theo dõi vận đơn</ButtonLink></td>
-                  </tr>
-                ))}
+                {rows.map((sub) => {
+                  const shipmentHref = ROUTES.seller.shipment(sub.subOrderId);
+                  return (
+                    <tr key={sub.subOrderId} {...clickableRowProps(() => router.push(shipmentHref), "Nhấn để theo dõi vận đơn")}>
+                      <td>
+                        <Link href={shipmentHref}>
+                          <strong>{sub.subOrderNo}</strong>
+                        </Link>
+                        <div style={{ fontSize: 12, color: "var(--muted)" }}>{new Date(sub.createdAt).toLocaleString("vi-VN")}</div>
+                      </td>
+                      <td><Badge tone={sellerOrderStatusTone(sub.status)}>{describeSellerOrderStatus(sub.status)}</Badge></td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
+        ) : resource.loading ? (
+          <TableSkeleton rows={5} cols={3} label="Đang tải danh sách đơn…" />
         ) : (
           <NoData
             title={
-              resource.loading
-                ? "Đang tải danh sách đơn…"
-                : resource.error
-                  ? "Không tải được danh sách đơn"
-                  : "Chưa có đơn nào đã chấp nhận trong trang này"
+              resource.error
+                ? "Không tải được danh sách đơn"
+                : "Chưa có đơn nào đã chấp nhận trong trang này"
             }
           />
         )}
         {resource.data && resource.data.pagination.totalPages > 1 && (
-          <div className="action-row">
-            <button type="button" className="button button-secondary" disabled={page <= 1} onClick={() => setPage((value) => value - 1)}>Trang trước</button>
-            <span>Trang {page}/{resource.data.pagination.totalPages}</span>
-            <button type="button" className="button button-secondary" disabled={!resource.data.pagination.hasNextPage} onClick={() => setPage((value) => value + 1)}>Trang sau</button>
-          </div>
+          <AdminPagination
+            page={page}
+            pageSize={resource.data.pagination.pageSize}
+            totalItems={resource.data.pagination.totalCount}
+            totalPages={resource.data.pagination.totalPages}
+            loading={resource.loading}
+            onPageChange={setPage}
+            itemLabel="đơn hàng"
+          />
         )}
       </Card>
     </>
@@ -2323,12 +2333,14 @@ function sellerOrderStatusTone(status: string): "sky" | "amber" | "green" | "red
 }
 
 export function SellerOrdersScreen() {
+  const router = useRouter();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [statusFilter, setStatusFilter] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState("");
   const [actionError, setActionError] = useState("");
+  const { showToast } = useToast();
   const acceptBlock = acceptOrderBlock(useWarehouseReadiness().readiness);
   const resource = useApiResource(
     `seller-sub-orders:${page}:${pageSize}:${statusFilter}`,
@@ -2342,9 +2354,9 @@ export function SellerOrdersScreen() {
     setActionError("");
     try {
       await sellerOrdersService.accept(sub.orderId, sub.subOrderId);
-      setFeedback(
-        `Đã chấp nhận đơn ${sub.subOrderNo}. Mở "Theo dõi vận đơn" để xem mã vận đơn; nếu chưa có, mở chi tiết đơn để tạo lại vận đơn.`,
-      );
+      const okMsg = `Đã chấp nhận đơn ${sub.subOrderNo}. Mở "Theo dõi vận đơn" để xem mã vận đơn; nếu chưa có, mở chi tiết đơn để tạo lại vận đơn.`;
+      setFeedback(okMsg);
+      showToast(`Đã chấp nhận đơn ${sub.subOrderNo}.`, "success");
       resource.reload();
     } catch (reason) {
       setActionError(msg(reason as Error));
@@ -2410,7 +2422,10 @@ export function SellerOrdersScreen() {
                   const normalizedStatus = sub.status.replace(/[^a-z]/gi, "").toUpperCase();
                   const canAccept = ["PAID", "PENDINGCONFIRMATION"].includes(normalizedStatus);
                   return (
-                    <tr key={sub.subOrderId}>
+                    <tr
+                      key={sub.subOrderId}
+                      {...clickableRowProps(() => router.push(ROUTES.seller.order(sub.subOrderId)), "Nhấn để xem chi tiết đơn bán")}
+                    >
                       <td>
                         <Link href={ROUTES.seller.order(sub.subOrderId)}>
                           <strong>{sub.subOrderNo}</strong>
@@ -2435,27 +2450,32 @@ export function SellerOrdersScreen() {
                         </Badge>
                       </td>
                       <td>
-                        <div className="action-row seller-orders-actions">
-                          {canAccept && (
-                            <button
-                              type="button"
-                              className="button button-primary"
-                              disabled={busyId === sub.subOrderId || Boolean(acceptBlock)}
-                              title={acceptBlock?.message}
-                              onClick={() => void acceptOrder(sub)}
-                            >
-                              {busyId === sub.subOrderId ? "Đang xác nhận…" : "Chấp nhận đơn"}
-                            </button>
-                          )}
-                          <ButtonLink href={ROUTES.seller.order(sub.subOrderId)} variant="secondary">
-                            Chi tiết
-                          </ButtonLink>
-                          {hasShipmentToTrack(sub.status) && (
-                            <ButtonLink href={ROUTES.seller.shipment(sub.subOrderId)} variant="secondary">
-                              Theo dõi vận đơn
-                            </ButtonLink>
-                          )}
-                        </div>
+                        {canAccept || hasShipmentToTrack(sub.status) ? (
+                          <RowActionsMenu
+                            ariaLabel={`Thao tác đơn ${sub.subOrderNo}`}
+                            primary={
+                              canAccept
+                                ? {
+                                    label: busyId === sub.subOrderId ? "Đang xác nhận…" : "Chấp nhận đơn",
+                                    variant: "primary",
+                                    disabled: busyId === sub.subOrderId || Boolean(acceptBlock),
+                                    onClick: () => void acceptOrder(sub),
+                                  }
+                                : {
+                                    label: "Theo dõi vận đơn",
+                                    href: ROUTES.seller.shipment(sub.subOrderId),
+                                    variant: "secondary",
+                                  }
+                            }
+                            items={
+                              canAccept && hasShipmentToTrack(sub.status)
+                                ? [{ label: "Theo dõi vận đơn", href: ROUTES.seller.shipment(sub.subOrderId) }]
+                                : []
+                            }
+                          />
+                        ) : (
+                          <span style={{ color: "var(--muted)" }}>—</span>
+                        )}
                       </td>
                     </tr>
                   );
@@ -2463,14 +2483,14 @@ export function SellerOrdersScreen() {
               </tbody>
             </table>
           </div>
+        ) : resource.loading ? (
+          <TableSkeleton rows={5} cols={6} label="Đang tải danh sách đơn bán…" />
         ) : (
           <NoData
             title={
-              resource.loading
-                ? "Đang tải danh sách đơn bán…"
-                : resource.error
-                  ? "Không tải được danh sách đơn bán"
-                  : statusFilter ? "Không có đơn ở trạng thái đã chọn" : "Chưa có đơn hàng nào được chuyển đến shop"
+              resource.error
+                ? "Không tải được danh sách đơn bán"
+                : statusFilter ? "Không có đơn ở trạng thái đã chọn" : "Chưa có đơn hàng nào được chuyển đến shop"
             }
           />
         )}
@@ -2492,25 +2512,12 @@ export function SellerOrdersScreen() {
                 ))}
               </select>
             </label>
-            <button
-              type="button"
-              className="button button-secondary"
-              disabled={page <= 1 || resource.loading}
-              onClick={() => setPage((value) => value - 1)}
-            >
-              Trang trước
-            </button>
-            <span>
-              Trang {page}/{resource.data.pagination.totalPages}
-            </span>
-            <button
-              type="button"
-              className="button button-secondary"
-              disabled={!resource.data.pagination.hasNextPage || resource.loading}
-              onClick={() => setPage((value) => value + 1)}
-            >
-              Trang sau
-            </button>
+            <PaginationBar
+              page={page}
+              totalPages={resource.data.pagination.totalPages}
+              onPageChange={setPage}
+              disabled={resource.loading}
+            />
           </div>
         )}
       </Card>

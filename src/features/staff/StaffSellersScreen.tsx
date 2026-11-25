@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { AdminPagination, Badge, Card, NoData, PageHeading } from "@/components/ui/Primitives";
+import { FluidChoiceBar } from "@/components/ui/FluidChoiceBar";
+import { TableSkeleton } from "@/components/ui/Skeleton";
 import { ROUTES } from "@/constants/routes";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { StaffWarehouseRetry } from "./StaffWarehouseRetry";
@@ -195,51 +197,22 @@ function DocPreviewModal({
 }
 
 export function StaffSellersScreen() {
+  const router = useRouter();
   const [status, setStatus] = useState("");
   const [page, setPage] = useState(1);
-  const [selectedRegistration, setSelectedRegistration] = useState<SellerRegistration | null>(null);
-  const [previewDoc, setPreviewDoc] = useState<{ label: string; url: string } | null>(null);
-  const [modalReason, setModalReason] = useState("");
-  const [modalBusy, setModalBusy] = useState(false);
-  const [modalError, setModalError] = useState("");
-  const [modalSaved, setModalSaved] = useState("");
 
   const registrations = useApiResource(`seller-registrations:${status}:${page}`, (signal) => sellerRegistrationsService.list({ page, limit: 20, status }, signal));
   const records = registrations.data?.items ?? [];
 
-  async function handleModalDecide(approved: boolean) {
-    if (!selectedRegistration) return;
-    if (!approved && !modalReason.trim()) {
-      setModalError("Vui lòng nhập lý do từ chối hồ sơ người bán.");
-      return;
-    }
-    setModalBusy(true);
-    setModalError("");
-    setModalSaved("");
-    try {
-      if (approved) {
-        await sellerRegistrationsService.approve(selectedRegistration.registrationId);
-        setModalSaved("Đã phê duyệt hồ sơ người bán thành công.");
-      } else {
-        await sellerRegistrationsService.reject(selectedRegistration.registrationId, modalReason.trim());
-        setModalSaved("Đã từ chối hồ sơ người bán.");
-      }
-      registrations.reload();
-      setTimeout(() => {
-        setSelectedRegistration(null);
-        setModalSaved("");
-        setModalReason("");
-      }, 1200);
-    } catch (cause) {
-      setModalError(cause instanceof Error ? cause.message : "Không thể xử lý hồ sơ.");
-    } finally {
-      setModalBusy(false);
-    }
-  }
-
   return <>
     <PageHeading overline="Nghiệp vụ Vận hành" title="Duyệt người bán" description="Hồ sơ đăng ký tài khoản bán hàng." />
-    <label className="field-wrap">Trạng thái hồ sơ<select className="select-field" value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}>{statuses.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+    <FluidChoiceBar
+      mode="filter"
+      ariaLabel="Lọc theo trạng thái hồ sơ"
+      options={statuses}
+      value={status}
+      onChange={(next) => { setStatus(next); setPage(1); }}
+    />
     <Card>
       {registrations.error && <p role="alert" className="notice">{registrations.error.message}</p>}
       {records.length ? (
@@ -254,40 +227,52 @@ export function StaffSellersScreen() {
               </tr>
             </thead>
             <tbody>
-              {records.map((registration) => (
-                <tr
-                  key={registration.registrationId}
-                  className="clickable-row"
-                  onClick={() => setSelectedRegistration(registration)}
-                  title="Nhấn để xem popup thông tin người bán"
-                >
-                  <td style={{ padding: "12px 10px", wordBreak: "break-word", overflowWrap: "anywhere" }}>
-                    <code>{registration.registrationId}</code>
-                  </td>
-                  <td style={{ padding: "12px 10px", wordBreak: "break-word" }}>
-                    <strong>{registration.shopName}</strong>
-                  </td>
-                  <td style={{ padding: "12px 10px", wordBreak: "break-word", overflowWrap: "anywhere" }}>
-                    {registration.businessEmail ?? "—"}
-                  </td>
-                  <td style={{ padding: "12px 10px" }}>
-                    <Badge tone={statusTone(registration.status)}>
-                      {statusLabel(registration.status)}
-                    </Badge>
-                  </td>
-                </tr>
-              ))}
+              {records.map((registration) => {
+                const detailHref = ROUTES.staff.seller(registration.registrationId);
+                return (
+                  <tr
+                    key={registration.registrationId}
+                    className="clickable-row"
+                    tabIndex={0}
+                    onClick={() => router.push(detailHref)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        router.push(detailHref);
+                      }
+                    }}
+                    title="Nhấn để xem chi tiết hồ sơ người bán"
+                  >
+                    <td style={{ padding: "12px 10px", wordBreak: "break-word", overflowWrap: "anywhere" }}>
+                      <Link href={detailHref} onClick={(event) => event.stopPropagation()}>
+                        <code>{registration.registrationId}</code>
+                      </Link>
+                    </td>
+                    <td style={{ padding: "12px 10px", wordBreak: "break-word" }}>
+                      <strong>{registration.shopName}</strong>
+                    </td>
+                    <td style={{ padding: "12px 10px", wordBreak: "break-word", overflowWrap: "anywhere" }}>
+                      {registration.businessEmail ?? "—"}
+                    </td>
+                    <td style={{ padding: "12px 10px" }}>
+                      <Badge tone={statusTone(registration.status)}>
+                        {statusLabel(registration.status)}
+                      </Badge>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
+      ) : registrations.loading ? (
+        <TableSkeleton rows={5} cols={4} label="Đang tải hồ sơ…" />
       ) : (
         <NoData
           title={
-            registrations.loading
-              ? "Đang tải hồ sơ…"
-              : registrations.error
-                ? "Không tải được hồ sơ"
-                : "Không có hồ sơ"
+            registrations.error
+              ? "Không tải được hồ sơ"
+              : "Không có hồ sơ"
           }
         />
       )}
@@ -302,114 +287,6 @@ export function StaffSellersScreen() {
         />
       )}
     </Card>
-
-    {/* Popup thông tin người bán */}
-    {selectedRegistration && (
-      <div
-        className="admin-modal-backdrop"
-        onClick={(e) => {
-          if (e.target === e.currentTarget) {
-            setSelectedRegistration(null);
-            setModalError("");
-            setModalSaved("");
-            setModalReason("");
-          }
-        }}
-        onKeyDown={(e) => {
-          if (e.key === "Escape") {
-            setSelectedRegistration(null);
-            setModalError("");
-            setModalSaved("");
-            setModalReason("");
-          }
-        }}
-      >
-        <section
-          className="admin-modal-dialog"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="seller-modal-title"
-          style={{ maxWidth: 760, width: "100%", maxHeight: "90vh", overflowY: "auto" }}
-        >
-          <div className="admin-modal-heading">
-            <div>
-              <h2 id="seller-modal-title">Thông tin hồ sơ người bán</h2>
-              <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--muted)" }}>
-                Mã hồ sơ: <code>{selectedRegistration.registrationId}</code>
-              </p>
-            </div>
-            <button
-              type="button"
-              className="admin-modal-close-btn"
-              onClick={() => {
-                setSelectedRegistration(null);
-                setModalError("");
-                setModalSaved("");
-                setModalReason("");
-              }}
-              aria-label="Đóng popup"
-            >
-              ✕
-            </button>
-          </div>
-
-          {modalError && <p role="alert" className="notice">{modalError}</p>}
-          {modalSaved && <p role="status" className="form-success">{modalSaved}</p>}
-
-          <div style={{ display: "flex", flexDirection: "column", gap: "16px", padding: "16px 0" }}>
-            <RegistrationDetails
-              registration={selectedRegistration}
-              onPreview={(label, url) => setPreviewDoc({ label, url })}
-            />
-
-            {isPending(selectedRegistration.status) && (
-              <div style={{ marginTop: "12px", borderTop: "1px solid var(--border)", paddingTop: "16px" }}>
-                <label className="field-wrap">
-                  Lý do từ chối (bắt buộc nếu từ chối)
-                  <textarea
-                    className="textarea-field"
-                    rows={2}
-                    placeholder="Nhập lý do từ chối hồ sơ người bán..."
-                    value={modalReason}
-                    onChange={(e) => setModalReason(e.target.value)}
-                  />
-                </label>
-                <div className="action-row" style={{ marginTop: "12px" }}>
-                  <button
-                    type="button"
-                    className="button button-primary"
-                    disabled={modalBusy}
-                    onClick={() => void handleModalDecide(true)}
-                  >
-                    {modalBusy ? "Đang xử lý…" : "Phê duyệt hồ sơ"}
-                  </button>
-                  <button
-                    type="button"
-                    className="button button-secondary"
-                    disabled={modalBusy || !modalReason.trim()}
-                    onClick={() => void handleModalDecide(false)}
-                  >
-                    Từ chối
-                  </button>
-                </div>
-              </div>
-            )}
-
-            <div style={{ marginTop: "12px", paddingTop: "12px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "flex-end" }}>
-              <Link
-                className="button button-secondary button-small"
-                href={ROUTES.staff.seller(selectedRegistration.registrationId)}
-                onClick={() => setSelectedRegistration(null)}
-              >
-                Mở trang quản trị chi tiết →
-              </Link>
-            </div>
-          </div>
-        </section>
-      </div>
-    )}
-
-    <DocPreviewModal previewDoc={previewDoc} onClose={() => setPreviewDoc(null)} />
   </>;
 }
 
@@ -525,7 +402,7 @@ export function StaffSellerDetailScreen() {
           <StaffWarehouseRetry sellerProfileId={id} />
           {sellerProfile.data && (
             <div style={{ marginBottom: 16 }}>
-              <div className="info-row"><span>Trạng thái gian hàng:</span><strong><Badge tone={sellerProfile.data.status === "Active" ? "green" : "red"}>{sellerProfile.data.status || "Hoạt động"}</Badge></strong></div>
+              <div className="info-row"><span>Trạng thái gian hàng:</span><strong><Badge tone={sellerProfile.data.status === "Active" ? "green" : "red"}>{sellerProfile.data.status?.toUpperCase() === "ACTIVE" ? "Đang hoạt động" : sellerProfile.data.status?.toUpperCase() === "SUSPENDED" ? "Đang đình chỉ" : sellerProfile.data.status || "Hoạt động"}</Badge></strong></div>
               <div className="info-row"><span>Điểm uy tín:</span><strong>{sellerProfile.data.reputationScore ?? 100} ({sellerProfile.data.trustLevel || "Chuẩn mực"})</strong></div>
               <div className="info-row"><span>Số lần bị kỷ luật:</span><strong>{sellerProfile.data.penaltyCount ?? 0}</strong></div>
             </div>
