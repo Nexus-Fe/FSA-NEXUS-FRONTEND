@@ -5,8 +5,10 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useSession } from "@/components/auth/SessionProvider";
 import { BackendImage } from "@/components/ui/BackendImage";
-import { Badge, Card, NoData, PageHeading, SectionHeading } from "@/components/ui/Primitives";
+import { Badge, Card, PageHeading, SectionHeading } from "@/components/ui/Primitives";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/States";
+import { SkeletonPage } from "@/components/ui/Skeletons";
 import { ROUTES } from "@/constants/routes";
 import { commerceService } from "@/features/commerce";
 import { ApiError, api, unwrap, type ApiResponse } from "@/lib/api/client";
@@ -14,6 +16,7 @@ import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatMoney, resolveImageUrl } from "@/lib/presentation";
 import type { ProductSpecification } from "./types/product-specification";
 import { ProductFeedback } from "./ProductFeedback";
+import { describeError, formatError } from "@/lib/errors/error-messages";
 
 type ProductImage = {
   url: string;
@@ -53,7 +56,6 @@ type ProductDetail = {
 type SellerProfile = {
   shopName: string;
   logoUrl?: string | null;
-  description?: string | null;
   ratingAvg?: number;
   totalProducts?: number;
 };
@@ -179,13 +181,13 @@ export function ProductDetailScreen() {
   }, [cartNotice]);
 
   if (!product) {
+    if (productResource.loading) return <SkeletonPage variant="detail" label="Đang tải sản phẩm…" />;
+    const missing = !productResource.error || (productResource.error instanceof ApiError && productResource.error.status === 404);
     return <>
       <PageHeading title="Chi tiết sản phẩm" />
-      {productResource.error ? (
-        <ErrorState cause={productResource.error} onRetry={productResource.reload} retryLabel="Tải lại sản phẩm" />
-      ) : (
-        <NoData title={productResource.loading ? "Đang tải sản phẩm…" : "Không tìm thấy sản phẩm"} />
-      )}
+      {missing
+        ? <EmptyState title="Không tìm thấy sản phẩm" description="Sản phẩm có thể đã bị gỡ hoặc đường dẫn không đúng." actionLabel="Xem danh mục sản phẩm" actionHref={ROUTES.catalog.index} />
+        : <ErrorState cause={productResource.error} onRetry={productResource.reload} retryLabel="Tải lại sản phẩm" />}
     </>;
   }
 
@@ -240,7 +242,7 @@ export function ProductDetailScreen() {
         ? "Kho hiện không đủ số lượng bạn chọn. Hãy giảm số lượng và thử lại."
         : cause instanceof ApiError && cause.status >= 500
           ? "Giỏ hàng đang gặp lỗi hệ thống. Vui lòng thử lại sau."
-        : cause instanceof Error ? cause.message : "Không thêm được sản phẩm vào giỏ hàng.");
+        : formatError(describeError(cause, { operation: "write" })));
     } finally {
       setAdding(false);
     }
@@ -386,7 +388,7 @@ export function ProductDetailScreen() {
     </div>
 
     <div className="product-detail-content">
-      <ProductFeedback productId={product.productId} canReport={Boolean(user && (user.roles?.some((role) => /^(buyer|seller)$/i.test(role)) || /^(buyer|seller)$/i.test(user.role ?? "")))} />
+      <div className="product-detail-main">
       <section className="product-detail-section" aria-labelledby="product-description-title">
         <SectionHeading id="product-description-title" title="Mô tả sản phẩm" />
         <Card className="card-pad"><p className="product-detail-copy">{product.description?.trim() || "Người bán chưa cung cấp mô tả sản phẩm."}</p></Card>
@@ -398,13 +400,15 @@ export function ProductDetailScreen() {
             <div key={`${label}-${index}`}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
           : <p className="product-detail-copy">{specifications.text || "Người bán chưa cung cấp thông số sản phẩm."}</p>}</Card>
       </section>
+      <ProductFeedback productId={product.productId} canReport={Boolean(user && (user.roles?.some((role) => /^(buyer|seller)$/i.test(role)) || /^(buyer|seller)$/i.test(user.role ?? "")))} />
+      </div>
+      <aside className="product-detail-side" aria-label="Thông tin gian hàng">
       {product.sellerId && <section className="product-detail-section" aria-labelledby="product-seller-title">
         <SectionHeading id="product-seller-title" title="Gian hàng" />
         <Card className="card-pad product-detail-seller">
           {sellerResource.data ? <>
             {sellerResource.data.logoUrl && <div className="product-detail-seller-logo"><BackendImage src={resolveImageUrl(sellerResource.data.logoUrl)} alt={`Logo ${sellerResource.data.shopName}`} compact /></div>}
             <div><h3><Link href={ROUTES.catalog.shop(product.sellerId)}>{sellerResource.data.shopName}</Link></h3>
-              {sellerResource.data.description && <p>{sellerResource.data.description}</p>}
               <div className="product-detail-seller-facts">
                 {typeof sellerResource.data.ratingAvg === "number" && sellerResource.data.ratingAvg > 0 && <span>★ {sellerResource.data.ratingAvg.toFixed(1)}/5</span>}
                 {typeof sellerResource.data.totalProducts === "number" && sellerResource.data.totalProducts > 0 && <span>{sellerResource.data.totalProducts} sản phẩm</span>}
@@ -418,7 +422,8 @@ export function ProductDetailScreen() {
           </div>}
         </Card>
       </section>}
-      {product.category?.categoryId && <section className="product-detail-section" aria-labelledby="related-products-title">
+      </aside>
+      {product.category?.categoryId && <section className="product-detail-section product-detail-related-section" aria-labelledby="related-products-title">
         <SectionHeading id="related-products-title" title="Sản phẩm cùng danh mục" hint="Gợi ý từ các gian hàng trên Nexus" />
         {relatedResource.error && <p className="notice" role="alert">Không tải được sản phẩm cùng danh mục.</p>}
         {relatedProducts.length > 0 ? <div className="product-detail-related">

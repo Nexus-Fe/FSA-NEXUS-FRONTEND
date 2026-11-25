@@ -20,7 +20,6 @@ export type SellerProfile = {
   shopId?: string;
   sellerId?: string;
   shopName: string;
-  description?: string | null;
   hotline?: string;
   pickupAddress?: string | GhnWarehouseAddress;
   warehouseAddress?: string | GhnWarehouseAddress;

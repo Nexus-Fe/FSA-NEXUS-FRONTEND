@@ -10,6 +10,7 @@ import { describeError, formatError } from "@/lib/errors/error-messages";
 import { formatMoney, resolveImageUrl } from "@/lib/presentation";
 import { statusLabel } from "./contract";
 import { auctionService } from "./services/auction.service";
+import { LoadingState } from "@/components/ui/States";
 
 /** The auctions the buyer follows: turn new-bid notices on or off, or stop following. */
 export function MyWatchlistScreen() {
@@ -30,7 +31,7 @@ export function MyWatchlistScreen() {
     <PageHeading title="Theo dõi phiên" description="Các phiên bạn đang theo dõi. Bật thông báo để nhận tin khi có giá mới." />
     {error && <p className="notice" role="alert">{error}</p>}
     {list.error && <p className="notice" role="alert">{formatError(describeError(list.error, { operation: "read" }))} <button type="button" className="button button-secondary" onClick={list.reload}>Thử lại</button></p>}
-    {list.loading && !list.data ? <NoData title="Đang tải danh sách theo dõi…" /> : list.data?.items.length ? <div className="auction-list-grid">
+    {list.loading && !list.data ? <LoadingState label="Đang tải danh sách theo dõi…" /> : list.data?.items.length ? <div className="auction-list-grid">
       {list.data.items.map((item) => <Card className="card-pad" key={item.auctionId}>
         <div className="auction-detail-image"><BackendImage src={resolveImageUrl(item.primaryImageUrl)} alt={item.productName ?? "Sản phẩm đấu giá"} /></div>
         <h2><Link href={ROUTES.auction.room(item.auctionId)}>{item.productName ?? "Sản phẩm chưa có tên"}</Link></h2>

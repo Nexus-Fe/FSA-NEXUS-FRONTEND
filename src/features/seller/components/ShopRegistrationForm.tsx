@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { Card, SectionHeading } from "@/components/ui/Primitives";
 import { EmailInput } from "@/components/ui/EmailInput";
-import { ghnPresets } from "../ghn-presets";
+import { GhnLocationSelect } from "@/features/shipping/GhnLocationSelect";
+import { selectionFromCodes, type GhnCheck, type GhnErrors, type GhnSelection } from "@/features/shipping/ghn-address";
 
 export type ShopRegistrationFields = {
   identityCardNumber: string;
@@ -21,9 +22,9 @@ export const emptyShopRegistrationFields: ShopRegistrationFields = {
   shopName: "",
   businessEmail: "",
   hotline: "",
-  provinceId: "202",
-  districtId: "1442",
-  wardCode: "20101",
+  provinceId: "",
+  districtId: "",
+  wardCode: "",
   streetAddress: "",
 };
 
@@ -44,26 +45,44 @@ export function validateShopRegistrationFields(value: ShopRegistrationFields): S
   if (shopName.length < 3 || shopName.length > 100) errors.shopName = "Tên shop cần từ 3 đến 100 ký tự.";
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(businessEmail)) errors.businessEmail = "Nhập email doanh nghiệp hợp lệ để nhận OTP.";
   if (!/^[0-9+() -]{9,15}$/.test(hotline)) errors.hotline = "Hotline cần từ 9 đến 15 ký tự số.";
-  if (!Number.isInteger(provinceId) || provinceId <= 0 || provinceId > 9999) errors.provinceId = "Mã tỉnh GHN chưa hợp lệ.";
-  if (!Number.isInteger(districtId) || districtId <= 0 || districtId > 99999) errors.districtId = "Mã quận/huyện GHN chưa hợp lệ.";
-  if (!/^[A-Za-z0-9]{4,10}$/.test(wardCode) || wardCode === "00000") errors.wardCode = "Mã phường/xã GHN chưa hợp lệ.";
+  if (!Number.isInteger(provinceId) || provinceId <= 0 || provinceId > 9999) errors.provinceId = "Chọn tỉnh hoặc thành phố.";
+  if (!Number.isInteger(districtId) || districtId <= 0 || districtId > 99999) errors.districtId = "Chọn quận hoặc huyện.";
+  if (!/^[A-Za-z0-9]{4,10}$/.test(wardCode) || wardCode === "00000") errors.wardCode = "Chọn phường hoặc xã.";
   if (streetAddress.length < 5) errors.streetAddress = "Địa chỉ kho cần ít nhất 5 ký tự.";
 
   return errors;
 }
+
+const codesOf = (selection: GhnSelection) => `${selection.provinceId ?? ""}|${selection.districtId ?? ""}|${selection.wardCode}`;
 
 export function ShopRegistrationForm({
   value,
   onChange,
   errors = {},
   idPrefix = "shop-registration",
+  onLocationCheck,
 }: {
   value: ShopRegistrationFields;
   onChange: (value: ShopRegistrationFields) => void;
   errors?: ShopRegistrationErrors;
   idPrefix?: string;
+  /** Result of checking the chosen codes against the GHN lists; the caller waits for "valid" before it sends or keeps the address. */
+  onLocationCheck?: (check: GhnCheck) => void;
 }) {
   const [showIdentityCard, setShowIdentityCard] = useState(false);
+  const [selection, setSelection] = useState<GhnSelection>(() => selectionFromCodes(value.provinceId, value.districtId, value.wardCode));
+  // A draft restored by the parent replaces the codes; what the user is choosing is never overwritten by a re-render with the same codes.
+  const parentCodes = codesOf(selectionFromCodes(value.provinceId, value.districtId, value.wardCode));
+  const [seenParentCodes, setSeenParentCodes] = useState(parentCodes);
+  if (seenParentCodes !== parentCodes) {
+    setSeenParentCodes(parentCodes);
+    if (codesOf(selection) !== parentCodes) setSelection(selectionFromCodes(value.provinceId, value.districtId, value.wardCode));
+  }
+  const chooseLocation = (next: GhnSelection) => {
+    setSelection(next);
+    onChange({ ...value, provinceId: next.provinceId ? String(next.provinceId) : "", districtId: next.districtId ? String(next.districtId) : "", wardCode: next.wardCode });
+  };
+  const locationErrors: GhnErrors = { province: errors.provinceId, district: errors.districtId, ward: errors.wardCode };
   const update = (key: keyof ShopRegistrationFields, fieldValue: string) => onChange({ ...value, [key]: fieldValue });
   const fieldId = (name: keyof ShopRegistrationFields) => `${idPrefix}-${name}`;
 
@@ -105,30 +124,9 @@ export function ShopRegistrationForm({
     </Card>
 
     <Card className="card-pad">
-      <SectionHeading title="Địa chỉ kho lấy hàng" hint="Nhập mã địa chỉ theo danh mục GHN để dùng khi hồ sơ được tiếp nhận." />
-      <label className="field-wrap" htmlFor={`${idPrefix}-ghn-preset`}>Chọn nhanh khu vực mẫu GHN
-        <select id={`${idPrefix}-ghn-preset`} className="select-field" defaultValue="" onChange={(event) => {
-          if (!event.target.value) return;
-          const preset = ghnPresets[Number(event.target.value)];
-          if (preset) onChange({ ...value, provinceId: preset.provinceId, districtId: preset.districtId, wardCode: preset.wardCode });
-        }}>
-          <option value="">Chọn khu vực mẫu hoặc nhập mã thủ công</option>
-          {ghnPresets.map((preset, index) => <option key={preset.label} value={index}>{preset.label}</option>)}
-        </select>
-      </label>
+      <SectionHeading title="Địa chỉ kho lấy hàng" hint="Chọn tỉnh, quận và phường theo danh mục GHN để dùng khi hồ sơ được tiếp nhận." />
       <div className="form-grid seller-ghn-grid">
-        <label className="field-wrap" htmlFor={fieldId("provinceId")}>Mã tỉnh GHN *
-          <input id={fieldId("provinceId")} className="field" type="number" min={1} required value={value.provinceId} aria-invalid={Boolean(errors.provinceId)} aria-describedby={errors.provinceId ? `${fieldId("provinceId")}-error` : undefined} onChange={(event) => update("provinceId", event.target.value)} placeholder="202" />
-          {errors.provinceId && <small id={`${fieldId("provinceId")}-error`} className="field-error" role="alert">{errors.provinceId}</small>}
-        </label>
-        <label className="field-wrap" htmlFor={fieldId("districtId")}>Mã quận/huyện GHN *
-          <input id={fieldId("districtId")} className="field" type="number" min={1} required value={value.districtId} aria-invalid={Boolean(errors.districtId)} aria-describedby={errors.districtId ? `${fieldId("districtId")}-error` : undefined} onChange={(event) => update("districtId", event.target.value)} placeholder="1442" />
-          {errors.districtId && <small id={`${fieldId("districtId")}-error`} className="field-error" role="alert">{errors.districtId}</small>}
-        </label>
-        <label className="field-wrap" htmlFor={fieldId("wardCode")}>Mã phường/xã GHN *
-          <input id={fieldId("wardCode")} className="field" required value={value.wardCode} aria-invalid={Boolean(errors.wardCode)} aria-describedby={errors.wardCode ? `${fieldId("wardCode")}-error` : undefined} onChange={(event) => update("wardCode", event.target.value)} placeholder="20101" />
-          {errors.wardCode && <small id={`${fieldId("wardCode")}-error`} className="field-error" role="alert">{errors.wardCode}</small>}
-        </label>
+        <GhnLocationSelect value={selection} errors={locationErrors} onChange={chooseLocation} onCheck={onLocationCheck} />
         <label className="field-wrap" htmlFor={fieldId("streetAddress")}>Địa chỉ cụ thể *
           <input id={fieldId("streetAddress")} className="field" required minLength={5} value={value.streetAddress} aria-invalid={Boolean(errors.streetAddress)} aria-describedby={errors.streetAddress ? `${fieldId("streetAddress")}-error` : undefined} onChange={(event) => update("streetAddress", event.target.value)} placeholder="Số nhà, đường, phường/xã" />
           {errors.streetAddress && <small id={`${fieldId("streetAddress")}-error`} className="field-error" role="alert">{errors.streetAddress}</small>}

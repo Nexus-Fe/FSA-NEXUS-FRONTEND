@@ -38,7 +38,7 @@ export function AuctionOrderPayment({ orderId, deadlinePassed }: { orderId: stri
     }
     setBusy(true); setError(""); setSuccess("");
     try {
-      await auctionOrderService.submitShipping(orderId, { ...shipping, provinceName: ghn.provinceName, districtName: ghn.districtName, wardName: ghn.wardName, ghnDistrictId: ghn.districtId, ghnWardCode: ghn.wardCode });
+      await auctionOrderService.submitShipping(orderId, { ...shipping, provinceName: ghn.provinceName, districtName: ghn.districtName, wardName: ghn.wardName, provinceId: ghn.provinceId as number, ghnDistrictId: ghn.districtId, ghnWardCode: ghn.wardCode });
       setSuccess("Đã lưu địa chỉ và tính phí giao hàng."); order.reload();
     } catch (cause) { setError(writeFailure(cause)); }
     finally { setBusy(false); }

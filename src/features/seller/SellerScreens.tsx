@@ -17,14 +17,15 @@ import { useApiResource } from "@/lib/api/use-api-resource";
 import { describeProductStatus, formatMoney, resolveImageUrl } from "@/lib/presentation";
 import { countFailedAttempts, fulfillmentService, hasShipmentToTrack, shipmentStatusLabel } from "@/features/fulfillment";
 import { loadSafeRegistrationDraft, sellerService } from "./services/seller.service";
-import { SellerShopAddressFields } from "./components/SellerShopAddressFields";
+import { SavedShopArea, SellerShopAddressFields } from "./components/SellerShopAddressFields";
+import { nextShopFormKey, shopFormSavedKey } from "./shop-form-key";
+import { ghnWriteBlock, type GhnCheck } from "@/features/shipping/ghn-address";
 import { ConfirmReturnButton } from "./components/ConfirmReturnButton";
 import { canConfirmReturn } from "./return-rules";
 import { SellerWarehouseGate } from "./components/SellerWarehouseForm";
 import { describeShipmentRetryFailure, needsShipmentRetry } from "./shipment-retry-outcome";
 import { useWarehouseReadiness } from "./use-warehouse-readiness";
 import { acceptOrderBlock, warehouseReadiness } from "./warehouse-readiness";
-import { ghnPresets } from "./ghn-presets";
 import { isSellerWarehouse, sellerCatalogService, type InventoryBalance, type ProductVariant, type SellerProductDetail } from "./services/catalog.service";
 import { sellerOrdersService } from "./services/seller-orders.service";
 import { SellerBuyerReview } from "./SellerBuyerReview";
@@ -2920,6 +2921,9 @@ export function SellerShopScreen() {
   const [error, setError] = useState("");
   const [saved, setSaved] = useState("");
   const [busy, setBusy] = useState(false);
+  // Once the seller changes anything, a reload of the profile must not replace the form; a successful save hands the form back to the saved data.
+  const [dirty, setDirty] = useState(false);
+  const [locationCheck, setLocationCheck] = useState<GhnCheck>({ state: "empty" });
 
   useEffect(() => {
     if (!saved) return;
@@ -2932,18 +2936,23 @@ export function SellerShopScreen() {
     const values = new FormData(event.currentTarget);
     setError("");
     setSaved("");
+    const locationBlock = ghnWriteBlock(locationCheck);
+    if (locationBlock) {
+      setError(locationBlock);
+      return;
+    }
     setBusy(true);
     try {
       await api.patch("/api/v1/sellers/profile", {
         shopName: String(values.get("shopName") ?? ""),
         hotline: String(values.get("hotline") ?? ""),
-        description: String(values.get("description") ?? ""),
         pickupAddress: String(values.get("streetAddress") ?? ""),
         provinceId: Number(values.get("provinceId")),
         districtId: Number(values.get("districtId")),
         wardCode: String(values.get("wardCode") ?? ""),
       });
       setSaved("Đã cập nhật hồ sơ gian hàng.");
+      setDirty(false);
       shop.reload();
     } catch (reason) {
       setError(msg(reason as Error));
@@ -2973,8 +2982,12 @@ export function SellerShopScreen() {
       draft?.warehouseAddress.streetAddress ??
       "",
   );
-  const selectedArea = ghnPresets.find((place) => place.provinceId === resolvedProvinceId &&
-    place.districtId === resolvedDistrictId && place.wardCode === resolvedWardCode);
+
+  // The form keeps its key while the seller edits (see nextShopFormKey): changing it would re-create the form and lose what was just typed.
+  const savedKey = shopFormSavedKey({ shopName: resolvedShopName, hotline: resolvedHotline, provinceId: resolvedProvinceId, districtId: resolvedDistrictId, wardCode: resolvedWardCode, streetAddress: resolvedStreetAddress });
+  const [formKey, setFormKey] = useState(savedKey);
+  const nextKey = nextShopFormKey(formKey, savedKey, dirty);
+  if (nextKey !== formKey) setFormKey(nextKey);
 
   return (
     <>
@@ -2996,7 +3009,7 @@ export function SellerShopScreen() {
             <div><dt>Tên gian hàng</dt><dd>{resolvedShopName || "—"}</dd></div>
             <div><dt>Hotline</dt><dd>{resolvedHotline || "—"}</dd></div>
             <div><dt>Địa chỉ lấy hàng</dt><dd>{resolvedStreetAddress || "—"}</dd></div>
-            <div><dt>Khu vực lấy hàng</dt><dd>{selectedArea ? `${selectedArea.city} · ${selectedArea.district} · ${selectedArea.ward}` : resolvedProvinceId ? "Địa chỉ đã lưu" : "Chưa khai báo"}</dd></div>
+            <div><dt>Khu vực lấy hàng</dt><dd>{resolvedProvinceId ? <SavedShopArea provinceId={resolvedProvinceId} districtId={resolvedDistrictId} wardCode={resolvedWardCode} /> : "Chưa khai báo"}</dd></div>
           </dl>
           <p className="status-note">Trạng thái hồ sơ UserService không chứng minh kho đã được tạo ở Fulfillment. Chỉ xác nhận đồng bộ khi backend cung cấp mã kho hoặc truy vấn kho theo Seller.</p>
         </Card>
@@ -3005,14 +3018,8 @@ export function SellerShopScreen() {
         <h2>Chỉnh sửa gian hàng</h2>
         <form
           className="auth-fields"
-          key={JSON.stringify([
-            resolvedShopName,
-            resolvedHotline,
-            resolvedProvinceId,
-            resolvedDistrictId,
-            resolvedWardCode,
-            resolvedStreetAddress,
-          ])}
+          onChange={() => setDirty(true)}
+          key={formKey}
           onSubmit={(e) => void submit(e)}
         >
           <label className="field-wrap">
@@ -3023,12 +3030,8 @@ export function SellerShopScreen() {
             Hotline
             <input className="field" name="hotline" required defaultValue={resolvedHotline} />
           </label>
-          <label className="field-wrap">
-            Mô tả
-            <textarea className="textarea-field" name="description" defaultValue={String(data.description ?? "")} />
-          </label>
           <SellerShopAddressFields provinceId={resolvedProvinceId} districtId={resolvedDistrictId}
-            wardCode={resolvedWardCode} streetAddress={resolvedStreetAddress} />
+            wardCode={resolvedWardCode} streetAddress={resolvedStreetAddress} onCheck={setLocationCheck} />
           {error && (
             <p role="alert" className="notice">
               {error}

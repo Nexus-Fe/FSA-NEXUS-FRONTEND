@@ -4,16 +4,18 @@ import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { describeError, formatError } from "@/lib/errors/error-messages";
 import { evidenceRequired, parseReportPrefill } from "./order-report";
-import { Badge, Card, NoData, PageHeading } from "@/components/ui/Primitives";
+import { Badge, Card, PageHeading } from "@/components/ui/Primitives";
 import { FileDropZone, IMAGE_UPLOAD_PRESET } from "@/components/ui/FileDropZone";
 import { api, type ApiResponse } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { REPORT_REFUND_STATUS, REPORT_STATUS, statusLabel } from "@/lib/status-labels";
+import { ErrorState, LoadingState } from "@/components/ui/States";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 const unwrap = <T,>(value: ApiResponse<T> | T): T => value && typeof value === "object" && "data" in value ? value.data : value;
-const errorText = (error: Error | null) => error?.message ?? "";
 
-type UserReport = { refundStatus?: string; refundAmount?: number; reportId?: string; targetType?: string; targetId?: string; reason?: string; status?: string; adminNote?: string; createdAt?: string };
+type UserReport = { reportId?: string; reportedUserId?: string; targetRole?: string; referenceType?: string | null; referenceId?: string | null; violationType?: string; description?: string; status?: string; resolutionNote?: string | null; refundStatus?: string; refundAmount?: number | null; createdAt?: string };
+const VIOLATION_LABEL: Record<string, string> = { Fraud: "Gian lận", Harassment: "Quấy rối", Counterfeit: "Hàng giả", Spam: "Spam", Other: "Khác" };
 
 
 export function BuyerReportsScreen() {
@@ -42,17 +44,18 @@ export function BuyerReportsScreen() {
       </Card>
       <Card className="buyer-report-history-card">
         <div className="card-header"><h2>Báo cáo đã gửi</h2></div>
-        {reports.error&&<p className="notice" role="alert">{errorText(reports.error)}</p>}
+        {reports.error&&<ErrorState cause={reports.error} onRetry={reports.reload} />}
         {reports.data?.length?reports.data.map((report,index)=><div className="buyer-report-item" key={report.reportId??index}>
           <div className="buyer-report-item-content">
-            <strong>{report.reason??report.targetType??"Báo cáo"}</strong>
-            <span className="buyer-report-item-id">{report.targetId??"—"}</span>
+            <strong>{VIOLATION_LABEL[report.violationType??""]??report.violationType??"Báo cáo"}{report.targetRole?` · ${report.targetRole==="Seller"?"Người bán":report.targetRole==="Buyer"?"Người mua":"Tài khoản"}`:""}</strong>
+            {report.description&&<p className="buyer-report-item-text">{report.description}</p>}
+            <span className="buyer-report-item-id">{report.referenceType==="Order"&&report.referenceId?`Đơn ${report.referenceId.slice(0,8)}`:report.reportedUserId?`Người dùng ${report.reportedUserId.slice(0,8)}`:"—"}</span>
             {report.createdAt&&<time dateTime={report.createdAt}>{new Date(report.createdAt).toLocaleString("vi-VN")}</time>}
-            {report.adminNote&&<p>Phản hồi: {report.adminNote}</p>}
+            {report.resolutionNote&&<p>Phản hồi: {report.resolutionNote}</p>}
             {report.refundStatus&&report.refundStatus!=="None"&&<p>Hoàn tiền: {statusLabel(REPORT_REFUND_STATUS, report.refundStatus)}{typeof report.refundAmount==="number"&&report.refundAmount>0?` (${report.refundAmount.toLocaleString("vi-VN")} ₫)`:""}</p>}
           </div>
           <Badge>{statusLabel(REPORT_STATUS, report.status)}</Badge>
-        </div>):<NoData title={reports.loading?"Đang tải báo cáo…":reports.error?"Không tải được báo cáo":"Chưa gửi báo cáo nào"}/>}
+        </div>):reports.loading?<LoadingState rows={3} label="Đang tải báo cáo…"/>:reports.error?null:<EmptyState title="Chưa gửi báo cáo nào" description="Báo cáo bạn gửi sẽ hiện ở đây cùng trạng thái xử lý."/>}
       </Card>
     </div>
   </div>;

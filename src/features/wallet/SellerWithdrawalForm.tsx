@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { AdminPagination, Badge, Card, NoData, PageHeading } from "@/components/ui/Primitives";
-import { ErrorState } from "@/components/ui/States";
+import { ErrorState, LoadingState } from "@/components/ui/States";
 import { ApiError } from "@/lib/api/client";
 import { createIntentKeyStore, isDefiniteOutcome } from "@/lib/idempotency/intent-key";
 import { useApiResource } from "@/lib/api/use-api-resource";
@@ -64,7 +64,7 @@ export function SellerWithdrawalForm() {
       const status = cause instanceof ApiError ? cause.status : undefined;
       if (isDefiniteOutcome(status)) {
         intent.current.settle();
-        setError(cause instanceof Error ? cause.message : "Không thể gửi yêu cầu rút tiền.");
+        setError(formatError(describeError(cause, { operation: "write" })));
       } else {
         // The outcome is unknown: the key is kept, so sending again cannot lock the money twice.
         setError("Chưa rõ yêu cầu đã được ghi nhận hay chưa. Bạn có thể bấm gửi lại: hệ thống sẽ không tạo yêu cầu thứ hai.");
@@ -112,8 +112,8 @@ export function SellerWithdrawalForm() {
     <h2 className="section-title">Yêu cầu rút của bạn</h2>
     {cancelMessage && <p className="form-success" role="status">{cancelMessage}</p>}
     {cancelError && <p className="notice" role="alert">{cancelError}</p>}
-    {requests.error && <ErrorState title="Không tải được yêu cầu rút" cause={requests.error} onRetry={requests.reload} />}
-    {requests.loading && !requests.data ? <NoData title="Đang tải yêu cầu rút…" /> : requests.data?.items.length ? <Card>
+    {requests.error && <ErrorState cause={requests.error} onRetry={requests.reload} />}
+    {requests.loading && !requests.data ? <LoadingState label="Đang tải yêu cầu rút…" /> : requests.data?.items.length ? <Card>
       <div className="table-scroll"><table className="data-table"><thead><tr><th>Gửi lúc</th><th>Số tiền</th><th>Tài khoản nhận</th><th>Trạng thái</th><th>Ghi chú</th><th>Thao tác</th></tr></thead><tbody>
         {requests.data.items.map((item) => {
           const status = withdrawalStatus(item.status);

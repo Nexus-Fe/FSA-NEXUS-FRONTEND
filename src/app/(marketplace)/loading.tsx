@@ -1,9 +1,5 @@
-import { LoadingState } from "@/components/ui/States";
+import { SkeletonPage } from "@/components/ui/Skeletons";
 
-export default function MarketplaceLoading() {
-  return (
-    <div className="page-container" style={{ paddingBlock: 32 }}>
-      <LoadingState rows={4} label="Đang tải nội dung…" />
-    </div>
-  );
+export default function SegmentLoading() {
+  return <SkeletonPage variant="page" />;
 }

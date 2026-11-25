@@ -39,6 +39,7 @@ test("refund rules: only non-buyers decide a Requested refund", () => {
   assert.equal(canDecideRefund("seller", "Requested"), true);
   assert.equal(canDecideRefund("buyer", "Requested"), false);
   assert.equal(canDecideRefund("admin", "Completed"), false);
+  assert.equal(canDecideRefund("seller", "WalletPending"), false, "already decided: it only waits for the wallet");
 });
 
 test("refund rules: reject reason is required and bounded", () => {
@@ -86,4 +87,38 @@ import { describeWarehouseRetry } from "@/features/staff/warehouse-retry-rules.t
 test("warehouse retry messages", () => {
   assert.match(describeWarehouseRetry({ warehouseReady: true }), /sẵn sàng/);
   assert.match(describeWarehouseRetry({ warehouseReady: false }), /Chưa tạo được/);
+});
+
+import { nextShopFormKey, shopFormSavedKey } from "../src/features/seller/shop-form-key.ts";
+
+test("the shop form keeps its key from the first edit on, so the first character typed is not lost", () => {
+  const saved = '["Shop","0900","202","1442","20101","1 Le Loi"]';
+  // not editing: the form follows the saved data
+  assert.equal(nextShopFormKey("old", saved, false), saved);
+  // the first edit: the key must be exactly what the form already has
+  assert.equal(nextShopFormKey(saved, saved, true), saved);
+});
+
+test("a reload while the seller is editing does not change the form key; a save hands the form back to the saved data", () => {
+  const before = '["Shop","0900","202","1442","20101","1 Le Loi"]';
+  const reloaded = '["Shop","0900","202","1442","20101","2 Le Loi"]';
+  assert.equal(nextShopFormKey(before, reloaded, true), before, "editing: keep the key");
+  assert.equal(nextShopFormKey(before, reloaded, false), reloaded, "after the save: adopt the saved data");
+});
+
+test("every value the shop form starts from is part of the form key, so a reload that changes only one of them shows the saved text", () => {
+  const saved = { shopName: "Shop", hotline: "0900", provinceId: "202", districtId: "1442", wardCode: "20101", streetAddress: "1 Le Loi" };
+  for (const field of Object.keys(saved)) {
+    assert.notEqual(shopFormSavedKey(saved), shopFormSavedKey({ ...saved, [field]: saved[field] + "x" }), `${field} is part of the key`);
+  }
+});
+
+import { warehouseReadiness } from "../src/features/seller/warehouse-readiness.ts";
+
+test("a warehouse is ready only with its province, district and ward; one made before the province id was kept must be saved again", () => {
+  assert.equal(warehouseReadiness({ provinceId: 202, districtId: 1442, wardCode: "20101" }), "ready");
+  assert.equal(warehouseReadiness({ districtId: 1442, wardCode: "20101" }), "incomplete");
+  assert.equal(warehouseReadiness({ provinceId: null, districtId: 1442, wardCode: "20101" }), "incomplete");
+  assert.equal(warehouseReadiness({ provinceId: 202, districtId: 1442, wardCode: " " }), "incomplete");
+  assert.equal(warehouseReadiness(null), "none");
 });

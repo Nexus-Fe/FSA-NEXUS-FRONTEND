@@ -10,6 +10,7 @@ import { ProductReviewCard } from "@/features/reviews/ProductReviewCard";
 import { ProductReviewSummary } from "@/components/catalog/ProductReviewSummary";
 import { FileDropZone, IMAGE_UPLOAD_PRESET } from "@/components/ui/FileDropZone";
 import { reviewService } from "@/features/reviews/services/review.service";
+import { describeError, formatError } from "@/lib/errors/error-messages";
 
 type Review = { id: string; rating: number; comment: string | null; createdAt: string };
 type ReviewPage = { items: Review[]; pagination: { hasNextPage: boolean } };
@@ -42,7 +43,7 @@ export function ProductFeedback({ productId, canReport }: { productId: string; c
       const body = new FormData(); body.append("reason", reason.trim()); body.append("description", description.trim()); images.forEach((file) => body.append("evidenceFiles", file));
       await api.post(`/api/v1/products/${encodeURIComponent(productId)}/reports`, body);
       setSent(true);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Không gửi được báo cáo sản phẩm."); }
+    } catch (cause) { setError(formatError(describeError(cause, { operation: "write" }))); }
     finally { setBusy(false); }
   }
 

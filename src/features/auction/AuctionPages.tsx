@@ -8,6 +8,9 @@ import { BackendImage } from "@/components/ui/BackendImage";
 import { FluidChoiceBar } from "@/components/ui/FluidChoiceBar";
 
 import { AdminPagination, Badge, ButtonLink, Card, NoData, PageHeading, SectionHeading } from "@/components/ui/Primitives";
+import { LoadingState } from "@/components/ui/States";
+import { SkeletonCards, SkeletonPage } from "@/components/ui/Skeletons";
+import { describeError, formatError } from "@/lib/errors/error-messages";
 import { ROUTES } from "@/constants/routes";
 import { ApiError } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
@@ -35,7 +38,10 @@ export { normalizeAuctionStatus, statusLabel, auctionStatusTone } from "./contra
 export const auctionStatuses: (AuctionStatus | "ALL")[] = ["ALL", "RUNNING", "SCHEDULED", "DRAFT", "ENDED", "SETTLED", "FAILED", "CANCELLED"];
 
 export const dateText = (value: string | null | undefined) => value ? new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)) : "Chưa có dữ liệu";
-export const message = (error: Error | null) => error instanceof ApiError && error.status === 503 ? "Dịch vụ đấu giá hiện không khả dụng. Vui lòng thử lại sau." : error?.message ?? "";
+/** Text for a failed bid or other write: keeps the back end's own wording, because the bid rules are not all in the dictionary yet. */
+export const writeMessage = (error: Error | null) => error instanceof ApiError && error.status === 503 ? "Dịch vụ đấu giá hiện không khả dụng. Vui lòng thử lại sau." : error?.message ?? "";
+/** Text for a failed load: the dictionary wording, never the back end's own message. */
+export const message = (error: Error | null) => error instanceof ApiError && error.status === 503 ? "Dịch vụ đấu giá hiện không khả dụng. Vui lòng thử lại sau." : error ? formatError(describeError(error, { operation: "read" })) : "";
 
 export function PaginationBar({ pagination, page, setPage }: { pagination?: Pagination; page: number; setPage: (page: number) => void }) {
   if (!pagination || pagination.totalPages <= 1) return null;
@@ -67,7 +73,7 @@ export function AuctionListScreen() {
     <PageHeading title="Đấu giá" description="Theo dõi các phiên đang diễn ra và sắp mở bán." />
     <StatusFilter status={status} setStatus={(next) => { setStatus(next); setPage(1); }} options={["RUNNING", "SCHEDULED", "ENDED", "SETTLED"]} />
     {auctions.error && <div className="notice" role="alert">{message(auctions.error)} <button type="button" className="button button-secondary button-small" onClick={auctions.reload}>Tải lại</button></div>}
-    {auctions.loading && !auctions.data ? <NoData title="Đang tải phiên đấu giá…" /> : auctions.data?.items.length ? <div className="auction-list-grid">{auctions.data.items.map((auction) => <AuctionTile key={auction.auctionId} auction={auction} href={ROUTES.auction.room(auction.auctionId)} />)}</div> : !auctions.error && <NoData title="Chưa có phiên phù hợp" />}
+    {auctions.loading && !auctions.data ? <SkeletonCards count={6} /> : auctions.data?.items.length ? <div className="auction-list-grid">{auctions.data.items.map((auction) => <AuctionTile key={auction.auctionId} auction={auction} href={ROUTES.auction.room(auction.auctionId)} />)}</div> : !auctions.error && <NoData title="Chưa có phiên phù hợp" />}
     <PaginationBar pagination={auctions.data?.pagination} page={page} setPage={setPage} />
   </div>;
 }
@@ -107,7 +113,7 @@ export function AuctionRoomScreen() {
   const images = auction ? [...(auction.images ?? []).map((image) => image.url), auction.primaryImageUrl].filter((url, index, all): url is string => Boolean(url) && all.indexOf(url) === index) : [];
   const currentVersion = useLatestBid ? String(latestBid!.rowVersion) : detail.data?.version;
   const canSubmit = active && canBid && deposit.data?.canBid === true && auction?.sellerId !== user?.id && Boolean(currentVersion) && validAmount && !busy;
-  async function submit(event: FormEvent) { event.preventDefault(); setError(""); setSuccess(""); if (!active) { setError("Phiên không còn nhận lượt đặt giá."); return; } if (!canBid) { setError("Tài khoản này không có quyền đặt giá."); return; } if (deposit.data?.canBid !== true) { setError("Bạn cần có cọc hợp lệ trước khi đặt giá. Hãy kiểm tra trạng thái cọc."); return; } if (auction?.sellerId === user?.id) { setError("Bạn không thể đặt giá cho phiên của mình."); return; } if (!currentVersion) { setError("Chưa thể đặt giá vì phiên chưa có mã phiên bản mới nhất. Hãy tải lại thông tin."); return; } if (!validAmount) { setError(`Giá đặt phải từ ${formatMoney(minimumBid)} trở lên.`); return; } setBusy(true); try { const placed = await auctionService.placeBid(id, { amount: amountValue }, currentVersion!); setLatestBid(placed); setSuccess("Đã đặt giá thành công."); setAmount(""); refreshAuction(); } catch (cause) { if (cause instanceof ApiError && (cause.status === 409 || cause.status === 412)) { setError("Giá phiên vừa thay đổi. Đang tải lại thông tin; hãy kiểm tra trước khi đặt lại giá."); refreshAuction(); } else setError(message(cause as Error)); } finally { setBusy(false); } }
+  async function submit(event: FormEvent) { event.preventDefault(); setError(""); setSuccess(""); if (!active) { setError("Phiên không còn nhận lượt đặt giá."); return; } if (!canBid) { setError("Tài khoản này không có quyền đặt giá."); return; } if (deposit.data?.canBid !== true) { setError("Bạn cần có cọc hợp lệ trước khi đặt giá. Hãy kiểm tra trạng thái cọc."); return; } if (auction?.sellerId === user?.id) { setError("Bạn không thể đặt giá cho phiên của mình."); return; } if (!currentVersion) { setError("Chưa thể đặt giá vì phiên chưa có mã phiên bản mới nhất. Hãy tải lại thông tin."); return; } if (!validAmount) { setError(`Giá đặt phải từ ${formatMoney(minimumBid)} trở lên.`); return; } setBusy(true); try { const placed = await auctionService.placeBid(id, { amount: amountValue }, currentVersion!); setLatestBid(placed); setSuccess("Đã đặt giá thành công."); setAmount(""); refreshAuction(); } catch (cause) { if (cause instanceof ApiError && (cause.status === 409 || cause.status === 412)) { setError("Giá phiên vừa thay đổi. Đang tải lại thông tin; hãy kiểm tra trước khi đặt lại giá."); refreshAuction(); } else setError(writeMessage(cause as Error)); } finally { setBusy(false); } }
   function refreshAuction() { detail.reload(); bids.reload(); if (bidPage > 1) recentBids.reload(); }
   if (!isAuctionId(id)) return <NoData title="Mã phiên đấu giá không hợp lệ" />;
   if (detail.error instanceof ApiError && detail.error.status === 404) return <AuctionUnavailableState />;
@@ -115,7 +121,7 @@ export function AuctionRoomScreen() {
     <PageHeading title={auction?.productName ?? "Phòng đấu giá"} description={auction ? `Mã phiên ${auction.auctionId}` : "Đang tải thông tin phiên đấu giá"} action={<div className="action-row">{auction && canWatchAuction({ userId: user?.id, sellerId: auction.sellerId, canBid }) && user && <AuctionWatchButton auctionId={id} userId={user.id} />}<ButtonLink href={ROUTES.auction.index} variant="secondary" small>Quay lại danh sách</ButtonLink></div>} />
     {detail.error && <div className="notice" role="alert"><p>{message(detail.error)}</p><button className="button button-secondary button-small" type="button" onClick={refreshAuction}>Tải lại phiên</button></div>}
     {error && <p className="notice" role="alert">{error}</p>}{success && <p className="form-success" role="status">{success}</p>}{outbidNotice && <p className="notice" role="status">{outbidNotice} <button type="button" className="button button-secondary button-small" onClick={() => setOutbidNotice("")}>Đã hiểu</button></p>}{realtime === "reconnecting" && <p className="auction-action-note" role="status">Mất kết nối cập nhật trực tiếp, đang nối lại. Giá vẫn được làm mới định kỳ.</p>}
-    {detail.loading && !auction ? <NoData title="Đang tải phiên đấu giá…" /> : auction ? <>
+    {detail.loading && !auction ? <SkeletonPage variant="detail" label="Đang tải phiên đấu giá…" /> : auction ? <>
       {active && canBid && user && auction.sellerId !== user.id && <AuctionDepositPanel auctionId={id} userId={user.id} requirement={requirement.data ?? null} deposit={deposit.data ?? null} loading={requirement.loading || deposit.loading} error={requirement.error ?? deposit.error} reload={() => { requirement.reload(); deposit.reload(); }} />}
       <div className="auction-room-grid">
         <div className="auction-room-main">
@@ -153,7 +159,7 @@ export function AuctionRoomScreen() {
           <AuctionBidLeaderboard auctionId={id} recentBids={bidPage === 1 ? bids.data?.items : recentBids.data?.items} />
           <Card className="card-pad auction-bid-history"><div className="auction-history-heading"><div><h2>Lịch sử từng lượt đặt giá</h2><p>Mỗi dòng là một lượt, nên cùng một người có thể xuất hiện nhiều lần.</p></div><span>Tự cập nhật</span></div>
             {bids.error && <p className="notice" role="alert">{message(bids.error)}</p>}
-            {bids.loading && !bids.data ? <NoData title="Đang tải lịch sử đặt giá…" /> : bids.data?.items.length ? <div className="table-scroll"><table className="data-table"><thead><tr><th>Người tham gia</th><th>Mức giá</th><th>Thời điểm</th><th>Trạng thái</th></tr></thead><tbody>{bids.data.items.map((bid) => <tr key={bid.bidId}><td>{bid.bidderDisplayName}</td><td>{formatMoney(bid.amount)}</td><td>{dateText(bid.placedAt)}</td><td><Badge tone={bid.isInvalidated ? "red" : bid.isWinning ? "green" : "slate"}>{bid.isInvalidated ? "Không hợp lệ" : bid.isWinning ? "Dẫn đầu" : bid.isOutbid ? "Đã bị vượt" : "Hợp lệ"}</Badge></td></tr>)}</tbody></table></div> : <NoData title={bids.error ? "Không tải được lịch sử đặt giá" : "Chưa có lượt đặt giá"} />}
+            {bids.loading && !bids.data ? <LoadingState rows={3} label="Đang tải lịch sử đặt giá…" /> : bids.data?.items.length ? <div className="table-scroll"><table className="data-table"><thead><tr><th>Người tham gia</th><th>Mức giá</th><th>Thời điểm</th><th>Trạng thái</th></tr></thead><tbody>{bids.data.items.map((bid) => <tr key={bid.bidId}><td>{bid.bidderDisplayName}</td><td>{formatMoney(bid.amount)}</td><td>{dateText(bid.placedAt)}</td><td><Badge tone={bid.isInvalidated ? "red" : bid.isWinning ? "green" : "slate"}>{bid.isInvalidated ? "Không hợp lệ" : bid.isWinning ? "Dẫn đầu" : bid.isOutbid ? "Đã bị vượt" : "Hợp lệ"}</Badge></td></tr>)}</tbody></table></div> : <NoData title={bids.error ? "Không tải được lịch sử đặt giá" : "Chưa có lượt đặt giá"} />}
             <PaginationBar pagination={bids.data?.pagination} page={bidPage} setPage={setBidPage} />
           </Card>
         </aside>
@@ -169,7 +175,7 @@ export function MyAuctionsScreen() {
     <PageHeading title="Lượt đặt giá của tôi" description="Mỗi thẻ là một lượt đặt giá. Mở kết quả để biết bạn có thắng cả phiên hay không." />
     <BuyerAuctionOffers />
     {resource.error && <div className="notice" role="alert">{message(resource.error)} <button type="button" className="button button-secondary button-small" onClick={resource.reload}>Tải lại</button></div>}
-    {resource.loading && !resource.data ? <NoData title="Đang tải lượt đặt giá…" /> : resource.data?.items.length ? <div className="auction-list-grid">{resource.data.items.map((item) => <Card className="card-pad auction-my-bid" key={item.bidId}>
+    {resource.loading && !resource.data ? <LoadingState rows={3} label="Đang tải lượt đặt giá…" /> : resource.data?.items.length ? <div className="auction-list-grid">{resource.data.items.map((item) => <Card className="card-pad auction-my-bid" key={item.bidId}>
       <h2>{item.auctionTitle}</h2>
       <Badge tone={item.isInvalidated ? "red" : item.isWinning ? "green" : "slate"}>{item.isInvalidated ? "Lượt không hợp lệ" : item.isWinning ? ["ENDED", "SETTLED"].includes(normalizeAuctionStatus(item.status ?? "")) ? "Lượt thắng phiên" : "Lượt đang dẫn đầu" : item.isOutbid ? "Lượt đã bị vượt giá" : statusLabel(item.status)}</Badge>
       <div className="info-row"><span>Giá đã đặt</span><strong>{formatMoney(item.amount)}</strong></div>
@@ -192,7 +198,7 @@ export function BuyerAuctionResultScreen({ payment = false }: { payment?: boolea
   return <div className="auction-surface">
     <PageHeading title={payment ? "Thanh toán đơn đấu giá" : "Kết quả đấu giá"} description={`Phiên ${id}`} action={<button type="button" className="button button-secondary button-small" onClick={resource.reload} disabled={resource.loading}>Kiểm tra lại</button>} />
     {resource.error && <p role="alert" className="notice">{message(resource.error)}</p>}
-    {resource.loading && !result ? <NoData title="Đang tải kết quả…" /> : result && outcome ? <div className="split">
+    {resource.loading && !result ? <SkeletonPage variant="detail" label="Đang tải kết quả…" /> : result && outcome ? <div className="split">
       <Card className="card-pad">
         <Badge tone={won ? "green" : outcome.hasOffer ? "sky" : "slate"}>{statusLabel(result.status)}</Badge>
         <h2>{outcome.title}</h2>

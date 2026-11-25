@@ -1,77 +1,65 @@
 "use client";
 
 import { useState } from "react";
-import { SelectBox } from "@/components/ui/SelectBox";
-import { ghnPresets } from "../ghn-presets";
+import { GhnLocationSelect } from "@/features/shipping/GhnLocationSelect";
+import { selectionFromCodes, type GhnCheck, type GhnSelection } from "@/features/shipping/ghn-address";
+import { locationService } from "@/features/shipping/location.service";
+import { useApiResource } from "@/lib/api/use-api-resource";
 
-export function SellerShopAddressFields({ provinceId, districtId, wardCode, streetAddress }: {
+/**
+ * Pickup address of the shop: province, district and ward come from the GHN lists, like every other address form. The three codes are sent
+ * under the same field names as before (`provinceId`, `districtId`, `wardCode`), so the save of the shop profile does not change.
+ * A saved code that GHN no longer lists is cleared with the levels below it and the user is asked to choose again (see GhnLocationSelect);
+ * the form cannot be saved until the three levels are chosen, because the selects are required.
+ */
+export function SellerShopAddressFields({ provinceId, districtId, wardCode, streetAddress, onCheck }: {
   provinceId: string;
   districtId: string;
   wardCode: string;
   streetAddress: string;
+  onCheck?: (check: GhnCheck) => void;
 }) {
-  const [selectedProvince, setSelectedProvince] = useState(provinceId);
-  const [selectedDistrict, setSelectedDistrict] = useState(districtId);
-  const [selectedWard, setSelectedWard] = useState(wardCode);
-  const provinces = [...new Map(ghnPresets.map((place) => [place.provinceId, place.city])).entries()];
-  const districts = [...new Map(ghnPresets.filter((place) => place.provinceId === selectedProvince)
-    .map((place) => [place.districtId, place.district])).entries()];
-  const wards = ghnPresets.filter((place) => place.provinceId === selectedProvince && place.districtId === selectedDistrict);
-  const existingProvince = selectedProvince && !provinces.some(([id]) => id === selectedProvince);
-  const existingDistrict = selectedDistrict && !districts.some(([id]) => id === selectedDistrict);
-  const existingWard = selectedWard && !wards.some((place) => place.wardCode === selectedWard);
+  const [selection, setSelection] = useState<GhnSelection>(() => selectionFromCodes(provinceId, districtId, wardCode));
+  // Only an address the seller chose herself is protected from a reload of the profile; typing in other fields while the profile is still
+  // loading must not stop the saved address from arriving.
+  const [chosenByUser, setChosenByUser] = useState(false);
+
+  // The profile can arrive after the form first renders, or be reloaded after a save: take the new codes when they change.
+  const parentCodes = `${provinceId}|${districtId}|${wardCode}`;
+  const [seenParentCodes, setSeenParentCodes] = useState(parentCodes);
+  if (seenParentCodes !== parentCodes) {
+    setSeenParentCodes(parentCodes);
+    if (!chosenByUser) setSelection(selectionFromCodes(provinceId, districtId, wardCode));
+  }
 
   return <>
     <h3>Địa chỉ lấy hàng</h3>
     <div className="form-grid">
-      <label className="field-wrap" htmlFor="seller-shop-province">Tỉnh / thành phố
-        <SelectBox
-          id="seller-shop-province"
-          name="provinceId"
-          ariaLabel="Tỉnh / thành phố"
-          value={selectedProvince}
-          placeholder="Chọn tỉnh / thành phố"
-          options={[
-            ...(existingProvince ? [{ value: selectedProvince, label: "Khu vực đã lưu" }] : []),
-            ...provinces.map(([id, city]) => ({ value: id, label: city })),
-          ]}
-          onChange={(next) => { setSelectedProvince(next); setSelectedDistrict(""); setSelectedWard(""); }}
-        />
-      </label>
-      <label className="field-wrap" htmlFor="seller-shop-district">Quận / huyện
-        <SelectBox
-          id="seller-shop-district"
-          name="districtId"
-          ariaLabel="Quận / huyện"
-          value={selectedDistrict}
-          disabled={!selectedProvince}
-          placeholder="Chọn quận / huyện"
-          options={[
-            ...(existingDistrict ? [{ value: selectedDistrict, label: "Quận / huyện đã lưu" }] : []),
-            ...districts.map(([id, district]) => ({ value: id, label: district })),
-          ]}
-          onChange={(next) => { setSelectedDistrict(next); setSelectedWard(""); }}
-        />
-      </label>
-      <label className="field-wrap" htmlFor="seller-shop-ward">Phường / xã
-        <SelectBox
-          id="seller-shop-ward"
-          name="wardCode"
-          ariaLabel="Phường / xã"
-          value={selectedWard}
-          disabled={!selectedDistrict}
-          placeholder="Chọn phường / xã"
-          options={[
-            ...(existingWard ? [{ value: selectedWard, label: "Phường / xã đã lưu" }] : []),
-            ...wards.map((place) => ({ value: place.wardCode, label: place.ward })),
-          ]}
-          onChange={setSelectedWard}
-        />
-      </label>
+      <GhnLocationSelect value={selection} onChange={(next, source) => { if (source === "user") setChosenByUser(true); setSelection(next); }} onCheck={onCheck} />
+      <input type="hidden" name="provinceId" value={selection.provinceId ?? ""} />
+      <input type="hidden" name="districtId" value={selection.districtId ?? ""} />
+      <input type="hidden" name="wardCode" value={selection.wardCode} />
       <label className="field-wrap" htmlFor="seller-shop-street">Địa chỉ cụ thể
         <input id="seller-shop-street" className="field" name="streetAddress" required defaultValue={streetAddress} />
       </label>
     </div>
-    <p className="status-note">Danh sách chọn nhanh hiện có 4 khu vực GHN mẫu.</p>
   </>;
+}
+
+/** The saved pickup area as names. When GHN cannot confirm the codes it shows them as codes and does not call them wrong. */
+export function SavedShopArea({ provinceId, districtId, wardCode }: { provinceId: string; districtId: string; wardCode: string }) {
+  const province = Number(provinceId) > 0 ? Number(provinceId) : null;
+  const district = Number(districtId) > 0 ? Number(districtId) : null;
+  const provinces = useApiResource(province ? "ghn-provinces" : null, (signal) => locationService.provinces(signal));
+  const districts = useApiResource(province && district ? `ghn-districts:${province}` : null, (signal) => locationService.districts(province as number, signal));
+  const wards = useApiResource(district && wardCode ? `ghn-wards:${district}` : null, (signal) => locationService.wards(district as number, signal));
+
+  if (!province) return <>—</>;
+  const names = [
+    provinces.data?.items.find((entry) => entry.provinceId === province)?.provinceName,
+    districts.data?.items.find((entry) => entry.districtId === district)?.districtName,
+    wards.data?.items.find((entry) => entry.wardCode === wardCode)?.wardName,
+  ].filter(Boolean);
+  if (names.length === (district ? (wardCode ? 3 : 2) : 1)) return <>{names.join(" · ")}</>;
+  return <>{provinces.loading || districts.loading || wards.loading ? "Đang tải…" : `Mã GHN ${province}/${district ?? "—"}/${wardCode || "—"} (chưa xác nhận được tên)`}</>;
 }

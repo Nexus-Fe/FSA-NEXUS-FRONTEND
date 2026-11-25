@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { AdminPagination, Card, NoData, PageHeading } from "@/components/ui/Primitives";
-import { ErrorState } from "@/components/ui/States";
+import { ErrorState, LoadingState } from "@/components/ui/States";
 import { ROUTES } from "@/constants/routes";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { ReputationScore } from "./ReputationScore";
@@ -31,7 +31,7 @@ export function SellerReviewsScreen() {
         </label>
       </div>
       {reviews.error && <ErrorState title="Không tải được đánh giá" cause={reviews.error} onRetry={reviews.reload} />}
-      {reviews.loading && <NoData title="Đang tải đánh giá…" />}
+      {reviews.loading && <LoadingState label="Đang tải đánh giá…" />}
       {reviews.data && (reviews.data.items.length ? <div className="received-review-list">{reviews.data.items.map((review) => <article className="received-review" key={review.reviewId}>
         <div><strong>{review.reviewerDisplayNameMasked || "Người mua"}</strong><span aria-label={`${review.rating} trên 5 sao`}> · {"★".repeat(review.rating)}{"☆".repeat(5 - review.rating)}</span></div>
         <p>{review.comment || "Không có nhận xét"}</p>

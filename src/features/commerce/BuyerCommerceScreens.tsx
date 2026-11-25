@@ -5,8 +5,8 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useSession } from "@/components/auth/SessionProvider";
 import { BackendImage } from "@/components/ui/BackendImage";
-import { AdminPagination, Badge, Card, NoData, PageHeading } from "@/components/ui/Primitives";
-import { ErrorState } from "@/components/ui/States";
+import { AdminPagination, Badge, Card, PageHeading } from "@/components/ui/Primitives";
+import { ErrorState, LoadingState } from "@/components/ui/States";
 import { EmailInput } from "@/components/ui/EmailInput";
 import { ROUTES } from "@/constants/routes";
 import { ApiError, api, unwrap, type ApiResponse } from "@/lib/api/client";
@@ -26,7 +26,8 @@ import { clearUnknownOrderMarker, describeCartFailure, describePlaceOrderFailure
 import { GhnLocationSelect } from "@/features/shipping/GhnLocationSelect";
 import { SavedAddressPicker } from "@/features/profile/SavedAddressPicker";
 import { toGhnSelection } from "@/features/profile/address-rules";
-import { EMPTY_GHN_SELECTION, buildShippingAddress, formatAddressLine, parseGhnSelection, validateGhnSelection, type GhnSelection } from "@/features/shipping/ghn-address";
+import { EMPTY_GHN_SELECTION, buildShippingAddress, formatAddressLine, ghnWriteBlock, parseGhnSelection, validateGhnSelection, type GhnCheck, type GhnSelection } from "@/features/shipping/ghn-address";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 
 type CartItem = { id: string; productId: string; skuId: string; sellerId: string; productName: string; quantity: number; unitPriceSnapshot: number };
@@ -400,7 +401,9 @@ export function CartScreen() {
   return <>
     <nav className="checkout-breadcrumb" aria-label="Đường dẫn"><Link href={ROUTES.home}>Trang chủ</Link><span aria-hidden="true">›</span><span aria-current="page">Giỏ hàng</span></nav>
     <div className="cart-page-heading"><div><h1>Giỏ hàng</h1><p>{items.length ? `${items.length} sản phẩm trong giỏ` : "Chọn sản phẩm cần mua trước khi đặt hàng."}</p></div><Link className="cart-continue-link" href={ROUTES.catalog.index}>Tiếp tục mua sắm</Link></div>
-    {(cart.error || stock.error || actionError) && <p className="notice" role="alert">{actionError || cart.error?.message || stock.error?.message}</p>}
+    {actionError && <p className="notice" role="alert">{actionError}</p>}
+    {cart.error && <ErrorState cause={cart.error} onRetry={cart.reload} />}
+    {stock.error && <ErrorState cause={stock.error} onRetry={stock.reload} />}
     <div className="buyer-cart-layout">
       <div className="buyer-cart-items">
         {items.length ? <>
@@ -446,7 +449,7 @@ export function CartScreen() {
               </article>;
             })}
           </section>)}
-        </> : <div className="cart-empty"><NoData title={cart.loading ? "Đang tải giỏ hàng…" : cart.error ? "Không tải được giỏ hàng" : "Giỏ hàng đang trống"} />{!cart.loading && !cart.error && <Link className="button button-primary" href={ROUTES.catalog.index}>Khám phá sản phẩm</Link>}</div>}
+        </> : <div className="cart-empty">{cart.loading ? <LoadingState rows={4} label="Đang tải giỏ hàng…" /> : cart.error ? null : <EmptyState title="Giỏ hàng đang trống" description="Thêm sản phẩm để bắt đầu đặt hàng." actionLabel="Khám phá sản phẩm" actionHref={ROUTES.catalog.index} />}</div>}
       </div>
       <aside className="buyer-cart-summary"><h2>Tóm tắt đơn hàng</h2><div className="cart-summary-line"><span>Sản phẩm đã chọn ({selectedItems.length})</span><strong>{formatMoney(selectedTotal)}</strong></div><div className="cart-summary-line"><span>Phí vận chuyển</span><strong>{selectedItems.length ? "Tính khi báo giá" : "—"}</strong></div><div className="cart-summary-total"><span>Tạm tính tiền hàng</span><strong>{formatMoney(selectedTotal)}</strong></div><button className="button button-primary" type="button" disabled={!selectedItems.length || hasQuantityError || stock.loading || Boolean(stock.error) || busyId !== null || validating} onClick={() => void continueToCheckout()}>{validating ? "Đang kiểm tra giỏ hàng…" : "Tiếp tục đặt hàng"}</button><p>{stock.error ? "Chưa kiểm tra được tồn kho. Vui lòng tải lại trang." : hasQuantityError ? "Điều chỉnh số lượng theo tồn kho trước khi tiếp tục." : selectedItems.length ? "Bước tiếp theo nhập địa chỉ nhận hàng và thanh toán bằng Ví Nexus." : "Chọn ít nhất một sản phẩm để tiếp tục."}</p></aside>
     </div>
@@ -470,6 +473,8 @@ export function CheckoutScreen() {
   const [errors, setErrors] = useState<ShippingErrors>({});
   const [extra, setExtra] = useState<ShippingExtra>(loadShippingExtra);
   const [ghn, setGhn] = useState<GhnSelection>(loadGhn);
+  // What the session kept is only a draft: the codes are checked against the GHN lists before a quote is asked for.
+  const [ghnCheck, setGhnCheck] = useState<GhnCheck>({ state: "empty" });
   const [quoteState, setQuoteState] = useState<{ key: string; baseKey: string; data: CheckoutQuoteResponse } | null>(null);
   const [editingShipping, setEditingShipping] = useState(true);
   const [quoting, setQuoting] = useState(false);
@@ -553,6 +558,12 @@ export function CheckoutScreen() {
     setSubmitError("");
     const found = validateShipping(form, ghn);
     setErrors(found);
+    // A quote is a write: it needs the current codes confirmed by a trusted GHN list ("valid"), not only present.
+    const locationBlock = Object.keys(found).length === 0 ? ghnWriteBlock(ghnCheck) : undefined;
+    if (locationBlock) {
+      setQuoteError(locationBlock);
+      return;
+    }
     if (Object.keys(found).length) {
       const order: Array<keyof ShippingErrors> = ["receiverName", "phone", "address", "province", "district", "ward"];
       const firstKey = order.find((key) => Boolean(found[key]));
@@ -648,6 +659,15 @@ export function CheckoutScreen() {
           note: extra.note.trim() || undefined,
         }),
       );
+
+      try {
+        // The order exists (paid or not, COD included): the address kept for this checkout is not offered again as if it were still being typed.
+        window.sessionStorage.removeItem(SHIPPING_STORAGE_KEY);
+        window.sessionStorage.removeItem(SHIPPING_EXTRA_KEY);
+        window.sessionStorage.removeItem(SHIPPING_GHN_KEY);
+      } catch {
+        // Browser storage may be disabled.
+      }
 
       if (created.status.replace(/[^a-z]/gi, "").toUpperCase() !== "PAID") {
         router.push(ROUTES.buyer.order(created.orderId));
@@ -760,7 +780,7 @@ export function CheckoutScreen() {
           <label className="field-wrap"><span>Số điện thoại <abbr className="checkout-required" title="Bắt buộc">*</abbr></span><input className="field" name="phone" type="tel" required autoComplete="tel" inputMode="tel" value={form.phone} onChange={(event) => setField("phone", event.target.value)} onBlur={() => blurField("phone")} aria-invalid={Boolean(errors.phone)} placeholder="Ví dụ: 0901234567" />{errors.phone && <small className="checkout-field-error" role="alert">{errors.phone}</small>}</label></div>
           <label className="field-wrap"><span>Địa chỉ cụ thể <abbr className="checkout-required" title="Bắt buộc">*</abbr></span><input className="field" name="address" required autoComplete="street-address" value={form.address} onChange={(event) => setField("address", event.target.value)} onBlur={() => blurField("address")} aria-invalid={Boolean(errors.address)} placeholder="Số nhà, tên đường" />{errors.address && <small className="checkout-field-error" role="alert">{errors.address}</small>}</label>
           <label className="field-wrap">Quốc gia<input className="field checkout-country" value="Việt Nam" readOnly aria-readonly="true" /></label>
-          <GhnLocationSelect value={ghn} errors={errors} onChange={(next) => { setGhn(next); setErrors((current) => ({ ...current, province: undefined, district: undefined, ward: undefined })); setSubmitError(""); }} />
+          <GhnLocationSelect value={ghn} errors={errors} onCheck={setGhnCheck} onChange={(next) => { setGhn(next); setErrors((current) => ({ ...current, province: undefined, district: undefined, ward: undefined })); setSubmitError(""); }} />
           <label className="field-wrap">Ghi chú giao hàng<textarea className="field" rows={3} value={extra.note} onChange={(event) => setExtra((current) => ({ ...current, note: event.target.value }))} placeholder="Ví dụ: Giao hàng ngoài giờ hành chính" /></label>
           </>}
 
@@ -786,7 +806,7 @@ export function CheckoutScreen() {
       const variant = detail?.variants?.find((entry) => entry.variantId === item.skuId);
       const image = variant?.primaryImageUrl ?? variant?.images?.find((entry) => entry.isActive !== false)?.url ?? detail?.images?.find((entry) => entry.isActive !== false)?.url ?? null;
       return <div className="checkout-item" key={item.id}><span className="checkout-item-image"><BackendImage src={resolveImageUrl(image)} alt="" compact /><span className="checkout-item-count">{item.quantity}</span></span><div><strong>{item.productName}</strong><span>{variant?.name ?? `Số lượng: ${item.quantity}`}</span></div><strong>{formatMoney(item.unitPriceSnapshot * item.quantity)}</strong></div>;
-    })}</div> : <NoData title={cart.loading ? "Đang tải giỏ hàng…" : "Chưa có sản phẩm được chọn"} />}
+    })}</div> : cart.loading ? <LoadingState rows={2} label="Đang tải giỏ hàng…" /> : <EmptyState compact title="Chưa có sản phẩm được chọn" actionLabel="Về giỏ hàng" actionHref={ROUTES.buyer.cart} />}
       <div className="checkout-summary-line"><span>Tiền hàng</span><strong>{items.length ? formatMoney(activeQuote ? quotedItemsAmount : subtotal) : "—"}</strong></div>
       <div className="checkout-summary-line"><span>Phí giao hàng</span><strong>{activeQuote ? formatMoney(quotedShippingFee) : items.length ? "Theo báo giá" : "—"}</strong></div>
       {items.length > 0 && <CheckoutVoucherPanel cartItemIds={items.map((item) => item.id)} selectedCodes={voucherCodes} cashOnDelivery={paymentMethod === "Cod"} disabled={unknownOutcome || quoting || submitting} onChange={setVoucherCodes} />}
@@ -823,7 +843,7 @@ export function OrdersScreen() {
           const resolvedId = order.orderId ?? order.id ?? "";
           const resolvedNo = order.orderNo ?? `ORD-${resolvedId.slice(0, 8).toUpperCase()}`;
           return (
-            <div className="info-row" key={resolvedId}>
+            <div className="info-row order-list-row" key={resolvedId}>
               <div>
                 <Link href={ROUTES.buyer.order(resolvedId)}>
                   <strong>Đơn hàng {resolvedNo}</strong>
@@ -836,14 +856,14 @@ export function OrdersScreen() {
               <div style={{ textAlign: "right" }}>
                 <strong style={{ display: "block", marginBottom: 6 }}>{formatMoney(order.totalAmount)}</strong>
                 <Link className="button button-secondary" href={ROUTES.buyer.order(resolvedId)}>
-                  Xem &amp; Nhận hàng
+                  Xem chi tiết
                 </Link>
               </div>
             </div>
           );
         })
       ) : (
-        <NoData title={orders.loading ? "Đang tải đơn hàng…" : orders.error ? "Không tải được đơn hàng" : "Bạn chưa có đơn hàng"} />
+        orders.loading ? <LoadingState rows={4} label="Đang tải đơn hàng…" /> : orders.error ? null : <EmptyState title="Bạn chưa có đơn hàng" description="Đơn hàng sau khi đặt sẽ xuất hiện tại đây." actionLabel="Bắt đầu mua sắm" actionHref={ROUTES.catalog.index} />
       )}
       {orders.data && orders.data.pagination.totalPages > 1 && (
         <AdminPagination
@@ -952,7 +972,8 @@ export function OrderDetailScreen() {
         ) : undefined
       }
     />
-    {(order.error || confirmError) && <p className="notice" role="alert">{confirmError || order.error?.message}</p>}
+    {confirmError && <p className="notice" role="alert">{confirmError}</p>}
+    {order.error && <ErrorState cause={order.error} onRetry={order.reload} />}
     {confirmMessage && <p className="form-success" role="status">{confirmMessage}</p>}
     <div className="order-detail-layout">
       {subOrders.map((sub) => {
@@ -1097,7 +1118,7 @@ export function OrderDetailScreen() {
               ))}
             </>
           ) : (
-            <NoData title={order.loading ? "Đang tải đơn hàng…" : "Không có dữ liệu đơn hàng"} />
+            order.loading ? <LoadingState rows={5} label="Đang tải đơn hàng…" /> : order.error ? null : <EmptyState title="Không có dữ liệu đơn hàng" />
           )}
         </Card>
         <OrderShipmentsCard key={shipmentRefresh} orderId={orderId} />

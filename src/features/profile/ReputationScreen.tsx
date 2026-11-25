@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { AdminPagination, Badge, Card, NoData, PageHeading } from "@/components/ui/Primitives";
-import { ErrorState } from "@/components/ui/States";
+import { AdminPagination, Badge, Card, PageHeading } from "@/components/ui/Primitives";
+import { ErrorState, LoadingState } from "@/components/ui/States";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { ReputationScore } from "./ReputationScore";
 import { profileService } from "./services/profile.service";
@@ -41,12 +41,12 @@ export function ReputationScreen() {
   return <div className="reputation-page">
     <PageHeading title="Uy tín của tôi" description="Theo dõi điểm tài khoản và điều kiện tham gia giao dịch trên sàn." />
     {profile.error && <ErrorState title="Không tải được điểm uy tín" cause={profile.error} onRetry={profile.reload} />}
-    {profile.loading && <NoData title="Đang tải điểm uy tín…" />}
+    {profile.loading && <LoadingState label="Đang tải điểm uy tín…" />}
     {reputation.error && <ErrorState title="Không tải được điểm theo vai trò" cause={reputation.error} onRetry={reputation.reload} />}
     {profile.data && <ReputationScore score={score} level={reputation.data?.trustLevel ?? profile.data.trustLevel} heading="Uy tín Buyer" description="Điểm khi mua hàng và tham gia đấu giá" />}
     {profile.data?.isSeller && reputation.data && <ReputationScore score={reputation.data.sellerScore} level={reputation.data.sellerTrustLevel} heading="Uy tín Seller" description="Điểm khi bán hàng và tạo phiên đấu giá" />}
     {policy.error && <ErrorState title="Không tải được chính sách uy tín" cause={policy.error} onRetry={policy.reload} />}
-    {policy.loading && <NoData title="Đang tải chính sách uy tín…" />}
+    {policy.loading && <LoadingState label="Đang tải chính sách uy tín…" />}
     {policy.data && <Card className="card-pad reputation-policy">
       <h2>Điều kiện theo chính sách hiện tại</h2>
       {policy.data.enforcementEnabled ? <>
@@ -61,7 +61,7 @@ export function ReputationScreen() {
       {penalties.error && (
         <ErrorState title="Không tải được lịch sử án phạt" cause={penalties.error} onRetry={penalties.reload} />
       )}
-      {penalties.loading && !penalties.data && <NoData title="Đang tải lịch sử án phạt…" />}
+      {penalties.loading && !penalties.data && <LoadingState label="Đang tải lịch sử án phạt…" />}
       {!penalties.loading && !penalties.error && !penalties.data?.items.length && (
         <p className="status-note">Bạn chưa có án phạt vi phạm nào.</p>
       )}

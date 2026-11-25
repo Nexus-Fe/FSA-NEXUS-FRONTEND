@@ -2,11 +2,14 @@
 
 import { useState } from "react";
 import { useSession } from "@/components/auth/SessionProvider";
-import { AdminPagination, Card, NoData, PageHeading } from "@/components/ui/Primitives";
+import { AdminPagination, Card, PageHeading } from "@/components/ui/Primitives";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { usePathname } from "next/navigation";
 import { NotificationAction } from "./NotificationAction";
 import { notificationService, notificationsChangedEvent } from "./services/notification.service";
+import { describeError, formatError } from "@/lib/errors/error-messages";
+import { ErrorState, LoadingState } from "@/components/ui/States";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 export function NotificationsScreen() {
   const { user } = useSession();
@@ -26,7 +29,7 @@ export function NotificationsScreen() {
       resource.reload();
       window.dispatchEvent(new Event(notificationsChangedEvent));
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : "Không đánh dấu được thông báo.");
+      setActionError(formatError(describeError(error, { operation: "write" })));
     } finally {
       setBusyId(null);
     }
@@ -41,7 +44,8 @@ export function NotificationsScreen() {
         <option value="all">Tất cả</option><option value="unread">Chưa đọc</option>
       </select>
     </div>
-    {(resource.error || actionError) && <p className="notice" role="alert">{actionError || resource.error?.message}</p>}
+    {actionError && <p className="notice" role="alert">{actionError}</p>}
+    {resource.error && <ErrorState cause={resource.error} onRetry={resource.reload} />}
     <Card className="card-pad">
       {resource.data?.items.length ? <ul className="notification-list">
         {resource.data.items.map((item) => <li key={item.id} className={item.isRead ? "" : "notification-unread"}>
@@ -56,7 +60,7 @@ export function NotificationsScreen() {
             {busyId === item.id ? "Đang cập nhật…" : "Đánh dấu đã đọc"}
           </button>}
         </li>)}
-      </ul> : <NoData title={resource.loading ? "Đang tải thông báo…" : resource.error ? "Không tải được thông báo" : "Chưa có thông báo"} />}
+      </ul> : resource.loading ? <LoadingState rows={4} label="Đang tải thông báo…" /> : resource.error ? null : <EmptyState title="Chưa có thông báo" description="Thông báo về đơn hàng, đấu giá và ví sẽ hiện ở đây." />}
     </Card>
     {!!resource.data && resource.data.pagination.totalPages > 1 && (
       <AdminPagination

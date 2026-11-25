@@ -96,6 +96,7 @@ export type WarehouseInfo = {
   address?: string | null;
   contactPhone?: string | null;
   provinceName?: string | null;
+  provinceId?: number | null;
   districtId?: number | null;
   wardCode?: string | null;
   isDisabled?: boolean;
@@ -491,7 +492,7 @@ export const sellerCatalogService = {
   /** Completes the seller's own warehouse. The server needs only the name; the other fields are updated when sent. */
   async updateWarehouse(
     id: string,
-    input: { name: string; address?: string; contactPhone?: string; provinceName?: string; districtId?: number; wardCode?: string },
+    input: { name: string; address?: string; contactPhone?: string; provinceName?: string; provinceId?: number; districtId?: number; wardCode?: string },
   ) {
     return unwrap(
       await api.put<ApiResponse<WarehouseInfo> | WarehouseInfo>(`/api/v1/warehouses/${encodeURIComponent(id)}`, input),

@@ -13,6 +13,7 @@ import { FirebaseClientError, signInWithGooglePopup } from "@/lib/auth/firebase-
 import { profileService } from "@/features/profile";
 import { ReputationScore } from "@/features/profile/ReputationScore";
 import type { AuthUser } from "./types";
+import { ghnWriteBlock, type GhnCheck } from "@/features/shipping/ghn-address";
 import { ShopRegistrationForm, ShopRegistrationReview, emptyShopRegistrationFields, validateShopRegistrationFields, type ShopRegistrationFields } from "@/features/seller/components/ShopRegistrationForm";
 import { keepSellerRegistrationHandoff } from "@/features/seller/services/seller-registration-handoff";
 import { AuthSplitLayout } from "./components/AuthSplitLayout";
@@ -251,6 +252,7 @@ export function RegisterScreen() {
   const setChoice = (newChoice: RegistrationChoice) => setOverrideRole(newChoice);
   const [fields, setFields] = useState<RegisterFields>({ username: "", firstName: "", lastName: "", email: "", phoneNumber: "", password: "", confirmPassword: "" });
   const [shop, setShop] = useState<ShopRegistrationFields>(emptyShopRegistrationFields);
+  const [locationCheck, setLocationCheck] = useState<GhnCheck>({ state: "empty" });
   const [otp, setOtp] = useState("");
   const [otpSignal, setOtpSignal] = useState(0);
   const [otpSuccess, setOtpSuccess] = useState(false);
@@ -321,6 +323,11 @@ export function RegisterScreen() {
     const errors = validateShopRegistrationFields(shop);
     if (Object.keys(errors).length) {
       setError(Object.values(errors)[0] ?? "Vui lòng kiểm tra lại thông tin shop.");
+      return;
+    }
+    const locationBlock = ghnWriteBlock(locationCheck);
+    if (locationBlock) {
+      setError(locationBlock);
       return;
     }
     setError(null);
@@ -571,7 +578,7 @@ export function RegisterScreen() {
 
       {step === "shop" && (
         <form className="auth-fields" onSubmit={reviewShop}>
-          <ShopRegistrationForm idPrefix="new-seller" value={shop} onChange={setShop} />
+          <ShopRegistrationForm idPrefix="new-seller" value={shop} onChange={setShop} onLocationCheck={setLocationCheck} />
           {error && <p className="form-error" role="alert">{error}</p>}
           <div className="action-row auth-action-row">
             <button className="auth-secondary-btn" type="button" onClick={() => setStep("account")}>

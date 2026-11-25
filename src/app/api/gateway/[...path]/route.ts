@@ -73,6 +73,12 @@ async function proxy(request: NextRequest, context: RouteContext): Promise<Respo
   if (traceId) responseHeaders.set("X-Trace-Id", traceId);
   const entityTag = upstreamResponse.headers.get("ETag");
   if (entityTag) responseHeaders.set("ETag", entityTag);
+  // Where a province/district/ward list came from (GHN or its cache) and when GHN gave it. The address forms read them to tell "GHN says this
+  // code does not exist" from "the source is not confirmed"; without them every list would look unconfirmed.
+  for (const name of ["X-Location-Source", "X-Location-Observed-At"]) {
+    const value = upstreamResponse.headers.get(name);
+    if (value) responseHeaders.set(name, value);
+  }
 
   const isNoBodyStatus = new Set([204, 205, 304]).has(upstreamResponse.status);
   return new Response(

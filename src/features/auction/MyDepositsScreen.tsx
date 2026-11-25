@@ -13,6 +13,15 @@ import { depositStatusLabel } from "./auction-outcome";
 import { auctionService } from "./services/auction.service";
 
 const DATE = new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium", timeStyle: "short" });
+/** The auction service names why a deposit was taken in English; the buyer reads it in Vietnamese. */
+function capturePurposeLabel(purpose: string | null): string {
+  switch ((purpose ?? "").toLowerCase()) {
+    case "": return "—";
+    case "orderpayment": return "Trừ vào đơn thanh toán";
+    case "forfeit": return "Mất cọc do không thanh toán";
+    default: return purpose ?? "—";
+  }
+}
 const when = (value: string | null) => (value ? DATE.format(new Date(value)) : "—");
 const FILTERS = [["", "Tất cả"], ["Authorized", "Đang giữ"], ["Captured", "Đã tính vào đơn"], ["Released", "Đã hoàn lại"], ["Failed", "Chưa giữ được"]] as const;
 
@@ -32,7 +41,7 @@ export function MyDepositsScreen() {
           <td>{formatMoney(item.amount)}</td>
           <td>{item.ratePercent}%</td>
           <td><Badge tone="slate">{depositStatusLabel(item.status)}</Badge></td>
-          <td>{item.capturePurpose ?? "—"}</td>
+          <td>{capturePurposeLabel(item.capturePurpose)}</td>
           <td><small>Giữ: {when(item.authorizedAt)}<br />Hoàn: {when(item.releasedAt)}<br />Trừ: {when(item.capturedAt)}</small></td>
         </tr>)}
       </tbody></table></div>

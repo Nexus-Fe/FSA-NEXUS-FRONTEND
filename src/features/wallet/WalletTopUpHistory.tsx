@@ -13,6 +13,7 @@ import { formatMoney } from "@/lib/presentation";
 import { walletService } from "./services/wallet.service";
 import { TopupBadge } from "./WalletTopUpFlow";
 import { transactionDate } from "./WalletScreen";
+import { describeError, formatError } from "@/lib/errors/error-messages";
 
 export function WalletTopUpHistory() {
   const router = useRouter();
@@ -28,7 +29,7 @@ export function WalletTopUpHistory() {
       if (new URL(response.paymentUrl).protocol !== "https:") throw new Error("Đường dẫn Stripe không hợp lệ.");
       window.location.assign(response.paymentUrl);
     } catch (cause) {
-      setResumeError(cause instanceof Error ? cause.message : "Không tiếp tục được phiên thanh toán.");
+      setResumeError(formatError(describeError(cause, { operation: "write" })));
       setResumingId(""); result.reload();
     }
   }

@@ -5,7 +5,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ROUTES } from "@/constants/routes";
 import { Icon } from "@/components/ui/Icon";
-import { AdminPagination, ButtonLink, Card, NoData, PageHeading, SectionHeading } from "@/components/ui/Primitives";
+import { ErrorState } from "@/components/ui/States";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { SkeletonCards } from "@/components/ui/Skeletons";
+import { describeError } from "@/lib/errors/error-messages";
+import { AdminPagination, ButtonLink, Card, PageHeading, SectionHeading } from "@/components/ui/Primitives";
 import { BackendImage } from "@/components/ui/BackendImage";
 import { SwipeCarousel } from "@/components/ui/SwipeCarousel";
 import { CardGridSkeleton } from "@/components/ui/Skeleton";
@@ -19,7 +23,7 @@ import { categoryGroups, loadCategories, type Category } from "./categories";
 
 type Product = { id: string; productId?: string; name: string; description?: string; price: number; minPrice?: number | null; maxPrice?: number | null; primaryImageUrl?: string | null; imageUrl?: string; brand?: string; status?: string; categoryId?: string; categoryName?: string; variantCount?: number; variants?: Array<{ id: string; skuId?: string; name?: string; sku?: string; price?: number | null; status?: string; stock?: number }> };
 type ProductPage = { items: Product[]; pagination: { pageIndex: number; pageSize: number; totalCount: number; totalPages: number; hasPreviousPage: boolean; hasNextPage: boolean } };
-const problem = (error: Error | null) => error?.message ?? "";
+const problem = (error: Error | null) => (error ? describeError(error, { operation: "read" }).message : "");
 const pageSizes = [10, 30, 50] as const;
 
 type CatalogFilterValues = { keyword: string; categoryId: string; sortBy: string; minPrice: string; maxPrice: string; brand: string; minRating: string };
@@ -39,9 +43,19 @@ function catalogHref(filters: CatalogFilterValues, page: number, pageSize: numbe
   return `${basePath}${params.size ? `?${params}` : ""}`;
 }
 
+/** The catalog serves the status as the English word the back end uses; the card shows it in Vietnamese. */
+function productStatusLabel(status?: string | null): string {
+  switch ((status ?? "").toUpperCase()) {
+    case "ACTIVE": return "Đang bán";
+    case "OUTOFSTOCK": case "OUT_OF_STOCK": return "Hết hàng";
+    case "": return "";
+    default: return status ?? "";
+  }
+}
+
 function ProductCard({ product }: { product: Product }) {
   const hasPriceRange = typeof product.maxPrice === "number" && product.maxPrice > product.price;
-  return <article className="product-card"><Link href={ROUTES.catalog.product(product.id)} className="product-media"><BackendImage src={resolveImageUrl(product.imageUrl ?? null)} alt={product.name} compact /></Link><div className="product-body"><p className="product-category">{product.brand ?? product.categoryName ?? ""}</p><h3><Link href={ROUTES.catalog.product(product.id)}>{product.name}</Link></h3><p className="product-seller">{product.status ?? ""}</p><div className="product-bottom"><div className="product-card-price"><span>{hasPriceRange ? "Giá từ" : "Giá bán"}</span><strong>{formatMoney(product.price)}</strong></div><Link aria-label={`Xem ${product.name}`} href={ROUTES.catalog.product(product.id)} className="round-link"><Icon name="arrow" size={18} /></Link></div></div></article>;
+  return <article className="product-card"><Link href={ROUTES.catalog.product(product.id)} className="product-media"><BackendImage src={resolveImageUrl(product.imageUrl ?? null)} alt={product.name} compact /></Link><div className="product-body"><p className="product-category">{product.brand ?? product.categoryName ?? ""}</p><h3><Link href={ROUTES.catalog.product(product.id)}>{product.name}</Link></h3><p className="product-seller">{productStatusLabel(product.status)}</p><div className="product-bottom"><div className="product-card-price"><span>{hasPriceRange ? "Giá từ" : "Giá bán"}</span><strong>{formatMoney(product.price)}</strong></div><Link aria-label={`Xem ${product.name}`} href={ROUTES.catalog.product(product.id)} className="round-link"><Icon name="arrow" size={18} /></Link></div></div></article>;
 }
 
 function HomeProductBanner({ products }: { products: Product[] }) {
@@ -107,19 +121,18 @@ export function HomeScreen() {
     <section id="home-auctions" className="home-section" aria-label="Phiên đấu giá">
       <SectionHeading id="home-auctions-title" title="Phiên đấu giá trực tuyến" hint="Theo dõi các phiên đang diễn ra và sắp mở." />
       <div className="auction-list-grid">
-        {auctions.data?.length ? auctions.data.map((auction) => <AuctionTile key={auction.auctionId} auction={auction} href={ROUTES.auction.room(auction.auctionId)} />) : <Card className="empty-grid"><NoData title={auctions.loading ? "Đang tải phiên đấu giá…" : auctions.error ? problem(auctions.error) : "Chưa có phiên đấu giá"} /></Card>}
+        {auctions.data?.length ? auctions.data.map((auction) => <AuctionTile key={auction.auctionId} auction={auction} href={ROUTES.auction.room(auction.auctionId)} />) : auctions.loading ? <SkeletonCards count={3} /> : <div className="empty-grid">{auctions.error ? <ErrorState cause={auctions.error} onRetry={auctions.reload} /> : <EmptyState title="Chưa có phiên đấu giá" description="Các phiên mới sẽ xuất hiện tại đây khi người bán mở đấu giá." />}</div>}
       </div>
     </section>
 
     <section className="home-section" aria-labelledby="home-products-title">
       <SectionHeading id="home-products-title" title="Sản phẩm niêm yết mua ngay" hint="Xem các sản phẩm đang được đăng bán." action={<Link href={ROUTES.catalog.index}>Tất cả sản phẩm <Icon name="arrow" size={15}/></Link>} />
-      {products.error && <p role="alert" className="notice">{problem(products.error)}</p>}
-      <div className="product-grid">{products.data?.items.length ? products.data.items.slice(0, 4).map((product) => <ProductCard key={product.id} product={product} />) : products.loading ? <div className="empty-grid"><CardGridSkeleton count={4} label="Đang tải sản phẩm…" /></div> : <NoData className="empty-grid" title={products.error ? "Không tải được sản phẩm" : "Chưa có sản phẩm"} />}</div>
+      <div className="product-grid">{products.data?.items.length ? products.data.items.slice(0, 4).map((product) => <ProductCard key={product.id} product={product} />) : products.loading ? <SkeletonCards count={4} /> : <div className="empty-grid">{products.error ? <ErrorState cause={products.error} onRetry={products.reload} /> : <EmptyState title="Chưa có sản phẩm" description="Sản phẩm đang bán sẽ hiển thị tại đây." />}</div>}</div>
     </section>
 
     <section className="home-section home-categories" aria-labelledby="home-categories-title">
       <SectionHeading id="home-categories-title" title="Danh mục khám phá" hint="Tìm nhanh theo danh mục sản phẩm." action={<Link href={ROUTES.catalog.index}>Mở danh mục <Icon name="arrow" size={15}/></Link>} />
-      {categories.error ? <p role="alert" className="notice">{problem(categories.error)}</p> : categories.data?.length ? <div className="category-rail">{categoryGroups(categories.data).map(({ parent, children }) => <div className="category-tile" key={parent.id}><span className="category-tile-mark"><Icon name="grid" size={20}/></span>{children.length ? <><strong>{parent.name}</strong><div className="category-tile-children">{children.map((child) => <Link key={child.id} href={`${ROUTES.catalog.index}?categoryId=${encodeURIComponent(child.id)}`}>{child.name}</Link>)}</div></> : <Link href={`${ROUTES.catalog.index}?categoryId=${encodeURIComponent(parent.id)}`}><strong>{parent.name}</strong></Link>}</div>)}</div> : <NoData className="empty-grid" title={categories.loading ? "Đang tải danh mục…" : "Chưa có danh mục"} />}
+      {categories.error ? <ErrorState cause={categories.error} onRetry={categories.reload} /> : categories.data?.length ? <div className="category-rail">{categoryGroups(categories.data).map(({ parent, children }) => <div className="category-tile" key={parent.id}><span className="category-tile-mark"><Icon name="grid" size={20}/></span>{children.length ? <><strong>{parent.name}</strong><div className="category-tile-children">{children.map((child) => <Link key={child.id} href={`${ROUTES.catalog.index}?categoryId=${encodeURIComponent(child.id)}`}>{child.name}</Link>)}</div></> : <Link href={`${ROUTES.catalog.index}?categoryId=${encodeURIComponent(parent.id)}`}><strong>{parent.name}</strong></Link>}</div>)}</div> : categories.loading ? <SkeletonCards count={4} /> : <EmptyState className="empty-grid" title="Chưa có danh mục" />}
     </section>
   </div>;
 }
@@ -224,8 +237,8 @@ export function CatalogScreen({ sellerId = "", title = "Danh sách sản phẩm"
             </select>
           </label>
         </div>
-        {products.error && <p role="alert" className="notice">{problem(products.error)}</p>}
-        {products.loading && !productRows.length ? <CardGridSkeleton count={8} label="Đang tải sản phẩm…" /> : <div className="product-grid catalog-products">{productRows.length ? productRows.map((product) => <ProductCard key={product.id} product={product} />) : <NoData className="empty-grid" title={products.error ? "Không tải được sản phẩm" : "Không tìm thấy sản phẩm"} />}</div>}
+        {products.error && <ErrorState cause={products.error} onRetry={products.reload} />}
+        {products.loading && !productRows.length ? <CardGridSkeleton count={8} label="Đang tải sản phẩm…" /> : <div className="product-grid catalog-products">{productRows.length ? productRows.map((product) => <ProductCard key={product.id} product={product} />) : products.error ? null : <EmptyState className="empty-grid" title="Không tìm thấy sản phẩm" description="Thử bỏ bớt bộ lọc hoặc dùng từ khoá khác." actionLabel="Xoá bộ lọc" actionHref={basePath} />}</div>}
         {totalPages > 1 && (
           <AdminPagination
             page={pageIndex}

@@ -10,14 +10,28 @@ function list<T>(raw: unknown, what: string): T[] {
   return raw as T[];
 }
 
+/**
+ * Where a list came from. The Gateway exposes the two headers the Fulfillment sets: "ghn" is a fresh GHN answer, "ghn-cache" an earlier GHN
+ * answer still held in the cache. Anything else (header missing or unreadable) is "unknown" and is never trusted to say a code does not exist.
+ */
+export type LocationSource = "ghn" | "ghn-cache" | "unknown";
+export type LocationList<T> = { items: T[]; source: LocationSource; observedAt: string | null };
+
+async function load<T>(path: string, what: string, signal?: AbortSignal): Promise<LocationList<T>> {
+  const { data, headers } = await api.getWithMetadata<ApiResponse<T[]> | T[]>(path, { signal });
+  const header = headers.get("X-Location-Source");
+  const source: LocationSource = header === "ghn" || header === "ghn-cache" ? header : "unknown";
+  return { items: list<T>(unwrap(data), what), source, observedAt: headers.get("X-Location-Observed-At") };
+}
+
 export const locationService = {
-  async provinces(signal?: AbortSignal): Promise<GhnProvince[]> {
-    return list<GhnProvince>(unwrap(await api.get<ApiResponse<GhnProvince[]> | GhnProvince[]>("/api/v1/shipping/locations/provinces", { signal })), "tỉnh/thành phố");
+  provinces(signal?: AbortSignal): Promise<LocationList<GhnProvince>> {
+    return load<GhnProvince>("/api/v1/shipping/locations/provinces", "tỉnh/thành phố", signal);
   },
-  async districts(provinceId: number, signal?: AbortSignal): Promise<GhnDistrict[]> {
-    return list<GhnDistrict>(unwrap(await api.get<ApiResponse<GhnDistrict[]> | GhnDistrict[]>(`/api/v1/shipping/locations/districts?provinceId=${encodeURIComponent(String(provinceId))}`, { signal })), "quận/huyện");
+  districts(provinceId: number, signal?: AbortSignal): Promise<LocationList<GhnDistrict>> {
+    return load<GhnDistrict>(`/api/v1/shipping/locations/districts?provinceId=${encodeURIComponent(String(provinceId))}`, "quận/huyện", signal);
   },
-  async wards(districtId: number, signal?: AbortSignal): Promise<GhnWard[]> {
-    return list<GhnWard>(unwrap(await api.get<ApiResponse<GhnWard[]> | GhnWard[]>(`/api/v1/shipping/locations/wards?districtId=${encodeURIComponent(String(districtId))}`, { signal })), "phường/xã");
+  wards(districtId: number, signal?: AbortSignal): Promise<LocationList<GhnWard>> {
+    return load<GhnWard>(`/api/v1/shipping/locations/wards?districtId=${encodeURIComponent(String(districtId))}`, "phường/xã", signal);
   },
 };

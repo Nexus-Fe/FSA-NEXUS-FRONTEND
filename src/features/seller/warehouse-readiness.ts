@@ -4,13 +4,16 @@
  */
 export type WarehouseReadiness = "ready" | "incomplete" | "none";
 
-export type WarehouseAddressLike = { districtId?: number | string | null; wardCode?: string | null };
+export type WarehouseAddressLike = { provinceId?: number | string | null; districtId?: number | string | null; wardCode?: string | null };
 
 export function warehouseReadiness(warehouse: WarehouseAddressLike | null | undefined): WarehouseReadiness {
   if (!warehouse) return "none";
+  // The province id is set only by a save that the GHN lists confirmed. A warehouse with a district and ward but no province id (made before
+  // the whole chain was kept) cannot quote or ship, so it must show the form to be saved again.
+  const province = Number(warehouse.provinceId);
   const district = Number(warehouse.districtId);
   const ward = String(warehouse.wardCode ?? "").trim();
-  return Number.isFinite(district) && district > 0 && ward ? "ready" : "incomplete";
+  return Number.isFinite(province) && province > 0 && Number.isFinite(district) && district > 0 && ward ? "ready" : "incomplete";
 }
 
 export type AcceptBlock = { message: string; readiness: "incomplete" | "none" };

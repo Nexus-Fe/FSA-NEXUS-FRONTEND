@@ -21,6 +21,7 @@ import {
   type SellerRegistrationStatus,
   type SellerRegistrationStatusRecord,
 } from "./services/seller.service";
+import { ghnWriteBlock, type GhnCheck } from "@/features/shipping/ghn-address";
 import { ShopRegistrationForm, validateShopRegistrationFields, type ShopRegistrationFields, type ShopRegistrationErrors } from "./components/ShopRegistrationForm";
 import { takeSellerRegistrationHandoff } from "./services/seller-registration-handoff";
 
@@ -123,13 +124,14 @@ export function BecomeSellerScreen() {
   const [identityCardNumber, setIdentityCardNumber] = useState("");
 
   // Shop & GHN Warehouse fields
+  const [locationCheck, setLocationCheck] = useState<GhnCheck>({ state: "empty" });
   const [shopForm, setShopForm] = useState<Omit<ShopRegistrationFields, "identityCardNumber">>({
     shopName: "",
     businessEmail: "",
     hotline: "",
-    provinceId: "202",
-    districtId: "1442",
-    wardCode: "20101",
+    provinceId: "",
+    districtId: "",
+    wardCode: "",
     streetAddress: "",
   });
 
@@ -252,9 +254,9 @@ export function BecomeSellerScreen() {
             shopName: prev.shopName || savedDraft.shopName,
             businessEmail: prev.businessEmail || savedDraft.businessEmail,
             hotline: prev.hotline || savedDraft.hotline,
-            provinceId: String(savedDraft.warehouseAddress.provinceId || prev.provinceId || "202"),
-            districtId: String(savedDraft.warehouseAddress.districtId || prev.districtId || "1442"),
-            wardCode: savedDraft.warehouseAddress.wardCode || prev.wardCode || "20101",
+            provinceId: String(savedDraft.warehouseAddress.provinceId || prev.provinceId || ""),
+            districtId: String(savedDraft.warehouseAddress.districtId || prev.districtId || ""),
+            wardCode: savedDraft.warehouseAddress.wardCode || prev.wardCode || "",
             streetAddress: prev.streetAddress || savedDraft.warehouseAddress.streetAddress,
           }));
         } else if (meShopName) {
@@ -381,6 +383,9 @@ export function BecomeSellerScreen() {
 
   function validateRegistrationForm(): ClassifiedSellerError | null {
     const errors = validateShopRegistrationFields({ ...shopForm, identityCardNumber });
+    // The codes must also be confirmed by the GHN lists now, not only look like codes (a restored draft may carry codes GHN no longer lists).
+    const locationBlock = ghnWriteBlock(locationCheck);
+    if (locationBlock && !errors.provinceId && !errors.districtId && !errors.wardCode) errors.wardCode = locationBlock;
     if (!Object.keys(errors).length) return null;
     const fieldErrors = Object.fromEntries(Object.entries(errors).map(([key, value]) => [key, [value ?? ""]]));
     const ghnKeys: Array<keyof ShopRegistrationErrors> = ["provinceId", "districtId", "wardCode", "streetAddress"];
@@ -547,7 +552,7 @@ export function BecomeSellerScreen() {
 
   return (
     <>
-      <PageHeading title="Đăng kí mở gian hàng" />
+      <PageHeading title="Đăng ký mở gian hàng" />
 
       {statusNotice && (
         <p role="status" className="form-success" style={{ marginBottom: 18 }}>
@@ -801,6 +806,7 @@ export function BecomeSellerScreen() {
                   </Card>
                   <ShopRegistrationForm
                     idPrefix="buyer-seller"
+                    onLocationCheck={setLocationCheck}
                     value={{ ...shopForm, identityCardNumber }}
                     errors={Object.fromEntries(Object.entries(classifiedError?.fieldErrors ?? {}).map(([key, messages]) => [key, messages[0] ?? ""])) as ShopRegistrationErrors}
                     onChange={(value) => {
@@ -818,7 +824,7 @@ export function BecomeSellerScreen() {
                     <div className="info-row"><span>Email nhận OTP</span><strong>{shopForm.businessEmail || "Email doanh nghiệp"}</strong></div>
                     <p className="status-note seller-onboarding-note">Chọn Nộp hồ sơ để nhận OTP qua email doanh nghiệp. Hồ sơ chỉ chuyển đến Staff sau khi bạn xác nhận mã thành công.</p>
                     <div className="seller-onboarding-actions">
-                      <button type="button" className="button button-primary full-width" disabled={initialLoading || otpBusy || Object.keys(validateShopRegistrationFields({ ...shopForm, identityCardNumber })).length > 0} onClick={() => void sendBusinessOtp()}>{otpBusy ? "Đang gửi mã…" : "Nộp hồ sơ"}</button>
+                      <button type="button" className="button button-primary full-width" disabled={initialLoading || otpBusy || Object.keys(validateShopRegistrationFields({ ...shopForm, identityCardNumber })).length > 0 || ghnWriteBlock(locationCheck) !== undefined} onClick={() => void sendBusinessOtp()}>{otpBusy ? "Đang gửi mã…" : "Nộp hồ sơ"}</button>
                       <button type="button" className="button button-secondary full-width" disabled={refreshingStatus || initialLoading} onClick={() => void handleManualRefresh()}>{refreshingStatus ? "Đang kiểm tra…" : "Kiểm tra trạng thái hồ sơ"}</button>
                       {editingAfterReject && <button type="button" className="button button-secondary full-width" onClick={() => setEditingAfterReject(false)}>Hủy chỉnh sửa</button>}
                     </div>

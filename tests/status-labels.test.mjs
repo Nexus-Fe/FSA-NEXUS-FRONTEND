@@ -53,7 +53,7 @@ test("every wallet transaction type of the back end has a label, so no raw code 
 test("the other tables cover their enums", () => {
   for (const s of ["PendingPayment", "PaymentProcessing", "Paid", "Cancelled", "Expired", "Completed", "Delivered"]) assert.ok(isKnownStatus(ORDER_STATUS, s), s);
   for (const s of ["PendingPayment", "Paid", "Confirmed", "SellerAccepted", "Shipping", "Shipped", "Delivered", "Completed", "Cancelled", "Refunded"]) assert.ok(isKnownStatus(SUB_ORDER_STATUS, s), s);
-  for (const s of ["Requested", "Completed", "Failed", "Rejected"]) assert.ok(isKnownStatus(REFUND_STATUS, s), s);
+  for (const s of ["Requested", "WalletPending", "Completed", "Failed", "Rejected"]) assert.ok(isKnownStatus(REFUND_STATUS, s), s);
   for (const s of ["None", "Pending", "Refunded", "ManualProcessingRequired", "Failed"]) assert.ok(isKnownStatus(REPORT_REFUND_STATUS, s), s);
   for (const s of ["PendingApproval", "Active", "Closed"]) assert.ok(isKnownStatus(SUBSIDY_BUDGET_STATUS, s), s);
   for (const s of ["Open", "Investigating", "Resolved", "Accepted"]) assert.ok(isKnownStatus(RECONCILIATION_FINDING_STATUS, s), s);

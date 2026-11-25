@@ -31,6 +31,18 @@ export function SellerWarehouseGate({ readiness, warehouse, onSaved }: {
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<unknown>(null);
   const [saved, setSaved] = useState("");
+  // The warehouse can arrive after the form first renders or change after a save; the fields follow it until the user starts typing.
+  const [touched, setTouched] = useState(false);
+  const warehouseKey = [warehouse?.id, warehouse?.name, warehouse?.contactPhone, warehouse?.address].join("|");
+  const [seenWarehouseKey, setSeenWarehouseKey] = useState(warehouseKey);
+  if (seenWarehouseKey !== warehouseKey) {
+    setSeenWarehouseKey(warehouseKey);
+    if (!touched) {
+      setName(warehouse?.name ?? "");
+      setPhone(warehouse?.contactPhone ?? "");
+      setStreet(warehouse?.address ?? "");
+    }
+  }
 
   if (readiness === "ready") return null;
   if (readiness === "none" || !warehouse) {
@@ -56,6 +68,7 @@ export function SellerWarehouseGate({ readiness, warehouse, onSaved }: {
         address: street.trim(),
         contactPhone: phone.trim() || undefined,
         provinceName: ghn.provinceName,
+        provinceId: ghn.provinceId ?? undefined,
         districtId: ghn.districtId,
         wardCode: ghn.wardCode,
       });
@@ -72,9 +85,9 @@ export function SellerWarehouseGate({ readiness, warehouse, onSaved }: {
     <h2>Hoàn thiện địa chỉ kho</h2>
     <p className="notice" role="status">Kho của bạn chưa có đủ quận và phường lấy hàng nên chưa giao được đơn. Chọn địa chỉ rồi lưu.</p>
     <form className="auth-fields" onSubmit={(event) => void submit(event)} noValidate>
-      <label className="field-wrap">Tên kho<input className="field" maxLength={150} disabled={busy} value={name} onChange={(event) => setName(event.target.value)} /></label>
-      <label className="field-wrap">Số điện thoại kho<input className="field" inputMode="tel" maxLength={20} disabled={busy} value={phone} onChange={(event) => setPhone(event.target.value)} /></label>
-      <label className="field-wrap">Địa chỉ cụ thể (số nhà, đường)<input className="field" disabled={busy} aria-invalid={Boolean(problem)} value={street} onChange={(event) => setStreet(event.target.value)} />{problem && <small className="checkout-field-error" role="alert">{problem}</small>}</label>
+      <label className="field-wrap">Tên kho<input className="field" maxLength={150} disabled={busy} value={name} onChange={(event) => { setTouched(true); setName(event.target.value); }} /></label>
+      <label className="field-wrap">Số điện thoại kho<input className="field" inputMode="tel" maxLength={20} disabled={busy} value={phone} onChange={(event) => { setTouched(true); setPhone(event.target.value); }} /></label>
+      <label className="field-wrap">Địa chỉ cụ thể (số nhà, đường)<input className="field" disabled={busy} aria-invalid={Boolean(problem)} value={street} onChange={(event) => { setTouched(true); setStreet(event.target.value); }} />{problem && <small className="checkout-field-error" role="alert">{problem}</small>}</label>
       <GhnLocationSelect value={ghn} errors={ghnErrors} disabled={busy} onChange={(next) => { setGhn(next); setGhnErrors({}); }} />
       <div className="action-row">
         <button className="button button-primary" type="submit" disabled={busy}>{busy ? "Đang lưu…" : "Lưu kho"}</button>

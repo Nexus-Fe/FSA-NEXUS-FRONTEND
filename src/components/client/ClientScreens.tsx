@@ -1,14 +1,10 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { SkeletonPage } from "@/components/ui/Skeletons";
 
 function ScreenLoading() {
-  return (
-    <div className="route-loading" role="status" aria-live="polite">
-      <span className="route-loading-mark" aria-hidden="true" />
-      <span>Đang tải màn hình…</span>
-    </div>
-  );
+  return <SkeletonPage variant="page" label="Đang tải màn hình…" />;
 }
 
 export const LoginScreenClient = dynamic(
