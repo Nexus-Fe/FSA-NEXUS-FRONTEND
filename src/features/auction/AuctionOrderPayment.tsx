@@ -11,13 +11,14 @@ import { EMPTY_GHN_SELECTION, validateGhnSelection, type GhnSelection } from "@/
 import { describeError, formatError } from "@/lib/errors/error-messages";
 import { PartnerReviewCard } from "@/features/reviews/PartnerReviewCard";
 import { ProductReviewCard } from "@/features/reviews/ProductReviewCard";
+import { auctionOrderStatusLabel } from "./AuctionResultExtras";
 
 type AddressForm = { fullName: string; phoneNumber: string; addressLine: string };
 const initialAddress: AddressForm = { fullName: "", phoneNumber: "", addressLine: "" };
 const addressFields = [["fullName", "Người nhận"], ["phoneNumber", "Số điện thoại"], ["addressLine", "Số nhà, đường"]] as const;
 const writeFailure = (cause: unknown) => formatError(describeError(cause, { operation: "write" }));
 
-export function AuctionOrderPayment({ orderId, deadlinePassed }: { orderId: string; deadlinePassed: boolean }) {
+export function AuctionOrderPayment({ orderId, deadlinePassed, onOrderChanged }: { orderId: string; deadlinePassed: boolean; onOrderChanged?: () => void }) {
   const order = useApiResource(`auction-order:${orderId}`, (signal) => auctionOrderService.detail(orderId, signal));
   const [shipping, setShipping] = useState<AddressForm>(initialAddress);
   const [ghn, setGhn] = useState<GhnSelection>(EMPTY_GHN_SELECTION);
@@ -39,7 +40,7 @@ export function AuctionOrderPayment({ orderId, deadlinePassed }: { orderId: stri
     setBusy(true); setError(""); setSuccess("");
     try {
       await auctionOrderService.submitShipping(orderId, { ...shipping, provinceName: ghn.provinceName, districtName: ghn.districtName, wardName: ghn.wardName, provinceId: ghn.provinceId as number, ghnDistrictId: ghn.districtId, ghnWardCode: ghn.wardCode });
-      setSuccess("Đã lưu địa chỉ và tính phí giao hàng."); order.reload();
+      setSuccess("Đã lưu địa chỉ và tính phí giao hàng."); order.reload(); onOrderChanged?.();
     } catch (cause) { setError(writeFailure(cause)); }
     finally { setBusy(false); }
   }
@@ -50,8 +51,8 @@ export function AuctionOrderPayment({ orderId, deadlinePassed }: { orderId: stri
     try {
       const result = await auctionOrderService.pay(orderId);
       if (result.status.toUpperCase() === "PAID") setSuccess("Đã thanh toán bằng Ví Nexus.");
-      order.reload();
-    } catch (cause) { setError(writeFailure(cause)); order.reload(); }
+      order.reload(); onOrderChanged?.();
+    } catch (cause) { setError(writeFailure(cause)); order.reload(); onOrderChanged?.(); }
     finally { setBusy(false); }
   }
 
@@ -60,7 +61,7 @@ export function AuctionOrderPayment({ orderId, deadlinePassed }: { orderId: stri
     setBusy(true); setError(""); setSuccess("");
     try {
       await auctionOrderService.confirmReceipt(orderId);
-      setSuccess("Đã xác nhận nhận hàng."); setConfirmReceipt(false); order.reload();
+      setSuccess("Đã xác nhận nhận hàng."); setConfirmReceipt(false); order.reload(); onOrderChanged?.();
     } catch (cause) { setError(writeFailure(cause)); }
     finally { setBusy(false); }
   }
@@ -75,7 +76,7 @@ export function AuctionOrderPayment({ orderId, deadlinePassed }: { orderId: stri
       <div className="info-row"><span>Cọc áp dụng</span><strong>−{formatMoney(order.data.depositAmount)}</strong></div>
       <div className="info-row"><span>Phí giao hàng</span><strong>{formatMoney(order.data.shippingFeeAmount)}</strong></div>
       <div className="info-row"><span>Còn phải trả</span><strong>{formatMoney(order.data.totalAmount)}</strong></div>
-      <div className="info-row"><span>Trạng thái</span><strong>{order.data.status}</strong></div>
+      <div className="info-row"><span>Trạng thái</span><strong>{auctionOrderStatusLabel(order.data.status)}</strong></div>
       {payable && order.data.totalAmount === null && <form className="auction-shipping-form" onSubmit={(event) => void saveShipping(event)}>
         <h3>Địa chỉ nhận hàng</h3>
         {addressFields.map(([key, label]) => <label key={key} className="field-wrap">{label}<input className="field" required value={shipping[key]} onChange={(event) => setShipping((value) => ({ ...value, [key]: event.target.value }))} /></label>)}
