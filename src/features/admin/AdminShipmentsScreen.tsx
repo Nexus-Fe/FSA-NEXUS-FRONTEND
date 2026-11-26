@@ -485,7 +485,7 @@ export function AdminShipmentsScreen() {
             {formatError(describeError(shipmentsResource.error, { operation: "read" }))}
           </p>
         ) : !pagedData?.items.length ? (
-          <NoData title="Chưa có vận đơn nào được tạo" description="Các đơn hàng được người bán tiếp nhận sẽ xuất hiện tại đây." />
+          <NoData title="Chưa có vận đơn nào được tạo. Các đơn hàng được người bán tiếp nhận sẽ xuất hiện tại đây." />
         ) : (
           <>
             <div className="table-scroll">
