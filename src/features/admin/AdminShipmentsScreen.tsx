@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { AdminPagination, Badge, Card, NoData, PageHeading } from "@/components/ui/Primitives";
 import { Icon } from "@/components/ui/Icon";
-import { CopyableId } from "@/components/ui/CopyableId";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatError, describeError } from "@/lib/errors/error-messages";
 import {
@@ -372,7 +371,7 @@ export function AdminShipmentsScreen() {
                 className="select-field"
                 style={{ width: "auto", height: 34, padding: "0 8px", fontSize: 13 }}
                 value={printPageSize}
-                onChange={(e) => setPrintPageSize(e.target.value as any)}
+                onChange={(e) => setPrintPageSize(e.target.value as "A5" | "80x80" | "52x70")}
               >
                 <option value="A5">Khổ A5</option>
                 <option value="80x80">Khổ 80x80 (Nhiệt)</option>
@@ -501,7 +500,6 @@ export function AdminShipmentsScreen() {
                 </thead>
                 <tbody>
                   {pagedData.items.map((s) => {
-                    const code = s.trackingNumber ?? s.id;
                     const isSelected = activeShipment?.id === s.id;
                     return (
                       <tr key={s.id} style={isSelected ? { backgroundColor: "var(--accent-subtle, rgba(59,130,246,0.06))" } : undefined}>
