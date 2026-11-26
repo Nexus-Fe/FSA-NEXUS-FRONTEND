@@ -209,6 +209,8 @@ export const ERROR_DICTIONARY: Record<string, Entry> = {
   AUCTION_NOT_AWAITING_SETTLEMENT: { message: "Phiên này chưa ở bước chờ chốt kết quả.", hint: RELOAD },
   VAL_INVALID_PRICE: { message: "Giá nhập không hợp lệ.", hint: "Kiểm tra giá khởi điểm, giá sàn và giá mua ngay (không âm, tối đa 2 chữ số thập phân)." },
   INVALID_PRICE_RELATION: { message: "Quan hệ giữa các mức giá chưa đúng.", hint: "Giá sàn phải từ giá khởi điểm trở lên; giá mua ngay phải lớn hơn giá sàn (hoặc giá khởi điểm nếu không có giá sàn). Khi sửa phiên, giá đã lưu trước đó vẫn được kiểm tra cùng giá mới." },
+  INVALID_SCHEDULE: { message: "Thời gian diễn ra phiên đấu giá không hợp lệ.", hint: "Phiên phải bắt đầu trong 30 ngày tới và kéo dài từ 60 phút đến tối đa 168 giờ (7 ngày)." },
+  VAL_INVALID_SCHEDULE: { message: "Thời gian bắt đầu phiên đấu giá phải ở tương lai.", hint: "Chọn thời điểm bắt đầu sau thời gian hiện tại (ít nhất 1–2 phút)." },
   SELLER_CANNOT_BID_OWN_AUCTION: { message: "Bạn không thể đặt giá hoặc mua phiên của chính mình." },
   WALLET_FROZEN: { message: "Ví Nexus của bạn đang bị tạm khóa.", hint: "Liên hệ hỗ trợ.", kind: "permission" },
   BUY_NOW_NOT_CONFIGURED: { message: "Phiên này không có giá Mua ngay." },

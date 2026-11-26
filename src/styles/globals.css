@@ -3398,7 +3398,7 @@ h1,h2,h3 { letter-spacing: -.01em; word-spacing: .06em; }
 .auth-main > * { min-width: 0; max-width: 100%; }
 /* Checkout: every field label shares one style (plain-text labels were larger than the ones wrapped in a span), and the voucher code box keeps its width. */
 .checkout-form .field-wrap { font-size: 13px; font-weight: 600; color: #475569; }
-.checkout-contact-row { align-items: end; }
+.checkout-contact-row { align-items: start; }
 .checkout-voucher-manual input { flex: 1 1 auto; width: auto; }
 .checkout-voucher-manual .button { flex: none; width: auto; }
 .checkout-form .field { font-size: 15px; font-weight: 400; }

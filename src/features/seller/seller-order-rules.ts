@@ -21,6 +21,7 @@ export function describeSellerOrderStatus(status: string, paymentMethod?: string
   const key = status.replace(/[^a-z]/gi, "").toUpperCase();
   if (key === "PENDINGPAYMENT" && isCodPayment(paymentMethod)) return "Chờ bạn xác nhận (COD)";
   if (key === "SELLERREJECTED" && isCodPayment(paymentMethod)) return "Đã từ chối";
+  if (key === "COMPLETED" && isCodPayment(paymentMethod)) return "Hoàn tất · Đã thu hộ (COD)";
   return (
     (
       {
