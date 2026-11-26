@@ -33,3 +33,13 @@ export function returnBanner(events: ReadonlyArray<{ status: string }> | null | 
   if (last === "RETURNED") return "returned";
   return null;
 }
+
+export function shipmentStatusTone(status?: string | null): "green" | "amber" | "sky" | "red" | "slate" {
+  if (!status) return "slate";
+  const key = normalizeStatus(status);
+  if (key === "DELIVERED") return "green";
+  if (["PICKED", "HANDEDOVER", "INTRANSIT", "SHIPPING", "SHIPPED", "TRANSPORTING", "SORTING"].includes(key)) return "sky";
+  if (["READYTOPICK", "PICKING", "PACKED", "CONFIRMED"].includes(key)) return "amber";
+  if (["DELIVERYFAILED", "DELIVERYATTEMPTFAILED", "RETURNING", "RETURNED", "CANCELLED"].includes(key)) return "red";
+  return "slate";
+}

@@ -78,3 +78,47 @@ export type ShipmentDetail = Shipment & {
   deliveredAt: string | null;
   events: ShipmentEvent[] | null;
 };
+
+export type SimulateShipperStatusParams = {
+  trackingNumber: string;
+  status: string;
+  description?: string;
+  shipperName?: string;
+  shipperPhone?: string;
+  reasonCode?: string;
+  reason?: string;
+  podUrl?: string;
+  force?: boolean;
+};
+
+export type SimulateShipperStatusResult = {
+  shipmentId?: string;
+  trackingNumber: string;
+  orderId?: string;
+  previousStatus: string;
+  currentStatus: string;
+  newStatus?: string;
+  commerceStatusNotified?: string | null;
+  isSuccess: boolean;
+  message: string;
+};
+
+export type ShipmentFilterQuery = {
+  page?: number;
+  pageSize?: number;
+  trackingNumber?: string;
+  status?: string;
+  orderId?: string;
+};
+
+export type PagedShipments = {
+  items: ShipmentDetail[];
+  pagination: {
+    pageIndex: number;
+    pageSize: number;
+    totalCount: number;
+    totalPages: number;
+    hasPreviousPage: boolean;
+    hasNextPage: boolean;
+  };
+};
