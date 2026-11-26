@@ -63,6 +63,7 @@ export const adminNavigation: NavigationItem[] = [
   { label: "Vận hành đấu giá", href: ROUTES.admin.auctionOps, icon: "gavel" },
   { label: "Cài đặt đấu giá", href: ROUTES.admin.auctionConfigs, icon: "gavel" },
   { label: "Quyết toán đấu giá", href: ROUTES.admin.auctionSettlements, icon: "orders" },
+  { label: "Vận đơn & Giả lập GHN", href: ROUTES.admin.shipments, icon: "orders" },
   { label: "Cài đặt hệ thống", href: ROUTES.admin.configs, icon: "shield" },
   { label: "Nhật ký kiểm toán", href: ROUTES.admin.auditLogs, icon: "orders", feature: "audit" },
   { label: "Cảnh báo bảo mật", href: ROUTES.admin.securityAlerts, icon: "shield", feature: "security-alerts" },
