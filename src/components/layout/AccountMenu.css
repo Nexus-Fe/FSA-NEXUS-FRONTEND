@@ -1,17 +1,17 @@
-/* Lucian UX/UI Prompt #408 · MIT License (c) 2026 Seokwoooo · https://lucianlabs.dev/uxui-prompt/#408 */
+﻿/* Lucian UX/UI Prompt #408 · MIT License (c) 2026 Seokwoooo · https://lucianlabs.dev/uxui-prompt/#408 */
 .u408{
   --ux-page:#F4F8F1;
   --ux-surface:#FFFFFF;
-  --ux-surface-2:#F1F6F2;
-  --ux-ink:#051F20;
+  --ux-surface-2:#f6f0e8;
+  --ux-ink:var(--ink,#1f2024);
   --ux-ink-2:#475569;
   --ux-ink-3:#64748B;
-  --ux-line:rgba(5,31,32,.09);
-  --ux-accent:var(--primary,#235347);
+  --ux-line:rgba(var(--ink-rgb,31,32,36),.09);
+  --ux-accent:var(--primary,#6e1e2b);
   --ux-mint:#119C72;
   --ux-danger:#D93A55;
-  --ux-shadow:rgba(5,31,32,.14);
-  --ux-shadow-strong:rgba(5,31,32,.26);
+  --ux-shadow:rgba(var(--ink-rgb,31,32,36),.14);
+  --ux-shadow-strong:rgba(var(--ink-rgb,31,32,36),.26);
   --ux-ease:cubic-bezier(.2,.8,.2,1);
   --ux-spring:cubic-bezier(.34,1.45,.64,1);
   position:relative;display:inline-block;
@@ -20,7 +20,7 @@
 .u408[data-variant="sidebar"]{display:block;width:100%}
 .u408-w{position:relative;display:inline-flex;align-items:center}
 .u408[data-variant="sidebar"] .u408-w{display:block;width:100%}
-.u408-av{position:relative;width:44px;height:44px;padding:0;border:1px solid var(--primary-border,#8eb69b);border-radius:50%;background:var(--primary-soft,#daf1de);color:var(--primary,#235347);font-size:15px;font-weight:800;display:grid;place-items:center;cursor:pointer;box-shadow:0 0 0 0 transparent;transition:box-shadow .3s,transform .45s var(--ux-spring)}
+.u408-av{position:relative;width:44px;height:44px;padding:0;border:1px solid var(--primary-border,#c49099);border-radius:50%;background:var(--primary-soft,#f5e9eb);color:var(--primary,#6e1e2b);font-size:15px;font-weight:800;display:grid;place-items:center;cursor:pointer;box-shadow:0 0 0 0 transparent;transition:box-shadow .3s,transform .45s var(--ux-spring)}
 .u408-av:hover{transform:scale(1.05)}
 .u408-av:active{transform:scale(.94);transition-duration:.3s,.1s}
 .u408-av[aria-expanded="true"]{box-shadow:0 0 0 3px var(--ux-page),0 0 0 5px var(--ux-accent)}

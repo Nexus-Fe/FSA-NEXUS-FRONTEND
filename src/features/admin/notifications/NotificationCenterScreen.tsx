@@ -143,7 +143,7 @@ function Templates({ canWrite }: { canWrite: boolean }) {
     <ConfirmDialog open={editing !== null} title={`Sửa mẫu ${editing?.code ?? ""}`} confirmLabel="Lưu mẫu" busy={busy} error={failure} onConfirm={() => void save()} onClose={() => setEditing(null)}>
       <label className="field-wrap">Tiêu đề<input className="field" maxLength={MAX_SUBJECT} value={subject} onChange={(event) => setSubject(event.target.value)} /></label>
       <label className="field-wrap">Nội dung<textarea className="field" rows={8} maxLength={MAX_BODY} value={body} onChange={(event) => setBody(event.target.value)} /></label>
-      <label className="field-wrap"><span><input type="checkbox" checked={editing?.isMandatory ? true : active} disabled={editing?.isMandatory} onChange={(event) => setActive(event.target.checked)} /> Đang bật{editing?.isMandatory ? " (mẫu bắt buộc, không tắt được)" : ""}</span></label>
+      <label className="voucher-checkbox"><input type="checkbox" checked={editing?.isMandatory ? true : active} disabled={editing?.isMandatory} onChange={(event) => setActive(event.target.checked)} /> <span>Đang bật{editing?.isMandatory ? " (mẫu bắt buộc, không tắt được)" : ""}</span></label>
       {problem && <small className="checkout-field-error" role="alert">{problem}</small>}
     </ConfirmDialog>
   </Card>;

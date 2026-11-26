@@ -1,6 +1,9 @@
 "use client";
 
-import { useEffect, useId, useRef, type ReactNode } from "react";
+import { useEffect, useId, useRef, useSyncExternalStore, type ReactNode } from "react";
+import { createPortal } from "react-dom";
+
+const emptySubscribe = () => () => {};
 
 const FOCUSABLE = 'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
@@ -26,6 +29,7 @@ export function Modal({
   footer?: ReactNode;
 }) {
   const titleId = useId();
+  const mounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
   const panelRef = useRef<HTMLDivElement>(null);
   const openerRef = useRef<HTMLElement | null>(null);
   const busyRef = useRef(busy);
@@ -77,14 +81,15 @@ export function Modal({
     };
   }, [open]);
 
-  if (!open) return null;
-  return (
+  if (!open || !mounted) return null;
+  return createPortal(
     <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) onClose(); }}>
       <div ref={panelRef} className="modal-panel" role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}>
         <h2 id={titleId}>{title}</h2>
         {children}
         {footer && <div className="voucher-dialog-actions">{footer}</div>}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

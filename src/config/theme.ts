@@ -15,16 +15,16 @@
  */
 
 export const themeColors = {
-  primary: "#192841",
-  primaryHover: "#121e31",
-  primaryActive: "#0d1726",
-  primarySoft: "#eaf0f6",
-  primaryBorder: "#bac9dc",
-  primaryRgb: "25, 40, 65",
-  primaryAccent: "#5275a5",
-  primaryAccentLight: "#7b9cc9",
-  primaryAccentRgb: "82, 117, 165",
-  heroBgDeep: "#060b13",
+  primary: "#6e1e2b",
+  primaryHover: "#541520",
+  primaryActive: "#3d0e17",
+  primarySoft: "#f5e9eb",
+  primaryBorder: "#c49099",
+  primaryRgb: "110, 30, 43",
+  primaryAccent: "#b98b93",
+  primaryAccentLight: "#f7f1e8",
+  primaryAccentRgb: "185, 139, 147",
+  heroBgDeep: "#18181b",
 } as const;
 
 export type ThemeColors = typeof themeColors;

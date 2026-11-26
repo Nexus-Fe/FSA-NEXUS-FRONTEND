@@ -1,13 +1,13 @@
-/* Lucian UX/UI Prompt #261 · MIT License (c) 2026 Seokwoooo · https://lucianlabs.dev/uxui-prompt/#261 */
+﻿/* Lucian UX/UI Prompt #261 · MIT License (c) 2026 Seokwoooo · https://lucianlabs.dev/uxui-prompt/#261 */
 .u261{
   --ux-surface:#FFFFFF;
   --ux-surface-2:#F5F8F6;
   --ux-surface-3:#E6EDE8;
-  --ux-ink:#051F20;
+  --ux-ink:var(--ink,#1f2024);
   --ux-ink-2:#475569;
   --ux-ink-3:#64748B;
-  --ux-line:rgba(5,31,32,.09);
-  --ux-accent:var(--primary,#235347);
+  --ux-line:rgba(var(--ink-rgb,31,32,36),.09);
+  --ux-accent:var(--primary,#6e1e2b);
   position:relative;width:100%;color:var(--ux-ink);
 }
 .u261,.u261 *,.u261 *::before,.u261 *::after{box-sizing:border-box}

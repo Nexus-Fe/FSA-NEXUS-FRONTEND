@@ -24,7 +24,7 @@ import { cartService } from "@/features/commerce/services/cart.service";
 import { canContinueToCheckout, describeCartIssue, type CartValidation } from "@/features/commerce/cart-rules";
 import { ChangeAddressButton, CompleteOrderButton, RepayButton } from "@/features/commerce/OrderActions";
 import { canReportSubOrder, orderReportHref } from "@/features/commerce/order-report";
-import { canChangeAddress, canCompleteOrder, canRepay } from "@/features/commerce/order-rules";
+import { canChangeAddress, canCompleteOrder, canRepay, describeBuyerOrderStatus, isCodPaymentMethod } from "@/features/commerce/order-rules";
 import { clearUnknownOrderMarker, describeCartFailure, describePlaceOrderFailure, describeQuoteFailure, readUnknownOrderMarker, writeUnknownOrderMarker } from "@/features/commerce/checkout-outcome";
 import { GhnLocationSelect } from "@/features/shipping/GhnLocationSelect";
 import { SavedAddressPicker } from "@/features/profile/SavedAddressPicker";
@@ -87,27 +87,8 @@ type CreateOrderResponse = {
 };
 type Paged<T> = { items: T[]; pagination: { pageIndex: number; pageSize: number; totalCount: number; totalPages: number; hasNextPage: boolean } };
 
-export function describeOrderStatus(status: string): string {
-  const key = status.replace(/[^a-z]/gi, "").toUpperCase();
-  return (
-    {
-      PENDINGPAYMENT: "Chờ thanh toán",
-      PAYMENTPROCESSING: "Đang xử lý thanh toán",
-      PAID: "Chờ người bán xác nhận",
-      CONFIRMED: "Chờ lấy hàng",
-      SELLERACCEPTED: "Chờ lấy hàng",
-      SHIPPING: "Đang giao hàng",
-      SHIPPED: "Đang giao hàng",
-      DELIVERED: "Đã giao hàng",
-      COMPLETED: "Hoàn tất",
-      SELLERREJECTED: "Người bán từ chối",
-      CANCELLED: "Đã hủy",
-      EXPIRED: "Hết hạn thanh toán",
-      REFUNDED: "Đã hoàn tiền",
-      RETURNING: "Đang hoàn hàng",
-      RETURNED: "Đã hoàn hàng",
-    } as Record<string, string>
-  )[key] ?? status;
+export function describeOrderStatus(status: string, paymentMethod?: string | null): string {
+  return describeBuyerOrderStatus(status, paymentMethod);
 }
 
 function isSellerRejected(status: string): boolean {
@@ -679,6 +660,7 @@ export function CheckoutScreen() {
       }
 
       if (created.status.replace(/[^a-z]/gi, "").toUpperCase() !== "PAID") {
+        clearUnknownOrderMarker(window.sessionStorage);
         router.push(ROUTES.buyer.order(created.orderId));
         return;
       }
@@ -906,7 +888,7 @@ export function OrdersScreen() {
                   <strong>Đơn hàng {resolvedNo}</strong>
                 </Link>
                 <p style={{ margin: "6px 0 0", display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
-                  <Badge>{describeOrderStatus(order.status)}</Badge>
+                  <Badge>{describeOrderStatus(order.status, order.subOrders?.[0]?.paymentMethod)}</Badge>
                   {order.createdAt ? <span style={{ color: "var(--muted)", fontSize: 13 }}>Đặt lúc {new Date(order.createdAt).toLocaleString("vi-VN")}</span> : null}
                 </p>
               </div>
@@ -1100,7 +1082,13 @@ export function OrderDetailScreen() {
             )}
             {rejected && (
               <div className="notice" role="alert" style={{ marginBottom: 16 }}>
-                <strong>Đơn hàng đã bị người bán từ chối.</strong> Vui lòng kiểm tra lịch sử <strong>Ví Nexus</strong> để xác nhận khoản hoàn tiền của đơn này.
+                {isCodPaymentMethod(sub.paymentMethod) ? (
+                  <strong>Đơn hàng COD đã bị người bán từ chối.</strong>
+                ) : (
+                  <>
+                    <strong>Đơn hàng đã bị người bán từ chối.</strong> Vui lòng kiểm tra lịch sử <strong>Ví Nexus</strong> để xác nhận khoản hoàn tiền của đơn này.
+                  </>
+                )}
               </div>
             )}
             {cancelled && !rejected && (
@@ -1122,12 +1110,20 @@ export function OrderDetailScreen() {
             )}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 12 }}>
               <h2 style={{ margin: 0 }}>Đơn gian hàng {sub.subOrderNo} · {sub.shopName}</h2>
-              <Badge>{describeOrderStatus(sub.status)}</Badge>
+              <Badge>{describeOrderStatus(sub.status, sub.paymentMethod)}</Badge>
             </div>
             {canChangeAddress(sub) && <div className="action-row" style={{ marginBottom: 12 }}><ChangeAddressButton subOrderId={sub.subOrderId} onDone={afterAction} /></div>}
             <div className="info-row">
               <span>Phương thức thanh toán</span>
-              <strong>Ví Nexus ({sub.paymentMethod})</strong>
+              <strong>
+                {(() => {
+                  const method = String(sub.paymentMethod ?? "").trim();
+                  const key = method.toUpperCase();
+                  if (key === "COD") return "Thanh toán khi nhận hàng (COD)";
+                  if (!key || key === "WALLET") return "Ví Nexus";
+                  return method;
+                })()}
+              </strong>
             </div>
             <div className="info-row">
               <span>Người nhận</span>
@@ -1175,7 +1171,7 @@ export function OrderDetailScreen() {
         );
       })}
       <div className="grid-3">
-        <Card className="card-pad"><h2>Trạng thái</h2><Badge>{describeOrderStatus(primaryStatus)}</Badge></Card>
+        <Card className="card-pad"><h2>Trạng thái</h2><Badge>{describeOrderStatus(primaryStatus, subOrders[0]?.paymentMethod)}</Badge></Card>
         <Card className="card-pad"><h2>Mã đơn hàng</h2><strong className="seller-wrap-value">{order.data?.orderNo ?? orderId}</strong></Card>
         <Card className="card-pad"><h2>Tổng thanh toán</h2><strong>{order.data ? formatMoney(order.data.totalAmount) : "—"}</strong></Card>
       </div>

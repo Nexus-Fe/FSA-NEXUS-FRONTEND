@@ -40,7 +40,10 @@ export function NavLinks({ items, variant = "side", ariaLabel = "Điều hướn
   useLayoutEffect(() => {
     if (variant !== "top") return;
     const activeLink = navRef.current?.querySelector<HTMLElement>(".nav-link.active");
-    if (!activeLink) return;
+    if (!activeLink) {
+      if (indicatorRef.current) indicatorRef.current.dataset.visible = "false";
+      return;
+    }
     moveIndicator(activeLink, initializedRef.current);
     initializedRef.current = true;
   }, [pathname, variant, items, optimisticHref]);
@@ -50,7 +53,11 @@ export function NavLinks({ items, variant = "side", ariaLabel = "Điều hướn
     const nav = navRef.current;
     const observer = new ResizeObserver(() => {
       const activeLink = nav.querySelector<HTMLElement>(".nav-link.active");
-      if (activeLink) moveIndicator(activeLink, false);
+      if (activeLink) {
+        moveIndicator(activeLink, false);
+      } else if (indicatorRef.current) {
+        indicatorRef.current.dataset.visible = "false";
+      }
     });
     observer.observe(nav);
     nav.querySelectorAll<HTMLElement>(".nav-link").forEach((link) => observer.observe(link.closest<HTMLElement>(".buyer-nav-catalog") ?? link));

@@ -1,14 +1,14 @@
-/* Buyer home presentation. All business content and navigation remain in HomeScreen. */
+﻿/* Buyer home presentation. All business content and navigation remain in HomeScreen. */
 .buyer-glass-shell {
   background: transparent;
 }
 
 .buyer-glass-shell .buyer-header {
   background: var(--page-bg);
-  border-color: rgba(35, 83, 71, .12);
-  box-shadow: none;
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
+  border-color: rgba(var(--primary-rgb), .12);
+  box-shadow: 0 4px 16px rgba(var(--ink-rgb), .06);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
 }
 
 .buyer-glass-shell .buyer-nav-wrap {
@@ -21,13 +21,13 @@
   padding: 7px 10px;
   border: 1px solid rgba(255, 255, 255, .9);
   border-radius: 999px;
-  background: linear-gradient(145deg, rgba(142, 182, 155, .78) 2%, rgba(142, 182, 155, .58) 48%, rgba(142, 182, 155, .72));
+  background: linear-gradient(145deg, rgba(var(--primary-accent-rgb), .78) 2%, rgba(var(--primary-accent-rgb), .58) 48%, rgba(var(--primary-accent-rgb), .72));
   box-shadow:
     inset 0 2px 2px rgba(255, 255, 255, .96),
     inset 0 -5px 13px rgba(255, 255, 255, .48),
     inset 2px 0 7px rgba(255, 255, 255, .5),
-    0 17px 38px rgba(5, 31, 32, .16),
-    0 3px 7px rgba(5, 31, 32, .08);
+    0 17px 38px rgba(var(--ink-rgb), .16),
+    0 3px 7px rgba(var(--ink-rgb), .08);
   -webkit-backdrop-filter: blur(36px) saturate(190%);
   backdrop-filter: blur(36px) saturate(190%);
 }
@@ -56,7 +56,7 @@
   border: 1px solid rgba(255, 255, 255, .24);
   border-radius: 999px;
   background: linear-gradient(115deg, var(--hero-bg-deep), var(--forest-mid));
-  box-shadow: 0 4px 12px rgba(5, 31, 32, .2);
+  box-shadow: 0 4px 12px rgba(var(--ink-rgb), .2);
   opacity: 0;
   pointer-events: none;
   transition: left .34s cubic-bezier(.2, .8, .2, 1), top .34s cubic-bezier(.2, .8, .2, 1), width .34s cubic-bezier(.2, .8, .2, 1), height .34s cubic-bezier(.2, .8, .2, 1);
@@ -119,8 +119,8 @@
   overflow-y: auto;
   border: 1px solid rgba(255, 255, 255, .86);
   border-radius: 25px;
-  background: linear-gradient(140deg, rgba(218, 241, 222, .97), rgba(190, 220, 199, .96));
-  box-shadow: 0 24px 55px rgba(5, 31, 32, .19), inset 0 2px rgba(255, 255, 255, .95), inset 0 -4px 12px rgba(255, 255, 255, .4);
+  background: linear-gradient(140deg, rgba(253, 250, 245, .97), color-mix(in srgb, var(--primary-soft) 92%, #e8d8db));
+  box-shadow: 0 24px 55px rgba(var(--ink-rgb), .19), inset 0 2px rgba(255, 255, 255, .95), inset 0 -4px 12px rgba(255, 255, 255, .4);
   -webkit-backdrop-filter: blur(36px) saturate(185%);
   backdrop-filter: blur(36px) saturate(185%);
   opacity: 0;
@@ -202,7 +202,7 @@
 .buyer-glass-shell .buyer-category-menu a:focus-visible {
   border-color: rgba(255, 255, 255, .7);
   background: rgba(255, 255, 255, .72);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .9), 0 5px 14px rgba(5, 31, 32, .12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .9), 0 5px 14px rgba(var(--ink-rgb), .12);
   color: var(--primary-hover);
   text-decoration: none;
   transform: translateY(-1px);
@@ -228,7 +228,7 @@
 .buyer-glass-shell .account-menu-panel {
   border-color: rgba(255, 255, 255, .72);
   background: rgba(248, 251, 248, .84);
-  box-shadow: 0 10px 24px rgba(5, 31, 32, .12), inset 0 1px 0 rgba(255, 255, 255, .75);
+  box-shadow: 0 10px 24px rgba(var(--ink-rgb), .12), inset 0 1px 0 rgba(255, 255, 255, .75);
   -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
 }
@@ -247,7 +247,7 @@
 .buyer-glass-shell .top-nav .nav-link.active {
   border-color: rgba(255, 255, 255, .7);
   background: rgba(255, 255, 255, .72);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .9), 0 5px 14px rgba(5, 31, 32, .12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .9), 0 5px 14px rgba(var(--ink-rgb), .12);
   color: var(--primary-hover);
   transform: none;
 }
@@ -308,7 +308,7 @@
     radial-gradient(circle at 76% 35%, color-mix(in srgb, var(--primary) 90%, transparent), transparent 41%),
     radial-gradient(circle at 3% 100%, color-mix(in srgb, var(--mint) 25%, transparent), transparent 45%),
     linear-gradient(125deg, var(--hero-bg-deep), var(--forest-mid));
-  box-shadow: 0 28px 70px rgba(5, 31, 32, .18);
+  box-shadow: 0 28px 70px rgba(var(--ink-rgb), .18);
   animation: buyer-home-rise .7s cubic-bezier(.22, 1, .36, 1) both;
 }
 
@@ -366,7 +366,7 @@
 .buyer-home-glass .hero .button-primary {
   background: var(--mint-light);
   color: var(--hero-bg-deep);
-  box-shadow: 0 10px 28px rgba(5, 31, 32, .18);
+  box-shadow: 0 10px 28px rgba(var(--ink-rgb), .18);
 }
 
 .buyer-home-glass .hero .button-primary:hover {
@@ -393,7 +393,7 @@
   background:
     radial-gradient(circle at 75% 20%, color-mix(in srgb, var(--mint-light) 35%, transparent), transparent 28%),
     color-mix(in srgb, var(--mint-light) 12%, transparent);
-  box-shadow: inset 0 1px 0 color-mix(in srgb, white 38%, transparent), 0 24px 55px rgba(5, 31, 32, .16);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 38%, transparent), 0 24px 55px rgba(var(--ink-rgb), .16);
   color: var(--mint-light);
   -webkit-backdrop-filter: blur(22px);
   backdrop-filter: blur(22px);
@@ -408,7 +408,7 @@
 .buyer-home-glass .hero-icon {
   border: 1px solid color-mix(in srgb, white 54%, transparent);
   background: linear-gradient(145deg, color-mix(in srgb, white 85%, transparent), color-mix(in srgb, var(--mint-light) 55%, transparent));
-  box-shadow: 0 22px 55px rgba(5, 31, 32, .2), 0 0 38px color-mix(in srgb, var(--mint) 36%, transparent);
+  box-shadow: 0 22px 55px rgba(var(--ink-rgb), .2), 0 0 38px color-mix(in srgb, var(--mint) 36%, transparent);
   color: var(--forest-mid);
   -webkit-backdrop-filter: blur(14px);
   backdrop-filter: blur(14px);
@@ -505,7 +505,7 @@
 .buyer-home-glass .category-tile:hover {
   transform: translateY(-5px);
   border-color: var(--primary-border);
-  box-shadow: 0 26px 55px rgba(5, 31, 32, .14);
+  box-shadow: 0 26px 55px rgba(var(--ink-rgb), .14);
 }
 
 .buyer-home-glass .auction-tile:focus-within,
@@ -640,7 +640,7 @@
   background:
     radial-gradient(circle at 88% 16%, color-mix(in srgb, var(--mint) 25%, transparent), transparent 36%),
     linear-gradient(120deg, var(--hero-bg-deep), var(--forest-mid));
-  box-shadow: 0 22px 52px rgba(5, 31, 32, .16);
+  box-shadow: 0 22px 52px rgba(var(--ink-rgb), .16);
   color: var(--mint-light);
 }
 
@@ -670,7 +670,7 @@
 
 .buyer-glass-page .auction-my-bid:hover {
   transform: translateY(-4px);
-  box-shadow: 0 24px 48px rgba(5, 31, 32, .13);
+  box-shadow: 0 24px 48px rgba(var(--ink-rgb), .13);
 }
 
 .buyer-glass-page .field,
@@ -722,7 +722,7 @@
   border: 1px solid color-mix(in srgb, var(--mint) 40%, transparent);
   border-radius: 26px;
   background: radial-gradient(circle at 88% 12%, color-mix(in srgb, var(--mint) 25%, transparent), transparent 38%), linear-gradient(120deg, var(--hero-bg-deep), var(--forest-mid));
-  box-shadow: 0 22px 52px rgba(5, 31, 32, .16);
+  box-shadow: 0 22px 52px rgba(var(--ink-rgb), .16);
   color: var(--mint-light);
 }
 
@@ -757,7 +757,7 @@
 .buyer-glass-shell .buyer-main:not(:has(.buyer-home-glass)) .product-detail-related-item:hover {
   transform: translateY(-4px);
   border-color: var(--primary-border);
-  box-shadow: 0 24px 50px rgba(5, 31, 32, .13);
+  box-shadow: 0 24px 50px rgba(var(--ink-rgb), .13);
 }
 
 .buyer-glass-shell .buyer-main .field,
@@ -791,7 +791,7 @@
 .buyer-glass-shell .auction-tile-image,
 .buyer-glass-shell .product-detail-image,
 .buyer-glass-shell .product-detail-related-image,
-.buyer-glass-shell .public-shop-logo { background: rgba(218, 241, 222, .42); }
+.buyer-glass-shell .public-shop-logo { background: rgba(247, 241, 232, .42); }
 .buyer-glass-shell .product-detail-option.active { border-color: var(--primary); background: var(--mint-light); color: var(--primary-hover); }
 .buyer-glass-shell .product-detail-availability { border-color: var(--primary); background: var(--mint-light); }
 .buyer-glass-shell .catalog-page-number.active,
@@ -826,7 +826,7 @@
   border-radius: 16px;
   background: var(--glass-surface);
 }
-.buyer-glass-shell .buyer-main .data-table th { background: rgba(218, 241, 222, .58); }
+.buyer-glass-shell .buyer-main .data-table th { background: rgba(247, 241, 232, .58); }
 .buyer-glass-shell .buyer-main .info-row strong,
 .buyer-glass-shell .buyer-main .product-card-price strong,
 .buyer-glass-shell .buyer-main .product-detail-price { color: var(--primary-hover); }
@@ -861,20 +861,20 @@
   filter: brightness(.32) saturate(.72) blur(1px);
 }
 .auth-split-overlay {
-  background: linear-gradient(140deg, rgba(5, 31, 32, .76), rgba(11, 43, 38, .88));
+  background: linear-gradient(140deg, rgba(var(--ink-rgb), .76), color-mix(in srgb, var(--forest-mid) 88%, transparent));
 }
 .auth-left-brand,
 .auth-trust-badge-item,
 .auth-system-status {
-  border-color: rgba(218, 241, 222, .22);
-  background: rgba(218, 241, 222, .08);
-  box-shadow: inset 0 1px rgba(255, 255, 255, .12), 0 14px 32px rgba(5, 31, 32, .16);
+  border-color: color-mix(in srgb, var(--primary-accent-light) 22%, transparent);
+  background: color-mix(in srgb, var(--primary-accent-light) 8%, transparent);
+  box-shadow: inset 0 1px rgba(255, 255, 255, .12), 0 14px 32px rgba(var(--ink-rgb), .16);
 }
 .auth-hero-pill,
 .auth-feature-icon-box,
 .auth-trust-badge-icon {
-  border-color: rgba(142, 182, 155, .38);
-  background: rgba(142, 182, 155, .14);
+  border-color: rgba(var(--primary-accent-rgb), .38);
+  background: rgba(var(--primary-accent-rgb), .14);
   color: var(--mint);
 }
 .auth-hero-highlight {
@@ -882,10 +882,10 @@
   -webkit-background-clip: text;
   background-clip: text;
 }
-.auth-trust-badge-content span { color: rgba(218, 241, 222, .76); }
+.auth-trust-badge-content span { color: color-mix(in srgb, var(--primary-accent-light) 76%, transparent); }
 .auth-split-right {
   background: transparent;
-  border-left-color: rgba(142, 182, 155, .24);
+  border-left-color: rgba(var(--primary-accent-rgb), .24);
 }
 .auth-close-btn {
   border-color: var(--line);
@@ -896,10 +896,10 @@
 }
 .auth-split-body {
   padding: clamp(24px, 3vw, 36px);
-  border: 1px solid rgba(218, 241, 222, .52);
+  border: 1px solid rgba(247, 241, 232, .52);
   border-radius: 24px;
   background: var(--glass-surface);
-  box-shadow: 0 28px 60px rgba(5, 31, 32, .1);
+  box-shadow: 0 28px 60px rgba(var(--ink-rgb), .1);
   -webkit-backdrop-filter: blur(10px) saturate(120%);
   backdrop-filter: blur(10px) saturate(120%);
 }
@@ -994,7 +994,7 @@ body {
 .portal-account-menu-animated[data-open="true"] > .sidebar-bottom {
   border-color: rgba(255, 255, 255, .72);
   background: rgba(255, 255, 255, .72);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .9), 0 5px 14px rgba(5, 31, 32, .12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .9), 0 5px 14px rgba(var(--ink-rgb), .12);
   transform: translateY(-1px);
 }
 
@@ -1008,7 +1008,7 @@ body {
 .portal-account-menu-animated .portal-account-menu-panel button:not(.portal-logout-btn):hover,
 .portal-account-menu-animated .portal-account-menu-panel button:not(.portal-logout-btn):focus-visible {
   background: rgba(255, 255, 255, .72);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .9), 0 5px 14px rgba(5, 31, 32, .12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .9), 0 5px 14px rgba(var(--ink-rgb), .12);
   transform: translateY(-1px);
 }
 
@@ -1063,7 +1063,7 @@ body {
 .public-shop-profile {
   border-color: var(--glass-border);
   background: var(--glass-surface);
-  box-shadow: var(--glass-shadow), inset 0 2px 2px rgba(255, 255, 255, .9), inset 0 -1px 2px rgba(5, 31, 32, .08);
+  box-shadow: var(--glass-shadow), inset 0 2px 2px rgba(255, 255, 255, .9), inset 0 -1px 2px rgba(var(--ink-rgb), .08);
   -webkit-backdrop-filter: blur(10px) saturate(120%);
   backdrop-filter: blur(10px) saturate(120%);
 }
@@ -1075,9 +1075,9 @@ body {
   border-radius: 20px;
   background: linear-gradient(135deg, rgba(255, 255, 255, .82), rgba(245, 252, 247, .7));
   box-shadow:
-    0 16px 36px rgba(5, 31, 32, .12),
+    0 16px 36px rgba(var(--ink-rgb), .12),
     inset 0 2px 2px rgba(255, 255, 255, .95),
-    inset 0 -2px 5px rgba(5, 31, 32, .055);
+    inset 0 -2px 5px rgba(var(--ink-rgb), .055);
   -webkit-backdrop-filter: blur(12px) saturate(125%);
   backdrop-filter: blur(12px) saturate(125%);
 }
@@ -1086,7 +1086,7 @@ body {
 .buyer-glass-shell .auction-tile-image,
 .buyer-glass-shell .product-detail-image,
 .buyer-glass-shell .product-detail-related-image {
-  background: rgba(218, 241, 222, .2);
+  background: rgba(247, 241, 232, .2);
 }
 
 /* Catalog cards sit over a very light botanical image. Keep its shapes visible. */
@@ -1095,15 +1095,15 @@ body {
   background: radial-gradient(ellipse at 8% 0%, rgba(255, 255, 255, .38), transparent 52%),
     linear-gradient(145deg, rgba(255, 255, 255, .23), rgba(255, 255, 255, .1) 62%, rgba(255, 255, 255, .18));
   border: 1px solid rgba(255, 255, 255, .9);
-  box-shadow: 0 14px 32px rgba(5, 31, 32, .12),
+  box-shadow: 0 14px 32px rgba(var(--ink-rgb), .12),
     inset 0 2px 1px rgba(255, 255, 255, .94),
-    inset 0 -1px 2px rgba(5, 31, 32, .08);
+    inset 0 -1px 2px rgba(var(--ink-rgb), .08);
   -webkit-backdrop-filter: blur(4px) saturate(112%);
   backdrop-filter: blur(4px) saturate(112%);
 }
 
 .buyer-glass-shell .catalog-products .product-media {
-  background: rgba(218, 241, 222, .12);
+  background: rgba(247, 241, 232, .12);
 }
 
 @media (max-width: 900px) {
@@ -1112,7 +1112,7 @@ body {
 }
 .auth-submit-btn {
   background: linear-gradient(110deg, var(--forest-mid), var(--primary));
-  box-shadow: 0 12px 26px rgba(5, 31, 32, .16);
+  box-shadow: 0 12px 26px rgba(var(--ink-rgb), .16);
 }
 .auth-submit-btn:hover:not(:disabled) { background: var(--primary-hover); }
 .auth-social-btn,
@@ -1132,7 +1132,7 @@ body {
   border: 1px solid var(--glass-border);
   border-radius: 999px;
   background: color-mix(in srgb, var(--glass-surface) 78%, transparent);
-  box-shadow: inset 0 1px rgba(255, 255, 255, .8), 0 7px 18px rgba(5, 31, 32, .09);
+  box-shadow: inset 0 1px rgba(255, 255, 255, .8), 0 7px 18px rgba(var(--ink-rgb), .09);
   -webkit-backdrop-filter: blur(7px);
   backdrop-filter: blur(7px);
   scrollbar-width: none;
@@ -1143,7 +1143,7 @@ body {
   z-index: 0;
   border-radius: 999px;
   background: linear-gradient(115deg, var(--hero-bg-deep), var(--forest-mid));
-  box-shadow: 0 3px 10px rgba(5, 31, 32, .18);
+  box-shadow: 0 3px 10px rgba(var(--ink-rgb), .18);
   opacity: 0;
   pointer-events: none;
   transition: left .34s cubic-bezier(.2, .8, .2, 1), top .34s cubic-bezier(.2, .8, .2, 1), width .34s cubic-bezier(.2, .8, .2, 1), height .34s cubic-bezier(.2, .8, .2, 1);
