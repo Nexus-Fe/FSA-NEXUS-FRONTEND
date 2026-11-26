@@ -39,8 +39,17 @@ export function TrackingCodeBar({
     if (printing) return;
     setPrinting(true);
     try {
-      if (shipmentId) {
-        const label = await fulfillmentService.getPrintLabel(shipmentId, pageSize);
+      let resolvedId = shipmentId;
+      if (!resolvedId && trackingCode) {
+        try {
+          const detail = await fulfillmentService.getShipmentByTracking(trackingCode);
+          resolvedId = detail?.id;
+        } catch {
+          // ignore lookup failure
+        }
+      }
+      if (resolvedId) {
+        const label = await fulfillmentService.getPrintLabel(resolvedId, pageSize);
         if (label.printUrl) {
           window.open(label.printUrl, "_blank", "noopener,noreferrer");
           return;
@@ -59,7 +68,7 @@ export function TrackingCodeBar({
   }
 
   const carrierLabel = carrierName || carrierCode || "GHN";
-  const canPrint = showPrintLabel && (Boolean(labelPrintUrl) || Boolean(shipmentId));
+  const canPrint = showPrintLabel && (Boolean(labelPrintUrl) || Boolean(shipmentId) || Boolean(trackingCode));
 
   return (
     <div className="tracking-code-bar">

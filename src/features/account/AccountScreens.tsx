@@ -169,7 +169,7 @@ export function SellerDocumentsScreen() {
               disabled={busy}
               required={req}
               ariaInvalid={Boolean(error)}
-              hint="JPG, PNG hoặc PDF · tối đa 10 MB"
+              hint="JPG, PNG hoặc PDF · tối đa 5 MB"
               onFilesChange={(files) => { setter(files[0] ?? null); setErrors({}); setDone(false); }}
             />
             {error && <small className="checkout-field-error" role="alert">{error}</small>}
