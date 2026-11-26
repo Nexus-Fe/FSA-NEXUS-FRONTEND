@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useSyncExternalStore, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+
+const emptySubscribe = () => () => {};
 
 const FOCUSABLE = 'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
@@ -27,15 +29,11 @@ export function Modal({
   footer?: ReactNode;
 }) {
   const titleId = useId();
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
   const panelRef = useRef<HTMLDivElement>(null);
   const openerRef = useRef<HTMLElement | null>(null);
   const busyRef = useRef(busy);
   const closeRef = useRef(onClose);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
   // The key handler below must see the latest values without re-running (re-running would steal focus back into the dialog).
   useEffect(() => {
     busyRef.current = busy;
