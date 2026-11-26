@@ -141,7 +141,7 @@ export function AdminShipmentsScreen() {
       });
 
       setSuccessMessage(
-        `Cập nhật trạng thái thành công! Trạng thái vận đơn: "${shipmentStatusLabel(res.newStatus)}". ${
+        `Cập nhật trạng thái thành công! Trạng thái vận đơn: "${shipmentStatusLabel(res.currentStatus ?? res.newStatus)}". ${
           res.commerceStatusNotified ? `Đã đồng bộ sang Commerce đơn hàng (${res.commerceStatusNotified}).` : ""
         }`,
       );
@@ -371,7 +371,7 @@ export function AdminShipmentsScreen() {
                 className="select-field"
                 style={{ width: "auto", height: 34, padding: "0 8px", fontSize: 13 }}
                 value={printPageSize}
-                onChange={(e) => setPrintPageSize(e.target.value as any)}
+                onChange={(e) => setPrintPageSize(e.target.value as "A5" | "80x80" | "52x70")}
               >
                 <option value="A5">Khổ A5</option>
                 <option value="80x80">Khổ 80x80 (Nhiệt)</option>
