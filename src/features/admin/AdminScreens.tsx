@@ -30,6 +30,7 @@ const adminWorkspaces = [
   ["Điều chỉnh số dư ví", "Ghi nhận bút toán tăng hoặc giảm số dư ví kèm lý do đối soát", ROUTES.admin.ledger],
   ["Duyệt rút tiền", "Xử lý yêu cầu rút tiền trên màn dùng chung với Staff", ROUTES.admin.withdrawals],
   ["Thông báo & Event Logs", "Tra cứu lịch sử thông báo và nhật ký sự kiện đồng bộ", ROUTES.admin.notifications],
+  ["Vận đơn & Giả lập GHN", "Quản lý vận đơn, kiểm tra mã GHN và mô phỏng trạng thái giao hàng", ROUTES.admin.shipments],
 ] as const;
 
 type OverviewSnapshot = {

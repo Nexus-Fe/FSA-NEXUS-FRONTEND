@@ -104,5 +104,6 @@ export const ROUTES = {
     walletTools: "/admin/wallet-tools",
     subsidyBudgets: "/admin/subsidy-budgets",
     notifications: "/admin/notifications",
+    shipments: "/admin/shipments",
   },
 } as const;

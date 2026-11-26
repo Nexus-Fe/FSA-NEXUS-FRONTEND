@@ -13,6 +13,7 @@ import { SkeletonCards, SkeletonPage } from "@/components/ui/Skeletons";
 import { describeError, formatError } from "@/lib/errors/error-messages";
 import { ROUTES } from "@/constants/routes";
 import { ApiError } from "@/lib/api/client";
+import { Icon } from "@/components/ui/Icon";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatMoney, resolveImageUrl } from "@/lib/presentation";
 import { AuctionOrderPayment } from "./AuctionOrderPayment";
@@ -25,6 +26,7 @@ import { AuctionResultExtras } from "./AuctionResultExtras";
 import { AuctionDepositPanel } from "./AuctionDepositPanel";
 import { AuctionBuyNowPanel } from "./AuctionBuyNowPanel";
 import { AuctionWatchButton } from "./AuctionWatchButton";
+import { AuctionReportModal } from "./components/AuctionReportModal";
 import { canOfferBuyNow } from "./buy-now-outcome";
 import { canWatchAuction } from "./watch";
 import { useAuctionRealtime } from "./use-auction-realtime";
@@ -103,6 +105,7 @@ export function AuctionRoomScreen() {
   const recentBids = useApiResource(isAuctionId(id) && bidPage > 1 ? `recent-bids:${id}` : null, (signal) => auctionService.bids(id, 1, signal).then((response) => response.data));
   const reloadDetail = detail.reload; const reloadBids = bids.reload; const reloadRecentBids = recentBids.reload;
   const [amount, setAmount] = useState(""); const [selectedImage, setSelectedImage] = useState(0); const [busy, setBusy] = useState(false); const [error, setError] = useState(""); const [success, setSuccess] = useState(""); const [latestBid, setLatestBid] = useState<PlaceBidResponse | null>(null); const [outbidNotice, setOutbidNotice] = useState("");
+  const [reportOpen, setReportOpen] = useState(false);
   const realtime = useAuctionRealtime(isAuctionId(id) ? id : null, {
     onBid: (event) => { reloadDetail(); reloadBids(); if (bidPage > 1) reloadRecentBids(); if (isOutbid(event, latestBid ? { bidId: latestBid.bidId, amount: latestBid.amount } : null)) setOutbidNotice(outbidText(event.amount)); },
     onStatusChanged: () => { reloadDetail(); reloadBids(); },
@@ -120,7 +123,30 @@ export function AuctionRoomScreen() {
   if (!isAuctionId(id)) return <NoData title="Mã phiên đấu giá không hợp lệ" />;
   if (detail.error instanceof ApiError && detail.error.status === 404) return <AuctionUnavailableState />;
   return <div className="auction-surface auction-room">
-    <PageHeading title={auction?.productName ?? "Phòng đấu giá"} description={auction ? `Mã phiên ${auction.auctionId}` : "Đang tải thông tin phiên đấu giá"} action={<div className="action-row">{auction && canWatchAuction({ userId: user?.id, sellerId: auction.sellerId, canBid }) && user && <AuctionWatchButton auctionId={id} userId={user.id} />}<ButtonLink href={ROUTES.auction.index} variant="secondary" small>Quay lại danh sách</ButtonLink></div>} />
+    <PageHeading
+      title={auction?.productName ?? "Phòng đấu giá"}
+      description={auction ? `Mã phiên ${auction.auctionId}` : "Đang tải thông tin phiên đấu giá"}
+      action={
+        <div className="action-row">
+          {auction && canWatchAuction({ userId: user?.id, sellerId: auction.sellerId, canBid }) && user && (
+            <AuctionWatchButton auctionId={id} userId={user.id} />
+          )}
+          {auction && (active || scheduled) && user && auction.sellerId !== user.id && canBid && (
+            <button
+              type="button"
+              className="button button-secondary button-small"
+              onClick={() => setReportOpen(true)}
+              title="Báo cáo vi phạm phiên đấu giá"
+              style={{ display: "inline-flex", alignItems: "center", gap: 5 }}
+            >
+              <Icon name="flag" size={13} />
+              Báo cáo phiên
+            </button>
+          )}
+          <ButtonLink href={ROUTES.auction.index} variant="secondary" small>Quay lại danh sách</ButtonLink>
+        </div>
+      }
+    />
     {detail.error && <div className="notice" role="alert"><p>{message(detail.error)}</p><button className="button button-secondary button-small" type="button" onClick={refreshAuction}>Tải lại phiên</button></div>}
     {error && <p className="notice" role="alert">{error}</p>}{success && <p className="form-success" role="status">{success}</p>}{outbidNotice && <p className="notice" role="status">{outbidNotice} <button type="button" className="button button-secondary button-small" onClick={() => setOutbidNotice("")}>Đã hiểu</button></p>}{realtime === "reconnecting" && <p className="auction-action-note" role="status">Mất kết nối cập nhật trực tiếp, đang nối lại. Giá vẫn được làm mới định kỳ.</p>}
     {detail.loading && !auction ? <SkeletonPage variant="detail" label="Đang tải phiên đấu giá…" /> : auction ? <>
@@ -166,6 +192,17 @@ export function AuctionRoomScreen() {
           </Card>
         </aside>
       </div>
+      {auction && (
+        <AuctionReportModal
+          open={reportOpen}
+          auctionId={id}
+          auctionTitle={auction.productName}
+          onClose={() => setReportOpen(false)}
+          onReported={() => {
+            setSuccess("Đã gửi báo cáo vi phạm phiên đấu giá thành công. Quản trị viên sẽ xem xét.");
+          }}
+        />
+      )}
     </> : <NoData title={detail.error ? "Không tải được thông tin phiên" : "Không tìm thấy phiên đấu giá"} />}
   </div>;
 }

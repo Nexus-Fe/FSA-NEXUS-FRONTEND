@@ -14,6 +14,7 @@ import { formatMoney } from "@/lib/presentation";
 import { catalogService } from "@/features/catalog";
 import { useSession } from "@/components/auth/SessionProvider";
 import { sellerService } from "@/features/seller";
+import { SellerAuctionStats } from "./SellerAuctionStats";
 import { AuctionOrderSellerActions } from "./AuctionOrderSellerActions";
 import { AuctionBidLeaderboard } from "./AuctionBidLeaderboard";
 import { auctionService } from "./services/auction.service";
@@ -41,6 +42,7 @@ function formatTimeAndDate(iso?: string | null) {
 
 export function OperationsListScreen({ role }: { role: Role }) {
   const router = useRouter();
+  const { user } = useSession();
   const [lookup, setLookup] = useState("");
   const [lookupError, setLookupError] = useState("");
   const [status, setStatus] = useState<AuctionStatus | "ALL">("ALL"); const [page, setPage] = useState(1);
@@ -53,6 +55,12 @@ export function OperationsListScreen({ role }: { role: Role }) {
         description={role === "seller" ? "Quản lý và tạo mới các phiên đấu giá cho sản phẩm của gian hàng bạn." : "Theo dõi danh sách và trạng thái các phiên đấu giá toàn sàn."}
         action={role === "seller" ? <div className="action-row"><ButtonLink href={ROUTES.seller.newAuctionProduct} variant="secondary">Tạo sản phẩm đấu giá</ButtonLink><ButtonLink href={ROUTES.seller.newAuction}>+ Tạo phiên đấu giá</ButtonLink></div> : undefined}
       />
+      {role === "seller" && user?.id && (
+        <Card className="card-pad" style={{ marginBottom: 16 }}>
+          <h3 style={{ margin: "0 0 8px", fontSize: 14, fontWeight: 700, color: "var(--ink)" }}>Hiệu suất đấu giá của bạn</h3>
+          <SellerAuctionStats sellerId={user.id} />
+        </Card>
+      )}
       <form
         className="auction-lookup"
         onSubmit={(event) => {
