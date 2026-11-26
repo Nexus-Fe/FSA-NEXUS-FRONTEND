@@ -32,7 +32,7 @@ export function AddressBookScreen() {
   }
 
   return (
-    <>
+    <div style={{ width: "min(960px, 100%)", marginInline: "auto", display: "grid", gap: "18px" }}>
       <PageHeading
         title="Sổ địa chỉ giao hàng"
         description="Lưu địa chỉ để chọn nhanh khi thanh toán."
@@ -59,7 +59,7 @@ export function AddressBookScreen() {
       </DataState>
       {editing && <AddressDialog address={editing === "new" ? null : editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); addresses.reload(); }} />}
       {deleting && <DeleteDialog address={deleting} onClose={() => setDeleting(null)} onDeleted={() => { setDeleting(null); addresses.reload(); }} />}
-    </>
+    </div>
   );
 }
 

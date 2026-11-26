@@ -15,7 +15,7 @@ import { TableSkeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
 import { api, unwrap, type ApiResponse } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
-import { describeProductStatus, formatMoney, resolveImageUrl } from "@/lib/presentation";
+import { describeProductStatus, formatMoney, resolveImageUrl, sellerProductStatusBadge } from "@/lib/presentation";
 import { countFailedAttempts, fulfillmentService, hasShipmentToTrack, OrderProgressStepper, shipmentStatusLabel, ShipmentTimelineList, TrackingCodeBar } from "@/features/fulfillment";
 import "@/features/fulfillment/components/shipping-tracking.css";
 import { loadSafeRegistrationDraft, sellerService } from "./services/seller.service";
@@ -63,8 +63,19 @@ type DraftVariantItem = {
   weightGrams: string;
   currency: string;
   isActive: boolean;
+  hasOrder?: boolean;
   attributes: Array<{ attrName: string; attrValue: string }>;
 };
+
+function canEditProductSku(product?: SellerProductDetail): boolean {
+  if (!product) return true;
+  const status = product.status.toUpperCase();
+  if (status === "DRAFT") return true;
+  if (status === "INACTIVE") {
+    return product.statusReason?.toUpperCase() === "REJECTED" || Boolean(product.rejectionReason);
+  }
+  return false;
+}
 
 function buildAutoSku(productName: string, variantName: string, index: number): string {
   const clean = (text: string) =>
@@ -118,13 +129,14 @@ export function SellerProductsScreen() {
 
   const [q, setQ] = useState("");
   const [keyword, setKeyword] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
 
   const prevQRef = useRef(q);
   const rowRefs = useRef<Map<string, HTMLTableRowElement>>(new Map());
 
   const resource = useApiResource(
-    `seller-products:${page}:${pageSize}:${keyword}`,
-    (signal) => sellerCatalogService.list(page, keyword, signal, pageSize),
+    `seller-products:${page}:${pageSize}:${keyword}:${statusFilter}`,
+    (signal) => sellerCatalogService.list(page, keyword, signal, pageSize, statusFilter || undefined),
   );
 
   // Sync URL when page is restored from sessionStorage and not yet present in URL query
@@ -314,6 +326,22 @@ export function SellerProductsScreen() {
               </button>
             )}
           </div>
+          <select
+            className="select-field"
+            aria-label="Lọc theo trạng thái sản phẩm"
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              handlePageChange(1);
+            }}
+            style={{ width: "auto", minWidth: 170 }}
+          >
+            <option value="">Tất cả trạng thái</option>
+            <option value="Active">Đang bán</option>
+            <option value="PendingApproval">Chờ duyệt</option>
+            <option value="Draft">Bản nháp / Bị từ chối</option>
+            <option value="Inactive">Tạm ngưng / Bị đình chỉ</option>
+          </select>
           <button type="submit" className="button button-secondary">Tìm kiếm</button>
         </form>
         {resource.error && (
@@ -366,7 +394,16 @@ export function SellerProductsScreen() {
                       </td>
                       <td>{p.variantCount} SKU</td>
                       <td>
-                        <Badge>{describeProductStatus(p.status)}</Badge>
+                        {(() => {
+                          const badge = sellerProductStatusBadge(p.status, p.statusReason);
+                          const reason = p.rejectionReason ?? (p.statusReason && !["REJECTED", "ADMINLOCKED"].includes(p.statusReason.toUpperCase()) ? p.statusReason : null);
+                          return (
+                            <>
+                              <Badge tone={badge.tone}>{badge.label}</Badge>
+                              {reason && <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>{reason}</div>}
+                            </>
+                          );
+                        })()}
                       </td>
                       <td>
                         <ButtonLink
@@ -502,6 +539,7 @@ export function SellerProductEditorScreen({ initialProduct }: { initialProduct?:
         weightGrams: variant.weightGrams == null ? "" : String(variant.weightGrams),
         currency: variant.currency || "VND",
         isActive: variant.isActive,
+        hasOrder: variant.hasOrder,
         attributes: variant.attributes ?? [],
       }))
     : [{
@@ -583,7 +621,7 @@ export function SellerProductEditorScreen({ initialProduct }: { initialProduct?:
       ...prev,
       {
         id: `var-${Date.now()}-${nextIdx}`,
-        skuCode: buildAutoSku(name, `Phien-ban-${nextIdx}`, nextIdx - 1),
+        skuCode: "",
         name: `Phiên bản #${nextIdx}`,
         price: prev[0]?.price || "",
         weightGrams: "",
@@ -677,7 +715,10 @@ export function SellerProductEditorScreen({ initialProduct }: { initialProduct?:
         .filter((row) => row.name && row.value);
       // Validate and normalize variants
       const preparedVariants = variants.map((v, idx) => {
-        const sku = v.skuCode.trim() || buildAutoSku(name, v.name, idx);
+        const sku = v.skuCode.trim();
+        if (!sku) {
+          throw new Error(`Biến thể #${idx + 1}: Vui lòng nhập mã SKU của shop (hoặc bấm nút gợi ý).`);
+        }
         const parsedPrice = Number(v.price);
         if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) {
           throw new Error(`Biến thể #${idx + 1} (${sku}): Giá bán phải lớn hơn 0 ₫.`);
@@ -697,6 +738,7 @@ export function SellerProductEditorScreen({ initialProduct }: { initialProduct?:
           price: parsedPrice,
           currency: v.currency || "VND",
           isActive: v.isActive,
+          hasOrder: v.hasOrder,
           weightGrams: variantWeight,
           attributes: cleanAttrs,
         };
@@ -708,9 +750,11 @@ export function SellerProductEditorScreen({ initialProduct }: { initialProduct?:
           name: name.trim(), description: description.trim(), brand: brand.trim(), categoryId, specifications, weightGrams: shippingWeight,
         });
         let defaultVariantId = "";
+        const canEditExistingSku = canEditProductSku(initialProduct);
         for (const variant of preparedVariants) {
           if (variant.variantId) {
             await sellerCatalogService.updateVariant(variant.variantId, {
+              ...(canEditExistingSku && !variant.hasOrder ? { skuCode: variant.skuCode } : {}),
               name: variant.name, price: variant.price, currency: variant.currency, attributes: variant.attributes, weightGrams: variant.weightGrams,
             });
             if (variant.isActive) defaultVariantId = variant.variantId;
@@ -1154,16 +1198,17 @@ export function SellerProductEditorScreen({ initialProduct }: { initialProduct?:
                         <input
                           className="field"
                           required
-                          placeholder="Để trống sẽ tự sinh mã SKU"
+                          placeholder="VD: TENSHOP-SANPHAM-MAU (duy nhất trong shop)"
                           value={variant.skuCode}
-                          disabled={Boolean(variant.variantId)}
+                          disabled={Boolean(variant.variantId) && (Boolean(variant.hasOrder) || !canEditProductSku(initialProduct))}
                           onChange={(e) => updateVariantField(vIdx, "skuCode", e.target.value)}
                         />
                         <button
                           type="button"
                           className="button button-secondary button-small seller-sku-generate"
-                          aria-label="Tự sinh mã SKU"
-                          disabled={Boolean(variant.variantId)}
+                          aria-label="Gợi ý mã SKU"
+                          title="Gợi ý mã SKU"
+                          disabled={Boolean(variant.variantId) && (Boolean(variant.hasOrder) || !canEditProductSku(initialProduct))}
                           onClick={() => updateVariantField(vIdx, "skuCode", buildAutoSku(name, variant.name, vIdx))}
                         >
                           +
@@ -2447,11 +2492,16 @@ export function SellerOrdersScreen() {
           <select className="select-field" value={statusFilter} onChange={(event) => { setPage(1); setStatusFilter(event.target.value); }}>
             <option value="">Tất cả trạng thái</option>
             <option value="PendingPayment">Chờ xác nhận (COD) / Chờ thanh toán</option>
+            <option value="PendingConfirmation">Chờ người bán xác nhận</option>
             <option value="Paid">Đã thanh toán · Chờ xác nhận</option>
             <option value="Confirmed">Đã xác nhận</option>
             <option value="Shipped">Đang giao hàng</option>
             <option value="Delivered">Đã giao</option>
             <option value="Completed">Hoàn tất</option>
+            <option value="SellerRejected">Người bán từ chối</option>
+            <option value="Returning">Đang hoàn hàng</option>
+            <option value="Returned">Đã hoàn hàng</option>
+            <option value="Refunded">Đã hoàn tiền</option>
             <option value="Cancelled">Đã hủy</option>
           </select>
         </label>
@@ -2806,7 +2856,7 @@ export function SellerOrderDetailScreen() {
                 </span>
               </div>
             )}
-            {sub && ["CONFIRMED", "SHIPPING"].includes(sub.status.replace(/[^a-z]/gi, "").toUpperCase()) && (
+            {sub && ["CONFIRMED", "SELLERACCEPTED", "SHIPPING", "SHIPPED"].includes(sub.status.replace(/[^a-z]/gi, "").toUpperCase()) && (
               <div style={{ marginTop: 16, padding: "14px 16px", borderRadius: 12, border: "1px solid var(--primary-border)", background: "var(--surface)" }}>
                 <h4 style={{ margin: "0 0 6px", fontSize: 13.5, display: "flex", alignItems: "center", gap: 6, color: "var(--ink)" }}>
                   <Icon name="package" size={15} />

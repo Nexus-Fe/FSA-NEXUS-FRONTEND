@@ -1,5 +1,12 @@
-import { api, unwrap } from "@/lib/api/client";
+import { api, unwrap, type ApiResponse } from "@/lib/api/client";
 import { asList, type ActiveSession, type PreferenceRow, type ReputationHistoryRow, type ReputationPolicy } from "./account-rules";
+
+export type SellerStatusSnapshot = {
+  status?: string | null;
+  rejectionReason?: string | null;
+  nextStep?: string | null;
+  businessEmail?: string | null;
+};
 
 export const accountService = {
   async sessions(signal?: AbortSignal): Promise<ActiveSession[]> {
@@ -30,5 +37,12 @@ export const accountService = {
   },
   async reputationHistory(userId: string, page: number, signal?: AbortSignal): Promise<ReputationHistoryRow[]> {
     return asList<ReputationHistoryRow>(unwrap(await api.get<unknown>(`/api/v1/users/${encodeURIComponent(userId)}/reputation/history?page=${page}&pageSize=20`, { signal })));
+  },
+  async sellerStatus(signal?: AbortSignal): Promise<SellerStatusSnapshot | null> {
+    try {
+      return unwrap(await api.get<ApiResponse<SellerStatusSnapshot> | SellerStatusSnapshot>("/api/v1/sellers/status", { signal }));
+    } catch {
+      return null;
+    }
   },
 };

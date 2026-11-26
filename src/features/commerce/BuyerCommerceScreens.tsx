@@ -7,6 +7,7 @@ import { useSession } from "@/components/auth/SessionProvider";
 import { BackendImage } from "@/components/ui/BackendImage";
 import { AdminPagination, Badge, Card, PageHeading } from "@/components/ui/Primitives";
 import { ErrorState, LoadingState } from "@/components/ui/States";
+import { useToast } from "@/components/ui/Toast";
 import { EmailInput } from "@/components/ui/EmailInput";
 import { ROUTES } from "@/constants/routes";
 import { ApiError, api, unwrap, type ApiResponse } from "@/lib/api/client";
@@ -31,6 +32,7 @@ import { SavedAddressPicker } from "@/features/profile/SavedAddressPicker";
 import { toGhnSelection } from "@/features/profile/address-rules";
 import { EMPTY_GHN_SELECTION, buildShippingAddress, formatAddressLine, ghnWriteBlock, parseGhnSelection, validateGhnSelection, type GhnCheck, type GhnSelection } from "@/features/shipping/ghn-address";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { notifyNotificationsChanged } from "@/features/notification";
 
 
 type CartItem = { id: string; productId: string; skuId: string; sellerId: string; productName: string; quantity: number; unitPriceSnapshot: number };
@@ -453,6 +455,7 @@ type InventoryBalance = { skuId: string; availableQuantity: number };
 
 export function CheckoutScreen() {
   const router = useRouter();
+  const { showToast } = useToast();
   const cart = useCart();
   const wallet = useApiResource("checkout-buyer-wallet", (signal) => walletService.getBalance(signal));
   const searchParams = useSearchParams();
@@ -677,6 +680,8 @@ export function CheckoutScreen() {
       clearUnknownOrderMarker(window.sessionStorage);
       cart.reload();
       wallet.reload();
+      showToast(`Thanh toán thành công đơn ${created.orderNo}.`, "success");
+      notifyNotificationsChanged(true);
     } catch (reason) {
       const failure = describePlaceOrderFailure(reason);
       // The quote is used up in every case. A refusal needs a new quote; an unknown result locks ordering instead of inviting a second order.

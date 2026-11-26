@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { EvidenceThumbnailGrid } from "@/components/ui/ImageLightbox";
 import {
   AdminPagination,
   Badge,
@@ -466,22 +467,10 @@ export function StaffReportsScreen() {
 
             {selectedReport.evidenceUrls && selectedReport.evidenceUrls.length > 0 && (
               <div style={{ marginBottom: "16px" }}>
-                <span style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600 }}>
+                <span style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, display: "block", marginBottom: "6px" }}>
                   Bằng chứng đính kèm ({selectedReport.evidenceUrls.length}):
                 </span>
-                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginTop: "6px" }}>
-                  {selectedReport.evidenceUrls.map((url, idx) => (
-                    <a
-                      key={idx}
-                      href={url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="button button-secondary button-small"
-                    >
-                      Bằng chứng #{idx + 1} ↗
-                    </a>
-                  ))}
-                </div>
+                <EvidenceThumbnailGrid urls={selectedReport.evidenceUrls} size={72} title="Bằng chứng khiếu nại" />
               </div>
             )}
 

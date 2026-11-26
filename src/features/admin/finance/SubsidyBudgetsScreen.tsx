@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { AdminPagination, Badge, PageHeading } from "@/components/ui/Primitives";
+import { FluidChoiceBar } from "@/components/ui/FluidChoiceBar";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Modal } from "@/components/ui/Modal";
 import { DataState, ErrorState } from "@/components/ui/States";
@@ -18,6 +19,7 @@ type Pending = { kind: "approve" | "close"; budget: SubsidyBudget } | null;
 export function SubsidyBudgetsScreen() {
   const { user } = useSession();
   const [page, setPage] = useState(1);
+  const [statusFilter, setStatusFilter] = useState("");
   const budgets = useApiResource(`admin-subsidy-budgets:${page}`, (signal) => financeService.budgets(page, 20, signal));
   const [creating, setCreating] = useState(false);
   const [pending, setPending] = useState<Pending>(null);
@@ -42,16 +44,30 @@ export function SubsidyBudgetsScreen() {
     }
   }
 
+  const filteredBudgets = (budgets.data?.items ?? []).filter((b) => !statusFilter || b.status.toUpperCase() === statusFilter.toUpperCase());
+
   return (
     <>
       <PageHeading title="Ngân sách trợ giá voucher sàn" description="Tiền sàn dùng để bù cho mã giảm giá toàn sàn. Ngân sách mới phải được một quản trị viên khác duyệt." action={<button type="button" className="button button-primary" onClick={() => { setNotice(""); setCreating(true); }}>Tạo ngân sách</button>} />
+      <FluidChoiceBar
+        mode="filter"
+        ariaLabel="Lọc ngân sách theo trạng thái"
+        options={[
+          { value: "", label: "Tất cả" },
+          { value: "PendingApproval", label: "Chờ duyệt" },
+          { value: "Active", label: "Đang hoạt động" },
+          { value: "Closed", label: "Đã đóng" },
+        ]}
+        value={statusFilter}
+        onChange={setStatusFilter}
+      />
       {notice && <p className="form-success" role="status">{notice}</p>}
-      <DataState loading={budgets.loading} error={budgets.error} empty={!budgets.data?.items.length} emptyTitle="Chưa có ngân sách nào" onRetry={budgets.reload}>
+      <DataState loading={budgets.loading} error={budgets.error} empty={!filteredBudgets.length} emptyTitle="Chưa có ngân sách nào" onRetry={budgets.reload}>
         <div className="table-scroll">
           <table className="data-table">
             <thead><tr><th>Tên</th><th>Hạn mức (tổng · ngày · đơn)</th><th>Sử dụng</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
             <tbody>
-              {budgets.data?.items.map((budget) => {
+              {filteredBudgets.map((budget) => {
                 const percent = budgetUsagePercent(budget.totalLimit, budget.reservedAmount, budget.usedAmount);
                 const mine = user?.id && budget.createdByAdminId.toLowerCase() === user.id.toLowerCase();
                 return (

@@ -8,7 +8,7 @@ import { ROUTES } from "@/constants/routes";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { describeError, formatError } from "@/lib/errors/error-messages";
 import { formatMoney, resolveImageUrl } from "@/lib/presentation";
-import { statusLabel } from "./contract";
+import { auctionStatusTone, statusLabel } from "./contract";
 import { auctionService } from "./services/auction.service";
 import { LoadingState } from "@/components/ui/States";
 
@@ -35,7 +35,7 @@ export function MyWatchlistScreen() {
       {list.data.items.map((item) => <Card className="card-pad" key={item.auctionId}>
         <div className="auction-detail-image"><BackendImage src={resolveImageUrl(item.primaryImageUrl)} alt={item.productName ?? "Sản phẩm đấu giá"} /></div>
         <h2><Link href={ROUTES.auction.room(item.auctionId)}>{item.productName ?? "Sản phẩm chưa có tên"}</Link></h2>
-        <Badge tone="slate">{statusLabel(item.status)}</Badge>
+        <Badge tone={auctionStatusTone(item.status)}>{statusLabel(item.status)}</Badge>
         <div className="info-row"><span>Giá hiện tại</span><strong>{formatMoney(item.currentPriceAmount ?? item.startPriceAmount)}</strong></div>
         <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <input type="checkbox" checked={item.notifyOnNewBid} disabled={busyId === item.auctionId} onChange={(event) => void run(item.auctionId, () => auctionService.watch(item.auctionId, event.target.checked))} />

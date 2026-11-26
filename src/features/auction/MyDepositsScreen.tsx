@@ -9,6 +9,7 @@ import { ROUTES } from "@/constants/routes";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { describeError, formatError } from "@/lib/errors/error-messages";
 import { formatMoney } from "@/lib/presentation";
+import { semanticStatusTone } from "@/lib/status-labels";
 import { depositStatusLabel } from "./auction-outcome";
 import { auctionService } from "./services/auction.service";
 
@@ -40,7 +41,7 @@ export function MyDepositsScreen() {
           <td><Link href={ROUTES.auction.room(item.auctionId)}>{item.auctionTitle || item.auctionId}</Link></td>
           <td>{formatMoney(item.amount)}</td>
           <td>{item.ratePercent}%</td>
-          <td><Badge tone="slate">{depositStatusLabel(item.status)}</Badge></td>
+          <td><Badge tone={semanticStatusTone(item.status)}>{depositStatusLabel(item.status)}</Badge></td>
           <td>{capturePurposeLabel(item.capturePurpose)}</td>
           <td><small>Giữ: {when(item.authorizedAt)}<br />Hoàn: {when(item.releasedAt)}<br />Trừ: {when(item.capturedAt)}</small></td>
         </tr>)}

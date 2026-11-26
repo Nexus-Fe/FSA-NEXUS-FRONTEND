@@ -44,6 +44,10 @@ export const CatalogScreenClient = dynamic(
   () => import("@/features/catalog/CatalogScreens").then((module) => module.CatalogScreen),
   { ssr: false, loading: ScreenLoading },
 );
+export const ShopsDirectoryScreenClient = dynamic(
+  () => import("@/features/catalog/ShopsDirectoryScreen").then((module) => module.ShopsDirectoryScreen),
+  { ssr: false, loading: ScreenLoading },
+);
 export const ProductDetailScreenClient = dynamic(
   () => import("@/features/catalog/CatalogScreens").then((module) => module.ProductDetailScreen),
   { ssr: false, loading: ScreenLoading },

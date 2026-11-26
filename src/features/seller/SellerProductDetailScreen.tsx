@@ -9,7 +9,7 @@ import { useSession } from "@/components/auth/SessionProvider";
 import { ROUTES } from "@/constants/routes";
 import { unwrap } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
-import { describeProductStatus, formatMoney, resolveImageUrl } from "@/lib/presentation";
+import { describeProductStatus, formatMoney, resolveImageUrl, sellerProductStatusBadge } from "@/lib/presentation";
 import { sellerService } from "./services/seller.service";
 import {
   sellerCatalogService,
@@ -474,11 +474,19 @@ export function SellerProductDetailScreen() {
             <div className="seller-product-summary">
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-                  <Badge>{describeProductStatus(data.status)}</Badge>
+                  {(() => {
+                    const badge = sellerProductStatusBadge(data.status, data.statusReason);
+                    return <Badge tone={badge.tone}>{badge.label}</Badge>;
+                  })()}
                   <span style={{ fontSize: 13, color: "var(--muted)" }}>
                     Danh mục: <strong>{data.categoryName ?? data.categoryId}</strong>
                   </span>
                 </div>
+                {(data.rejectionReason || data.statusReason) && (
+                  <p className="notice" role="status" style={{ margin: "6px 0" }}>
+                    Lý do trạng thái: <strong>{data.rejectionReason || data.statusReason}</strong>
+                  </p>
+                )}
                 <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>Mã sản phẩm: {data.productId}</p>
               </div>
               <div className="action-row" style={{ margin: 0 }}>

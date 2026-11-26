@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { useState } from "react";
 import { AdminPagination, Badge, Card, PageHeading } from "@/components/ui/Primitives";
+import { ThumbnailBox } from "@/components/ui/BackendImage";
 import { FluidChoiceBar } from "@/components/ui/FluidChoiceBar";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { DataState } from "@/components/ui/States";
 import { useApiResource } from "@/lib/api/use-api-resource";
-import { formatMoney } from "@/lib/presentation";
-import { statusLabel } from "./contract";
+import { formatMoney, resolveImageUrl } from "@/lib/presentation";
+import { auctionStatusTone, statusLabel } from "./contract";
 import { attentionReasons, auctionOpsService, checkOpsReason, type AuctionReport } from "./ops.service";
 
 type Tab = "attention" | "reports";
@@ -33,12 +34,18 @@ function AttentionTab({ role }: { role: "admin" | "staff" }) {
       <DataState loading={list.loading} error={list.error} empty={!list.data?.items.length} emptyTitle="Không có phiên nào cần chú ý" onRetry={list.reload}>
         <div className="table-scroll">
           <table className="data-table">
-            <thead><tr><th>Phiên</th><th>Trạng thái</th><th>Giá hiện tại</th><th>Vấn đề</th><th>Mở</th></tr></thead>
+            <thead><tr><th style={{ width: 64 }}>Ảnh</th><th>Phiên</th><th>Trạng thái</th><th>Giá hiện tại</th><th>Vấn đề</th><th>Mở</th></tr></thead>
             <tbody>
               {list.data?.items.map((item) => (
                 <tr key={item.auctionId}>
+                  <td>
+                    <ThumbnailBox
+                      src={resolveImageUrl(item.primaryImageUrl ?? null)}
+                      alt={item.productName ?? "Sản phẩm đấu giá"}
+                    />
+                  </td>
                   <td><strong>{item.productName ?? "Sản phẩm chưa có tên"}</strong><br /><small className="mono">{item.auctionId}</small></td>
-                  <td><Badge tone="slate">{statusLabel(item.status)}</Badge></td>
+                  <td><Badge tone={auctionStatusTone(item.status)}>{statusLabel(item.status)}</Badge></td>
                   <td className="tabular-nums">{formatMoney(item.currentPriceAmount ?? item.startPriceAmount)}</td>
                   <td>{attentionReasons(item).map((reason) => <Badge key={reason} tone="amber">{reason}</Badge>)}</td>
                   <td><Link className="button button-secondary button-small" href={`/${role}/auctions/${encodeURIComponent(item.auctionId)}`}>Xử lý</Link></td>

@@ -22,6 +22,43 @@ export type CatalogProductDetail = {
 export type AuctionCatalogDetail = CatalogProductDetail;
 export type AuctionCatalogPage = { items: AuctionCatalogProduct[]; pagination: { pageIndex: number; pageSize: number; totalCount: number; totalPages: number; hasNextPage: boolean } };
 
+export type PublicSellerSummary = {
+  shopId: string;
+  sellerId: string;
+  shopName: string;
+  logoUrl?: string | null;
+  hotline?: string | null;
+  ratingAvg?: number | null;
+  totalProducts?: number | null;
+  createdAt?: string | null;
+};
+
+export type PublicSellerPage = {
+  items: PublicSellerSummary[];
+  pagination: {
+    pageIndex: number;
+    pageSize: number;
+    totalCount: number;
+    totalPages: number;
+    hasPreviousPage?: boolean;
+    hasNextPage: boolean;
+  };
+};
+
+export type PublicSellerSearchQuery = {
+  search?: string;
+  page?: number;
+  pageSize?: number;
+};
+
+export function toShopSearchPath(query: PublicSellerSearchQuery = {}): string {
+  const params = new URLSearchParams();
+  if (query.search?.trim()) params.set("search", query.search.trim());
+  params.set("page", String(query.page && query.page > 0 ? query.page : 1));
+  params.set("pageSize", String(query.pageSize && query.pageSize > 0 ? query.pageSize : 12));
+  return `/api/v1/sellers?${params.toString()}`;
+}
+
 function toQueryString(query: ProductListQuery = {}): string {
   const params = new URLSearchParams();
   if (query.page) params.set("page", String(query.page));
@@ -51,4 +88,6 @@ export const catalogService = {
     };
   },
   getAuctionProduct: async (id: string, signal?: AbortSignal): Promise<ApiResponse<CatalogProductDetail>> => ({ success: true, statusCode: 200, data: unwrap(await api.get<ApiResponse<CatalogProductDetail> | CatalogProductDetail>(`/api/v1/products/${encodeURIComponent(id)}`, { signal })) }),
+  searchShops: async (query: PublicSellerSearchQuery = {}, signal?: AbortSignal): Promise<PublicSellerPage> =>
+    unwrap(await api.get<ApiResponse<PublicSellerPage> | PublicSellerPage>(toShopSearchPath(query), { signal })),
 };

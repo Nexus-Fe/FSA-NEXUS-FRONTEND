@@ -234,7 +234,7 @@ function PortalAccountMenu({ role }: { role: string }) {
   const isSeller = role === "Người bán";
   const notifications = useApiResource(
     isSeller && user?.id ? `notifications:portal:${user.id}` : null,
-    async (signal) => (await notificationService.getNotifications(1, 1, false, signal)).pagination.totalCount,
+    async (signal) => notificationService.getUnreadCount(signal),
   );
   useEffect(() => {
     if (!isSeller) return;
@@ -410,13 +410,13 @@ export function BuyerShell({ children }: { children: ReactNode }) {
           <form action={ROUTES.catalog.index} method="get" className="header-search">
             <Icon name="search" size={18} />
             <label className="sr-only" htmlFor="site-search">
-              Tìm sản phẩm
+              Tìm sản phẩm, gian hàng
             </label>
             <input
               id="site-search"
               type="search"
               name="keyword"
-              placeholder="Tìm sản phẩm, danh mục…"
+              placeholder="Tìm sản phẩm, gian hàng…"
             />
             <button type="submit" aria-label="Tìm kiếm">
               <Icon name="arrow" size={17} />

@@ -3,6 +3,7 @@ export const ROUTES = {
   auth: { login: "/login", register: "/register", forgotPassword: "/account/forgot-password", resetPassword: "/account/reset-password", changePassword: "/account/change-password", profile: "/account/profile", addresses: "/account/addresses", sessions: "/account/sessions", notificationPreferences: "/account/notification-preferences", sellerDocuments: "/account/seller-documents" },
   catalog: {
     index: "/catalog",
+    shops: "/shops",
     product: (id: string) => "/catalog/" + encodeURIComponent(id),
     shop: (id: string) => "/shops/" + encodeURIComponent(id),
   },
@@ -64,6 +65,7 @@ export const ROUTES = {
   staff: {
     withdrawals: "/staff/withdrawals",
     productModeration: "/staff/product-moderation",
+    productReports: "/staff/product-reports",
     discrepancies: "/staff/transactions/discrepancies",
     auctions: "/staff/auctions",
     auctionOps: "/staff/auction-ops",
@@ -86,6 +88,10 @@ export const ROUTES = {
     roles: "/admin/users?tab=roles",
     penalties: "/admin/penalties",
     reports: "/admin/reports",
+    productReports: "/admin/product-reports",
+    sellers: "/admin/sellers",
+    seller: (id: string) => "/admin/sellers/" + encodeURIComponent(id),
+    productModeration: "/admin/product-moderation",
     auditLogs: "/admin/audit-logs",
     notificationCenter: "/admin/notification-center",
     securityAlerts: "/admin/security-alerts",

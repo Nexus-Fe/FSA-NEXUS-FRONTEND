@@ -7,6 +7,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { DataState, ErrorState } from "@/components/ui/States";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatMoney } from "@/lib/presentation";
+import { semanticStatusTone } from "@/lib/status-labels";
 import { transactionDate } from "@/features/wallet/WalletScreen";
 import { validateResolveReason, walletToolsService, type StripeAttempt } from "./wallet-tools.service";
 
@@ -87,7 +88,7 @@ function HoldsTab() {
                   <td className="mono">{hold.ownerUserId}</td>
                   <td>{hold.referenceType}<br /><small className="mono">{hold.auctionId ?? hold.referenceId}</small></td>
                   <td className="tabular-nums">{formatMoney(hold.amount)}</td>
-                  <td><Badge tone="slate">{({ HELD: "Đang giữ", RELEASED: "Đã giải tỏa", CAPTURED: "Đã thu", EXPIRED: "Hết hạn", CANCELLED: "Đã hủy" } as Record<string, string>)[hold.status.toUpperCase()] ?? hold.status}</Badge></td>
+                  <td><Badge tone={semanticStatusTone(hold.status)}>{({ HELD: "Đang giữ", RELEASED: "Đã giải tỏa", CAPTURED: "Đã thu", EXPIRED: "Hết hạn", CANCELLED: "Đã hủy" } as Record<string, string>)[hold.status.toUpperCase()] ?? hold.status}</Badge></td>
                   <td>{transactionDate(hold.createdAt)}</td>
                   <td>{hold.resolvedAt ? transactionDate(hold.resolvedAt) : "Chưa"}</td>
                 </tr>

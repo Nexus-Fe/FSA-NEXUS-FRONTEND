@@ -17,8 +17,11 @@ export const walletService = {
     unwrap(await api.post<ApiResponse<TopupResponse> | TopupResponse>("/api/v1/wallets/topups/stripe", input, { headers: { "Idempotency-Key": idempotencyKey } })),
   topupStatus: async (id: string, signal?: AbortSignal): Promise<TopupStatus> =>
     unwrap(await api.get<ApiResponse<TopupStatus> | TopupStatus>(`/api/v1/wallets/topups/${encodeURIComponent(id)}`, { signal })),
-  topups: async (page = 1, pageSize = 10, signal?: AbortSignal): Promise<TopupPage> =>
-    unwrap(await api.get<ApiResponse<TopupPage> | TopupPage>(`/api/v1/wallets/topups?page=${page}&pageSize=${pageSize}`, { signal })),
+  topups: async (page = 1, pageSize = 10, signal?: AbortSignal, status?: string): Promise<TopupPage> => {
+    const query = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+    if (status) query.set("status", status);
+    return unwrap(await api.get<ApiResponse<TopupPage> | TopupPage>(`/api/v1/wallets/topups?${query}`, { signal }));
+  },
   resumeTopup: async (id: string): Promise<ResumeTopupResponse> =>
     unwrap(await api.post<ApiResponse<ResumeTopupResponse> | ResumeTopupResponse>(`/api/v1/wallets/topups/${encodeURIComponent(id)}/resume`, {})),
   createDirectCheckout: (input: { orderId: string; amount: number; gateway: "VNPAY"; bankCode?: string; returnUrl: string }) =>

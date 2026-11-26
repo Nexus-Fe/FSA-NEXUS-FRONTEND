@@ -2,12 +2,15 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { EvidenceThumbnailGrid } from "@/components/ui/ImageLightbox";
 import "./ProductReviewSummary.css";
 
 export type ReviewSummaryItem = {
   id: string;
   rating: number;
   comment: string | null;
+  reviewImages?: string[] | null;
+  images?: string[] | null;
   createdAt: string;
 };
 
@@ -105,6 +108,7 @@ export function ProductReviewSummary({ avgRating, reviewCount, reviews, loading 
         {visibleReviews.length ? (
           visibleReviews.map((review, index) => {
             const clamped = Math.max(1, Math.min(5, Math.round(review.rating)));
+            const photos = review.reviewImages ?? review.images ?? null;
             return (
               <article
                 key={review.id}
@@ -116,6 +120,11 @@ export function ProductReviewSummary({ avgRating, reviewCount, reviews, loading 
                   <span>{new Date(review.createdAt).toLocaleDateString("vi-VN")}</span>
                 </header>
                 <p>{review.comment || "Không có nhận xét"}</p>
+                {photos && photos.length > 0 && (
+                  <div style={{ marginTop: 8 }}>
+                    <EvidenceThumbnailGrid urls={photos} size={56} title="Ảnh đánh giá sản phẩm" />
+                  </div>
+                )}
               </article>
             );
           })

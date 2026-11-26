@@ -10,6 +10,8 @@ import {
   NoData,
   PageHeading,
 } from "@/components/ui/Primitives";
+import { ThumbnailBox } from "@/components/ui/BackendImage";
+import { resolveImageUrl } from "@/lib/presentation";
 import { ApiError } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import {
@@ -344,6 +346,15 @@ export function StaffProductModerationScreen() {
             </div>
 
             <div style={{ marginBottom: 16 }}>
+              {selectedProduct.primaryImageUrl && (
+                <div style={{ marginBottom: 12, display: "flex", justifyContent: "center" }}>
+                  <ThumbnailBox
+                    src={resolveImageUrl(selectedProduct.primaryImageUrl)}
+                    alt={selectedProduct.name}
+                    size={160}
+                  />
+                </div>
+              )}
               <div className="info-row">
                 <span>Tên sản phẩm</span>
                 <strong>{selectedProduct.name}</strong>

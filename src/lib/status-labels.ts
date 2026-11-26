@@ -26,6 +26,38 @@ export function isKnownStatus(table: StatusTable, value: string | null | undefin
   return Boolean(value) && normalizeStatus(value) in table;
 }
 
+export type BadgeTone = "slate" | "green" | "amber" | "red" | "sky" | "indigo";
+
+const GREEN_STATUSES = new Set([
+  "ACTIVE", "APPROVED", "COMPLETED", "DELIVERED", "PAID", "RESOLVED",
+  "SENT", "SUCCESS", "SETTLED", "RELEASED", "TRUSTED", "VERIFIED",
+  "PREMIUM", "PUBLISHED",
+]);
+const AMBER_STATUSES = new Set([
+  "PENDING", "PENDINGAPPROVAL", "INVESTIGATING", "UNDERREVIEW", "WAITING",
+  "REQUESTED", "AUTHORIZING", "AUTHORIZED", "HELD", "PROBATION", "SENDING",
+  "READYTOPICK", "PICKING", "PACKED", "WALLETPENDING", "MANUALPROCESSINGREQUIRED",
+]);
+const SKY_STATUSES = new Set([
+  "RUNNING", "SCHEDULED", "SHIPPING", "SHIPPED", "INTRANSIT", "HANDEDOVER",
+  "CONFIRMED", "SELLERACCEPTED", "STANDARD", "CAPTURED", "RETURNING",
+]);
+const RED_STATUSES = new Set([
+  "REJECTED", "FAILED", "CANCELLED", "CANCELED", "EXPIRED", "BANNED",
+  "SUSPENDED", "DISMISSED", "REVOKED", "DELIVERYFAILED", "UNTRUSTED", "FORFEITED",
+]);
+
+/** Maps any normalized backend status string to a semantic Badge tone. */
+export function semanticStatusTone(value: string | null | undefined): BadgeTone {
+  const key = normalizeStatus(value);
+  if (!key) return "slate";
+  if (GREEN_STATUSES.has(key)) return "green";
+  if (AMBER_STATUSES.has(key)) return "amber";
+  if (SKY_STATUSES.has(key)) return "sky";
+  if (RED_STATUSES.has(key)) return "red";
+  return "slate";
+}
+
 /** Commerce `OrderStatus`. */
 export const ORDER_STATUS: StatusTable = build({
   PendingPayment: "Chờ thanh toán",
@@ -185,4 +217,24 @@ export const REPUTATION_CHANGE_REASON: StatusTable = build({
   SellerCancellation: "Người bán hủy đơn",
   ReportPenalty: "Bị trừ điểm sau báo cáo",
   BuyerRefusedDelivery: "Từ chối nhận hàng",
+});
+
+/** Auction `AuctionSettlementStatus`. */
+export const AUCTION_SETTLEMENT_STATUS: StatusTable = build({
+  PendingPayment: "Chờ thanh toán",
+  Paid: "Đã thanh toán",
+  Failed: "Không thành công",
+  Expired: "Hết hạn",
+  Cancelled: "Đã hủy",
+  AwaitingSellerApproval: "Chờ người bán duyệt",
+});
+
+/** Auction deposit status. */
+export const AUCTION_DEPOSIT_STATUS: StatusTable = build({
+  Pending: "Đang xử lý",
+  Authorized: "Đang giữ cọc",
+  Captured: "Đã trừ vào đơn / Phạt",
+  Released: "Đã hoàn cọc",
+  Failed: "Giữ cọc thất bại",
+  Expired: "Hết hạn",
 });

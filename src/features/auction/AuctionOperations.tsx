@@ -8,9 +8,11 @@ import { mayAnswerBelowReserve } from "./reserve-approval";
 import { useParams, useRouter } from "next/navigation";
 import { useMemo, useState, useSyncExternalStore, type FormEvent } from "react";
 import { Badge, ButtonLink, Card, NoData, PageHeading } from "@/components/ui/Primitives";
+import { BackendImage, ThumbnailBox } from "@/components/ui/BackendImage";
+import { EvidenceThumbnailGrid } from "@/components/ui/ImageLightbox";
 import { ROUTES } from "@/constants/routes";
 import { useApiResource } from "@/lib/api/use-api-resource";
-import { formatMoney } from "@/lib/presentation";
+import { formatMoney, resolveImageUrl } from "@/lib/presentation";
 import { catalogService } from "@/features/catalog";
 import { useSession } from "@/components/auth/SessionProvider";
 import { sellerService } from "@/features/seller";
@@ -18,6 +20,7 @@ import { SellerAuctionStats } from "./SellerAuctionStats";
 import { AuctionOrderSellerActions } from "./AuctionOrderSellerActions";
 import { AuctionBidLeaderboard } from "./AuctionBidLeaderboard";
 import { auctionService } from "./services/auction.service";
+import { isEditableBeforeStart } from "./contract";
 import { dateText, message, PaginationBar, StatusFilter, statusLabel, normalizeAuctionStatus, auctionStatusTone } from "./AuctionPages";
 import { isAuctionId } from "./validation";
 import type { AuctionStatus, AuctionSummary } from "./types";
@@ -46,7 +49,7 @@ export function OperationsListScreen({ role }: { role: Role }) {
   const [lookup, setLookup] = useState("");
   const [lookupError, setLookupError] = useState("");
   const [status, setStatus] = useState<AuctionStatus | "ALL">("ALL"); const [page, setPage] = useState(1);
-  const resource = useApiResource(`${role}-auctions:${page}:${status}`, (signal) => (role === "seller" ? auctionService.sellerList(page, status, signal) : auctionService.list(page, 20, status, signal)).then((response) => response.data));
+  const resource = useApiResource(`${role}-auctions:${page}:${status}`, (signal) => (role === "seller" ? auctionService.sellerList(page, status, signal) : auctionService.adminList(page, 20, status, signal)).then((response) => response.data));
 
   return (
     <div className="auction-surface">
@@ -111,7 +114,7 @@ export function OperationsListScreen({ role }: { role: Role }) {
             <table className="data-table auction-operations-table">
               <thead>
                 <tr>
-                  <th>Sản phẩm</th><th>Trạng thái</th><th>Giá hiện tại</th><th>Lượt đặt giá</th><th>Kết thúc</th><th>Thao tác</th>
+                  <th style={{ width: 64 }}>Ảnh</th><th>Sản phẩm</th><th>Trạng thái</th><th>Giá hiện tại</th><th>Lượt đặt giá</th><th>Kết thúc</th><th>Thao tác</th>
                 </tr>
               </thead>
               <tbody>
@@ -119,6 +122,12 @@ export function OperationsListScreen({ role }: { role: Role }) {
                   const end = formatTimeAndDate(auction.scheduledEndAt);
                   return (
                     <tr key={auction.auctionId}>
+                      <td>
+                        <ThumbnailBox
+                          src={resolveImageUrl(auction.primaryImageUrl)}
+                          alt={auction.productName ?? "Sản phẩm đấu giá"}
+                        />
+                      </td>
                       <td style={{ wordBreak: "break-word", whiteSpace: "normal", lineHeight: 1.45 }}>
                         <strong style={{ display: "block", color: "var(--text)" }}>
                           {auction.productName ?? "Sản phẩm chưa có tên"}
@@ -174,7 +183,7 @@ type StatusHistoryEntry = {
 export function OperationsDetailScreen({ role }: { role: Role }) {
   const id = String(useParams<{ id: string }>().id ?? "");
   const detail = useApiResource(isAuctionId(id) ? `ops-auction:${id}` : null, (signal) => auctionService.detail(id, signal).then((response) => response.data.data));
-  const history = useApiResource<{ items: StatusHistoryEntry[] }>(isAuctionId(id) && role !== "seller" ? `auction-history:${id}` : null, (signal) => auctionService.history(id, 1, signal).then((response) => ({ items: response.data.items })));
+  const history = useApiResource<{ items: StatusHistoryEntry[] }>(isAuctionId(id) ? `auction-history:${id}` : null, (signal) => auctionService.history(id, 1, signal).then((response) => ({ items: response.data.items })));
   const saga = useApiResource(role === "admin" && isAuctionId(id) ? `auction-saga:${id}` : null, (signal) => auctionService.saga(id, signal).then((response) => response.data));
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
@@ -209,11 +218,26 @@ export function OperationsDetailScreen({ role }: { role: Role }) {
   if (!isAuctionId(id)) return <NoData title="Mã phiên không hợp lệ" />;
   return (
     <div className="auction-surface">
-      <PageHeading title={auction?.productName ?? "Chi tiết phiên đấu giá"} description={`Mã phiên: ${id}`} />
+      <PageHeading
+        title={auction?.productName ?? "Chi tiết phiên đấu giá"}
+        description={`Mã phiên: ${id}`}
+        action={
+          <ButtonLink
+            href={role === "seller" ? ROUTES.seller.auctions : role === "staff" ? ROUTES.staff.auctions : ROUTES.admin.auctions}
+            variant="secondary"
+            small
+          >
+            Quay lại danh sách
+          </ButtonLink>
+        }
+      />
       {(role === "admin" || role === "staff") && auction && <AuctionOpsActions auctionId={id} status={auction.status} onChanged={() => { detail.reload(); history.reload(); }} />}
       {role === "admin" && auction && <TimeControlsPanel auctionId={id} status={auction.status} onApplied={() => { detail.reload(); history.reload(); }} />}
       {(role === "admin" || role === "staff") && <div className="portal-page-actions"><ButtonLink href={`/${role}/auctions/${encodeURIComponent(id)}/deposits`} variant="secondary">Xem cọc và đối soát</ButtonLink></div>}
-      {role === "seller" && normalizeAuctionStatus(auction?.status ?? "") === "SCHEDULED" && (
+      {role === "seller" && normalizeAuctionStatus(auction?.status ?? "") === "PENDING_APPROVAL" && (
+        <p className="notice" role="status">Phiên đấu giá đang chờ Admin/Staff duyệt. Phiên sẽ tự động chuyển sang Sắp diễn ra sau khi được duyệt.</p>
+      )}
+      {role === "seller" && isEditableBeforeStart(auction?.status) && (
         <div className="portal-page-actions">
           <ButtonLink href={ROUTES.seller.editAuction(id)} variant="secondary">Sửa phiên</ButtonLink>
         </div>
@@ -261,45 +285,66 @@ export function OperationsDetailScreen({ role }: { role: Role }) {
             {/* Lịch sử đặt giá */}
             <SellerBidHistory id={id} />
 
-            {/* Lịch sử chuyển trạng thái (dành cho Staff/Admin) */}
-            {role !== "seller" && (
-              <Card className="card-pad" style={{ borderRadius: "10px" }}>
-                <h2 style={{ fontSize: "15px", fontWeight: 700, margin: "0 0 12px 0" }}>Lịch sử chuyển trạng thái</h2>
-                {history.error && <p role="alert" className="notice">{message(history.error)}</p>}
-                {history.data?.items.length ? (
-                  <div className="table-scroll">
-                    <table className="data-table" style={{ width: "100%", tableLayout: "fixed" }}>
-                      <thead>
-                        <tr>
-                          <th style={{ width: "35%" }}>Thời điểm</th>
-                          <th style={{ width: "30%" }}>Trạng thái</th>
-                          <th style={{ width: "35%" }}>Lý do / Căn cứ</th>
+            {/* Lịch sử chuyển trạng thái */}
+            <Card className="card-pad" style={{ borderRadius: "10px" }}>
+              <h2 style={{ fontSize: "15px", fontWeight: 700, margin: "0 0 12px 0" }}>Lịch sử chuyển trạng thái</h2>
+              {history.error && <p role="alert" className="notice">{message(history.error)}</p>}
+              {history.data?.items.length ? (
+                <div className="table-scroll">
+                  <table className="data-table" style={{ width: "100%", tableLayout: "fixed" }}>
+                    <thead>
+                      <tr>
+                        <th style={{ width: "35%" }}>Thời điểm</th>
+                        <th style={{ width: "30%" }}>Trạng thái</th>
+                        <th style={{ width: "35%" }}>Lý do / Căn cứ</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {history.data.items.map((entry: StatusHistoryEntry, idx: number) => (
+                        <tr key={entry.historyId || entry.id || idx}>
+                          <td>{dateText(entry.changedAt)}</td>
+                          <td>
+                            <Badge tone={auctionStatusTone(entry.toStatus)}>{statusLabel(entry.toStatus)}</Badge>
+                          </td>
+                          <td style={{ color: "var(--muted)", fontSize: "12px", wordBreak: "break-word" }}>
+                            {entry.reason || "—"}
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody>
-                        {history.data.items.map((entry: StatusHistoryEntry, idx: number) => (
-                          <tr key={entry.historyId || entry.id || idx}>
-                            <td>{dateText(entry.changedAt)}</td>
-                            <td>
-                              <Badge tone={auctionStatusTone(entry.toStatus)}>{statusLabel(entry.toStatus)}</Badge>
-                            </td>
-                            <td style={{ color: "var(--muted)", fontSize: "12px", wordBreak: "break-word" }}>
-                              {entry.reason || "—"}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <NoData title={history.loading ? "Đang tải lịch sử…" : "Chưa có lịch sử trạng thái"} />
-                )}
-              </Card>
-            )}
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <NoData title={history.loading ? "Đang tải lịch sử…" : "Chưa có lịch sử trạng thái"} />
+              )}
+            </Card>
           </div>
 
           {/* CỘT PHẢI: THÔNG SỐ PHIÊN & KHUNG CAN THIỆP XỬ LÝ */}
           <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+            {/* Hình ảnh sản phẩm đấu giá */}
+            <Card className="card-pad" style={{ borderRadius: "10px" }}>
+              <h2 style={{ fontSize: "15px", fontWeight: 700, margin: "0 0 12px 0" }}>Hình ảnh sản phẩm</h2>
+              {(() => {
+                const detailImages = [
+                  auction.primaryImageUrl,
+                  ...(auction.images ?? []).map((img) => img.url),
+                ].filter((url, idx, all): url is string => Boolean(url) && all.indexOf(url) === idx);
+                return detailImages.length > 0 ? (
+                  <div style={{ display: "grid", gap: "10px" }}>
+                    <div className="auction-ops-detail-image">
+                      <BackendImage src={resolveImageUrl(detailImages[0])} alt={auction.productName ?? "Ảnh sản phẩm đấu giá"} />
+                    </div>
+                    {detailImages.length > 1 && (
+                      <EvidenceThumbnailGrid urls={detailImages} size={64} title={auction.productName ?? "Ảnh sản phẩm đấu giá"} />
+                    )}
+                  </div>
+                ) : (
+                  <NoData title="Chưa có ảnh sản phẩm" className="compact" />
+                );
+              })()}
+            </Card>
+
             {/* Thông số phiên */}
             <Card className="card-pad" style={{ borderRadius: "10px" }}>
               <h2 style={{ fontSize: "15px", fontWeight: 700, margin: "0 0 14px 0" }}>Thông số phiên đấu giá</h2>
@@ -355,7 +400,7 @@ export function OperationsDetailScreen({ role }: { role: Role }) {
             </Card>
 
             {/* Khung can thiệp / Cưỡng chế hủy phiên */}
-            {(isPrivileged || role === "seller" && ["DRAFT", "SCHEDULED"].includes(normalizeAuctionStatus(auction.status))) && (
+            {(isPrivileged || role === "seller" && ["DRAFT", "PENDING_APPROVAL", "SCHEDULED"].includes(normalizeAuctionStatus(auction.status))) && (
               <Card
                 className="card-pad"
                 style={{
@@ -562,9 +607,10 @@ export function SellerAuctionEditorScreen({ edit = false, recreate = false }: { 
   const productIsOwned = Boolean(selectedProduct.data && user && [user.id, sellerProfile.data?.shopId].includes(selectedProduct.data.sellerId) && selectedProduct.data.saleType.toUpperCase() === "AUCTION" && selectedProduct.data.status.toUpperCase() === "ACTIVE");
   const set = (key: keyof typeof form, value: string) => setForm((previous) => ({ ...(initial && !previous.productId ? initial : previous), [key]: value }));
   async function submit(event: FormEvent) { event.preventDefault(); if (!edit && !recreate && user?.reputationScore !== undefined && user.reputationScore < 50) { setError("Điểm uy tín Seller phải đạt tối thiểu 50."); return; } if (!edit && !recreate && (!productIsOwned || !selectedProduct.data?.variants.some((variant) => variant.variantId === fields.skuId && variant.status.toUpperCase() === "ACTIVE"))) { setError("Sản phẩm/SKU phải thuộc gian hàng của bạn và đang hoạt động."); return; } const start = new Date(fields.scheduledStartAt); const end = new Date(fields.scheduledEndAt); if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) || end <= start) { setError("Thời gian bắt đầu/kết thúc không hợp lệ (kết thúc phải sau bắt đầu)."); return; } if (Number(fields.startPriceAmount) < 0 || Number(fields.bidStepAmount) <= 0) { setError("Giá khởi điểm và bước giá không hợp lệ."); return; } const reserve = reserveLocked ? null : parseOptionalAmount(fields.reservePriceAmount); const buyNow = parseOptionalAmount(fields.buyNowPriceAmount); const priceProblem = validateAuctionPrices({ start: Number(fields.startPriceAmount), reserve: reserve ?? storedPricing.data?.reservePriceAmount ?? null, buyNow: buyNow ?? storedPricing.data?.buyNowPriceAmount ?? null }); if (priceProblem) { setError(priceProblem); return; } setBusy(true); setError(""); try { const body = { startPriceAmount: Number(fields.startPriceAmount), bidStepAmount: Number(fields.bidStepAmount), scheduledStartAt: start.toISOString(), scheduledEndAt: end.toISOString(), ...(reserve != null ? { reservePriceAmount: reserve } : {}), ...(buyNow != null ? { buyNowPriceAmount: buyNow } : {}) }; if (edit) { await auctionService.update(id, body); router.push(ROUTES.seller.auction(id)); } else if (recreate) { const response = await auctionService.recreate(id, body); router.push(ROUTES.seller.auction(response.data.auctionId)); } else { const response = await auctionService.create({ skuId: fields.skuId, ...body }); router.push(ROUTES.seller.auction(response.data.auctionId)); } } catch (cause) { setError(describeAuctionPriceFailure(cause) ?? message(cause as Error)); } finally { setBusy(false); } }
-  if (edit && detail.data && normalizeAuctionStatus(detail.data.status) !== "SCHEDULED") return <NoData title="Chỉ phiên chưa bắt đầu mới được sửa" />;
+  if (edit && detail.data && !isEditableBeforeStart(detail.data.status)) return <NoData title="Chỉ phiên chờ duyệt hoặc chưa bắt đầu mới được sửa" />;
   if (recreate && detail.data && normalizeAuctionStatus(detail.data.status) !== "FAILED") return <NoData title="Chỉ phiên không thành công mới được tạo lại" />;
-  return <div className="auction-surface"><PageHeading title={edit ? "Sửa phiên đấu giá" : recreate ? "Tạo lại phiên đấu giá" : "Tạo phiên đấu giá"} description={`Điểm uy tín Seller tối thiểu: 50${user?.reputationScore !== undefined ? ` · Điểm hiện tại: ${user.reputationScore}` : ""}.`} />{detail.error && <p className="notice" role="alert">{message(detail.error)}</p>}{products.error && <p className="notice" role="alert">{message(products.error)}</p>}{sellerProfile.error && <p className="notice" role="alert">Không tải được hồ sơ gian hàng: {message(sellerProfile.error)}</p>}{selectedProduct.error && <p className="notice" role="alert">{message(selectedProduct.error)}</p>}{selectedProduct.data && !productIsOwned && !sellerProfile.loading && <p className="notice" role="alert">Sản phẩm không thuộc gian hàng của bạn hoặc chưa hoạt động.</p>}{error && <p className="notice" role="alert">{error}</p>}{(edit || recreate) && detail.loading ? <NoData title="Đang tải phiên…" /> : <form onSubmit={(event) => void submit(event)}><Card className="card-pad"><div className="form-grid">{!edit && !recreate && <><label className="field-wrap">Sản phẩm<select className="select-field" required value={fields.productId} onChange={(event) => { setForm((previous) => ({ ...previous, productId: event.target.value, skuId: "" })); }}><option value="">Chọn sản phẩm</option>{products.data?.map((product) => <option value={product.productId} key={product.productId}>{product.name}</option>)}</select></label><label className="field-wrap">SKU<select className="select-field" required value={fields.skuId} onChange={(event) => set("skuId", event.target.value)}><option value="">Chọn SKU</option>{selectedProduct.data?.variants?.filter((variant) => variant.status.toUpperCase() === "ACTIVE").map((variant) => <option key={variant.variantId} value={variant.variantId}>{variant.name || variant.skuCode}</option>)}</select></label></>}<label className="field-wrap">Giá khởi điểm<input className="field" type="number" min="0" required value={fields.startPriceAmount} onChange={(event) => set("startPriceAmount", event.target.value)} /></label><label className="field-wrap">Bước giá<input className="field" type="number" min="1" required value={fields.bidStepAmount} onChange={(event) => set("bidStepAmount", event.target.value)} /></label><label className="field-wrap">Giá sàn (bí mật, tùy chọn)<input className="field" type="number" min="0" step="0.01" disabled={reserveLocked} value={fields.reservePriceAmount} onChange={(event) => set("reservePriceAmount", event.target.value)} /><small>{reserveLocked ? reserveRestrictionText(reserveStatus.data?.reserveRestrictedUntil) : edit ? `Để trống = giữ nguyên giá sàn đã đặt (không thể xóa giá sàn).${storedPricing.data ? (storedPricing.data.reservePriceAmount != null ? ` Giá sàn hiện tại: ${formatMoney(storedPricing.data.reservePriceAmount)}.` : " Phiên này chưa có giá sàn.") : ""}` : recreate ? "Giá sàn của phiên mới. Để trống nếu không dùng; không tự giữ giá sàn của phiên cũ." : "Để trống nếu không dùng giá sàn."}</small></label><label className="field-wrap">Giá mua ngay (tùy chọn)<input className="field" type="number" min="0" step="0.01" value={fields.buyNowPriceAmount} onChange={(event) => set("buyNowPriceAmount", event.target.value)} /><small>{edit ? `Để trống = giữ nguyên giá mua ngay đã đặt (không thể xóa).${storedPricing.data?.buyNowPriceAmount != null ? ` Hiện tại: ${formatMoney(storedPricing.data.buyNowPriceAmount)}.` : ""}` : recreate ? "Giá mua ngay của phiên mới. Để trống nếu không dùng." : "Để trống nếu không dùng Mua ngay."}</small></label><label className="field-wrap">Bắt đầu<input className="field" type="datetime-local" required value={fields.scheduledStartAt} onChange={(event) => set("scheduledStartAt", event.target.value)} />{fields.scheduledStartAt && <small>Hiển thị theo giờ VN: {dateText(fields.scheduledStartAt)}</small>}</label><label className="field-wrap">Kết thúc<input className="field" type="datetime-local" required value={fields.scheduledEndAt} onChange={(event) => set("scheduledEndAt", event.target.value)} />{fields.scheduledEndAt && <small>Hiển thị theo giờ VN: {dateText(fields.scheduledEndAt)}</small>}</label></div><div className="action-row"><button className="button button-primary" disabled={busy || (!edit && !recreate && (!products.data?.length || !productIsOwned || !fields.skuId || (user?.reputationScore !== undefined && user.reputationScore < 50)))}>{edit ? "Lưu thay đổi" : recreate ? "Tạo lại phiên" : "Tạo phiên"}</button><ButtonLink href={ROUTES.seller.auctions} variant="secondary">Hủy</ButtonLink></div></Card></form>}</div>;
+  const editingPendingApproval = edit && normalizeAuctionStatus(detail.data?.status) === "PENDING_APPROVAL";
+  return <div className="auction-surface"><PageHeading title={edit ? "Sửa phiên đấu giá" : recreate ? "Tạo lại phiên đấu giá" : "Tạo phiên đấu giá"} description={`Điểm uy tín Seller tối thiểu: 50${user?.reputationScore !== undefined ? ` · Điểm hiện tại: ${user.reputationScore}` : ""}.`} />{editingPendingApproval && <p className="notice" role="status">Phiên đang chờ Admin/Staff duyệt trước khi mở lịch chạy. Nếu đã quá giờ bắt đầu dự kiến, hãy cập nhật lại lịch sang tương lai để Admin/Staff có thể duyệt.</p>}{detail.error && <p className="notice" role="alert">{message(detail.error)}</p>}{products.error && <p className="notice" role="alert">{message(products.error)}</p>}{sellerProfile.error && <p className="notice" role="alert">Không tải được hồ sơ gian hàng: {message(sellerProfile.error)}</p>}{selectedProduct.error && <p className="notice" role="alert">{message(selectedProduct.error)}</p>}{selectedProduct.data && !productIsOwned && !sellerProfile.loading && <p className="notice" role="alert">Sản phẩm không thuộc gian hàng của bạn hoặc chưa hoạt động.</p>}{error && <p className="notice" role="alert">{error}</p>}{(edit || recreate) && detail.loading ? <NoData title="Đang tải phiên…" /> : <form onSubmit={(event) => void submit(event)}><Card className="card-pad"><div className="form-grid">{!edit && !recreate && <><label className="field-wrap">Sản phẩm<select className="select-field" required value={fields.productId} onChange={(event) => { setForm((previous) => ({ ...previous, productId: event.target.value, skuId: "" })); }}><option value="">Chọn sản phẩm</option>{products.data?.map((product) => <option value={product.productId} key={product.productId}>{product.name}</option>)}</select></label><label className="field-wrap">SKU<select className="select-field" required value={fields.skuId} onChange={(event) => set("skuId", event.target.value)}><option value="">Chọn SKU</option>{selectedProduct.data?.variants?.filter((variant) => variant.status.toUpperCase() === "ACTIVE").map((variant) => <option key={variant.variantId} value={variant.variantId}>{variant.name || variant.skuCode}</option>)}</select></label></>}<label className="field-wrap">Giá khởi điểm<input className="field" type="number" min="0" required value={fields.startPriceAmount} onChange={(event) => set("startPriceAmount", event.target.value)} /></label><label className="field-wrap">Bước giá<input className="field" type="number" min="1" required value={fields.bidStepAmount} onChange={(event) => set("bidStepAmount", event.target.value)} /></label><label className="field-wrap">Giá sàn (bí mật, tùy chọn)<input className="field" type="number" min="0" step="0.01" disabled={reserveLocked} value={fields.reservePriceAmount} onChange={(event) => set("reservePriceAmount", event.target.value)} /><small>{reserveLocked ? reserveRestrictionText(reserveStatus.data?.reserveRestrictedUntil) : edit ? `Để trống = giữ nguyên giá sàn đã đặt (không thể xóa giá sàn).${storedPricing.data ? (storedPricing.data.reservePriceAmount != null ? ` Giá sàn hiện tại: ${formatMoney(storedPricing.data.reservePriceAmount)}.` : " Phiên này chưa có giá sàn.") : ""}` : recreate ? "Giá sàn của phiên mới. Để trống nếu không dùng; không tự giữ giá sàn của phiên cũ." : "Để trống nếu không dùng giá sàn."}</small></label><label className="field-wrap">Giá mua ngay (tùy chọn)<input className="field" type="number" min="0" step="0.01" value={fields.buyNowPriceAmount} onChange={(event) => set("buyNowPriceAmount", event.target.value)} /><small>{edit ? `Để trống = giữ nguyên giá mua ngay đã đặt (không thể xóa).${storedPricing.data?.buyNowPriceAmount != null ? ` Hiện tại: ${formatMoney(storedPricing.data.buyNowPriceAmount)}.` : ""}` : recreate ? "Giá mua ngay của phiên mới. Để trống nếu không dùng." : "Để trống nếu không dùng Mua ngay."}</small></label><label className="field-wrap">Bắt đầu<input className="field" type="datetime-local" required value={fields.scheduledStartAt} onChange={(event) => set("scheduledStartAt", event.target.value)} />{fields.scheduledStartAt && <small>Hiển thị theo giờ VN: {dateText(fields.scheduledStartAt)}</small>}</label><label className="field-wrap">Kết thúc<input className="field" type="datetime-local" required value={fields.scheduledEndAt} onChange={(event) => set("scheduledEndAt", event.target.value)} />{fields.scheduledEndAt && <small>Hiển thị theo giờ VN: {dateText(fields.scheduledEndAt)}</small>}</label></div><div className="action-row"><button className="button button-primary" disabled={busy || (!edit && !recreate && (!products.data?.length || !productIsOwned || !fields.skuId || (user?.reputationScore !== undefined && user.reputationScore < 50)))}>{edit ? "Lưu thay đổi" : recreate ? "Tạo lại phiên" : "Tạo phiên"}</button><ButtonLink href={ROUTES.seller.auctions} variant="secondary">Hủy</ButtonLink></div></Card></form>}</div>;
 }
 
 

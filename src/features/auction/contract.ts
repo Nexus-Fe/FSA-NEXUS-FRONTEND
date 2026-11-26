@@ -4,6 +4,7 @@ import type { AuctionSummary, MyDepositItem, MyWatchlistItem, PagedData, Paginat
 const statusLabels = {
   ALL: "Tất cả",
   DRAFT: "Nháp",
+  PENDING_APPROVAL: "Chờ duyệt",
   SCHEDULED: "Sắp diễn ra",
   RUNNING: "Đang diễn ra",
   ENDED: "Đã kết thúc",
@@ -14,10 +15,16 @@ const statusLabels = {
 
 export function normalizeAuctionStatus(status: unknown): AuctionStatus | "ALL" | "" {
   if (typeof status !== "string") return "";
-  const normalized = status.trim().toUpperCase();
+  const raw = status.trim().toUpperCase();
+  const normalized = raw === "PENDINGAPPROVAL" ? "PENDING_APPROVAL" : raw;
   return Object.prototype.hasOwnProperty.call(statusLabels, normalized)
     ? normalized as AuctionStatus | "ALL"
     : "";
+}
+
+export function isEditableBeforeStart(status: unknown): boolean {
+  const normalized = normalizeAuctionStatus(status);
+  return normalized === "PENDING_APPROVAL" || normalized === "SCHEDULED";
 }
 
 export function statusLabel(status: unknown): string {
@@ -25,11 +32,13 @@ export function statusLabel(status: unknown): string {
   return normalized ? statusLabels[normalized] : "Không rõ trạng thái";
 }
 
-export function auctionStatusTone(status: unknown): "sky" | "green" | "slate" | "red" {
+export function auctionStatusTone(status: unknown): "sky" | "green" | "amber" | "slate" | "red" {
   const normalized = normalizeAuctionStatus(status);
   switch (normalized) {
     case "RUNNING":
       return "green"; // Đang diễn ra: Xanh lá
+    case "PENDING_APPROVAL":
+      return "amber"; // Chờ duyệt: Vàng cam
     case "FAILED":
     case "CANCELLED":
       return "red"; // Hủy hoặc Không thành công: Màu đỏ
@@ -69,7 +78,7 @@ export function parseAuctionList(data: unknown): PagedData<AuctionSummary> {
     const status = normalizeAuctionStatus(item.status);
     if (!status || status === "ALL") return invalidList(`dòng ${row} thiếu hoặc sai trạng thái status`);
     if (!text(item.productId) || !text(item.sellerId) || !nullableText(item.skuId) ||
-      !nullableText(item.productName) || !nullableText(item.primaryImageUrl) ||
+      !nullableText(item.productName) || (item.primaryImageUrl !== undefined && !nullableText(item.primaryImageUrl)) ||
       !amount(item.startPriceAmount) || (item.currentPriceAmount !== null && !amount(item.currentPriceAmount)) ||
       !count(item.bidCount) || !date(item.scheduledStartAt) || !date(item.scheduledEndAt) ||
       !date(item.createdAt)) return invalidList(`dòng ${row} thiếu hoặc sai thông tin phiên`);
@@ -79,7 +88,7 @@ export function parseAuctionList(data: unknown): PagedData<AuctionSummary> {
       skuId: item.skuId,
       sellerId: item.sellerId,
       productName: item.productName,
-      primaryImageUrl: item.primaryImageUrl,
+      primaryImageUrl: item.primaryImageUrl ?? null,
       status,
       startPriceAmount: item.startPriceAmount,
       currentPriceAmount: item.currentPriceAmount,

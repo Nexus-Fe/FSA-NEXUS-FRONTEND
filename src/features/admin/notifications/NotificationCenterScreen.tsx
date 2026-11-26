@@ -6,6 +6,7 @@ import { AdminPagination, Badge, Card, NoData, PageHeading } from "@/components/
 import { FluidChoiceBar } from "@/components/ui/FluidChoiceBar";
 import { ErrorState } from "@/components/ui/States";
 import { useApiResource } from "@/lib/api/use-api-resource";
+import { semanticStatusTone } from "@/lib/status-labels";
 import { notificationAdminService } from "./notification-admin.service";
 import { canRetryDelivery, deliveryStatusLabel, newRequestId, validateRetryReason, validateTemplate, MAX_BODY, MAX_SUBJECT, type Channel, type Delivery, type Template } from "./notification-admin-rules";
 
@@ -76,7 +77,7 @@ function Deliveries({ canWrite }: { canWrite: boolean }) {
     {list.loading && !list.data ? <p>Đang tải…</p> : list.data?.items.length ? <div className="table-scroll"><table className="data-table">
       <thead><tr><th>Kênh</th><th>Trạng thái</th><th>Lần thử</th><th>Mã lỗi</th><th>Gửi tới</th><th>Cập nhật</th><th></th></tr></thead>
       <tbody>{list.data.items.map((row) => <tr key={row.id}>
-        <td>{row.channel}</td><td><Badge tone="slate">{deliveryStatusLabel(row.status)}</Badge></td><td>{row.attemptCount}</td><td>{row.errorCode ?? "—"}</td><td>{row.destinationHint}</td><td>{when(row.updatedAt)}</td>
+        <td>{row.channel}</td><td><Badge tone={semanticStatusTone(row.status)}>{deliveryStatusLabel(row.status)}</Badge></td><td>{row.attemptCount}</td><td>{row.errorCode ?? "—"}</td><td>{row.destinationHint}</td><td>{when(row.updatedAt)}</td>
         <td><div className="action-row">
           <button type="button" className="button button-secondary button-small" onClick={() => setLogsFor(logsFor === row.id ? null : row.id)}>Nhật ký</button>
           {canWrite && canRetryDelivery(row.status) && <button type="button" className="button button-primary button-small" onClick={() => openRetry(row)}>Gửi lại</button>}
