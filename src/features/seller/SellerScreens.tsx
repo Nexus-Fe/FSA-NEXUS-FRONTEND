@@ -15,7 +15,8 @@ import { useToast } from "@/components/ui/Toast";
 import { api, unwrap, type ApiResponse } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { describeProductStatus, formatMoney, resolveImageUrl } from "@/lib/presentation";
-import { countFailedAttempts, fulfillmentService, hasShipmentToTrack, shipmentStatusLabel } from "@/features/fulfillment";
+import { countFailedAttempts, fulfillmentService, hasShipmentToTrack, OrderProgressStepper, shipmentStatusLabel, ShipmentTimelineList, TrackingCodeBar } from "@/features/fulfillment";
+import "@/features/fulfillment/components/shipping-tracking.css";
 import { loadSafeRegistrationDraft, sellerService } from "./services/seller.service";
 import { SavedShopArea, SellerShopAddressFields } from "./components/SellerShopAddressFields";
 import { nextShopFormKey, shopFormSavedKey } from "./shop-form-key";
@@ -2178,21 +2179,66 @@ export function SellerInventoryScreen() {
   );
 }
 
+const SELLER_SHIPMENT_TABS = [
+  { key: "all", label: "Tất cả" },
+  { key: "ready", label: "Chờ lấy hàng" },
+  { key: "shipping", label: "Đang giao" },
+  { key: "delivered", label: "Đã giao" },
+  { key: "completed", label: "Hoàn tất" },
+  { key: "returned", label: "Hoàn hàng / Hoàn tiền" },
+] as const;
+
+type SellerShipmentTabKey = (typeof SELLER_SHIPMENT_TABS)[number]["key"];
+
+function matchesSellerShipmentTab(status: string, tab: SellerShipmentTabKey): boolean {
+  if (tab === "all") return true;
+  const key = status.replace(/[^a-z]/gi, "").toUpperCase();
+  if (tab === "ready") return key === "CONFIRMED" || key === "SELLERACCEPTED";
+  if (tab === "shipping") return key === "SHIPPING" || key === "SHIPPED";
+  if (tab === "delivered") return key === "DELIVERED";
+  if (tab === "completed") return key === "COMPLETED";
+  if (tab === "returned") return ["RETURNING", "RETURNED", "REFUNDED"].includes(key);
+  return true;
+}
+
 export function SellerShipmentsScreen() {
   const router = useRouter();
   const [page, setPage] = useState(1);
+  const [activeTab, setActiveTab] = useState<SellerShipmentTabKey>("all");
   const resource = useApiResource(
     `seller-shipments-list:${page}`,
     (signal) => sellerOrdersService.list<SellerPaged<SellerSubOrderSummary>>(page, signal, 20),
   );
-  const rows = (resource.data?.items ?? []).filter((sub) => hasShipmentToTrack(sub.status));
+  const trackableRows = (resource.data?.items ?? []).filter((sub) => hasShipmentToTrack(sub.status));
+  const rows = trackableRows.filter((sub) => matchesSellerShipmentTab(sub.status, activeTab));
   return (
     <>
       <PageHeading
         overline="Kênh người bán"
         title="Vận đơn & giao nhận"
-        description="Các đơn bạn đã chấp nhận. Chọn một đơn để xem hành trình giao hàng."
+        description="Quản lý vận đơn GHN cho các đơn bạn đã tiếp nhận. Chọn đơn để xem hành trình và in phiếu giao hàng."
       />
+      <div className="order-tabs" role="tablist" aria-label="Lọc trạng thái vận đơn">
+        {SELLER_SHIPMENT_TABS.map((tab) => {
+          const count = tab.key === "all"
+            ? trackableRows.length
+            : trackableRows.filter((item) => matchesSellerShipmentTab(item.status, tab.key)).length;
+          const selected = activeTab === tab.key;
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              role="tab"
+              aria-selected={selected}
+              className={`order-tab${selected ? " is-active" : ""}`}
+              onClick={() => setActiveTab(tab.key)}
+            >
+              <span>{tab.label}</span>
+              {count > 0 && <span className="order-tab-count">{count}</span>}
+            </button>
+          );
+        })}
+      </div>
       {resource.error && <p className="notice" role="alert">{msg(resource.error)}</p>}
       <Card className="card-pad">
         {rows.length ? (
@@ -2201,7 +2247,9 @@ export function SellerShipmentsScreen() {
               <thead>
                 <tr>
                   <th>Mã đơn gian hàng</th>
+                  <th>Tổng tiền</th>
                   <th>Trạng thái</th>
+                  <th>Thao tác</th>
                 </tr>
               </thead>
               <tbody>
@@ -2210,12 +2258,22 @@ export function SellerShipmentsScreen() {
                   return (
                     <tr key={sub.subOrderId} {...clickableRowProps(() => router.push(shipmentHref), "Nhấn để theo dõi vận đơn")}>
                       <td>
-                        <Link href={shipmentHref}>
+                        <Link href={shipmentHref} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                          <Icon name="truck" size={15} />
                           <strong>{sub.subOrderNo}</strong>
                         </Link>
                         <div style={{ fontSize: 12, color: "var(--muted)" }}>{new Date(sub.createdAt).toLocaleString("vi-VN")}</div>
                       </td>
+                      <td style={{ fontVariantNumeric: "tabular-nums" }}>
+                        <strong>{formatMoney(sub.totalAmount)}</strong>
+                      </td>
                       <td><Badge tone={sellerOrderStatusTone(sub.status)}>{describeSellerOrderStatus(sub.status)}</Badge></td>
+                      <td>
+                        <Link className="tracking-icon-btn" href={shipmentHref}>
+                          <Icon name="mapPin" size={14} />
+                          Xem hành trình
+                        </Link>
+                      </td>
                     </tr>
                   );
                 })}
@@ -2223,13 +2281,15 @@ export function SellerShipmentsScreen() {
             </table>
           </div>
         ) : resource.loading ? (
-          <TableSkeleton rows={5} cols={3} label="Đang tải danh sách đơn…" />
+          <TableSkeleton rows={5} cols={4} label="Đang tải danh sách vận đơn…" />
         ) : (
           <NoData
             title={
               resource.error
-                ? "Không tải được danh sách đơn"
-                : "Chưa có đơn nào đã chấp nhận trong trang này"
+                ? "Không tải được danh sách vận đơn"
+                : activeTab === "all"
+                  ? "Chưa có vận đơn nào trong trang này"
+                  : "Không có vận đơn ở trạng thái này"
             }
           />
         )}
@@ -2551,6 +2611,8 @@ export function SellerOrderDetailScreen() {
   );
   const canRetryShipment = Boolean(accepted && shipmentInfo.data && needsShipmentRetry(sub?.status, shipmentInfo.data.trackingCode));
   const canAccept = Boolean(sub && ["PAID", "PENDINGCONFIRMATION"].includes(sub.status.replace(/[^a-z]/gi, "").toUpperCase()));
+  const pickShifts = useApiResource(canAccept ? "shipping-pick-shifts" : null, (signal) => fulfillmentService.getPickShifts(signal));
+  const [selectedPickShiftId, setSelectedPickShiftId] = useState<number | null>(null);
 
   async function handleAccept() {
     if (!sub) return;
@@ -2558,11 +2620,12 @@ export function SellerOrderDetailScreen() {
     setFeedback("");
     setActionError("");
     try {
-      await sellerOrdersService.accept(sub.orderId, sub.subOrderId);
+      await sellerOrdersService.accept(sub.orderId, sub.subOrderId, selectedPickShiftId);
       setFeedback(
-        "Đã chấp nhận đơn hàng. Nếu vận đơn chưa tạo được, bạn sẽ thấy nút \"Tạo lại vận đơn\" ở trang này.",
+        "Đã chấp nhận đơn hàng và đăng ký bưu tá GHN lấy hàng. Bạn có thể in phiếu giao hàng dán lên kiện hàng dưới đây.",
       );
       resource.reload();
+      shipmentInfo.reload();
     } catch (reason) {
       setActionError(msg(reason as Error));
     } finally {
@@ -2712,6 +2775,52 @@ export function SellerOrderDetailScreen() {
                 {acceptBlock.message} <Link href={ROUTES.seller.inventory}>Mở Quản lý kho</Link>
               </p>
             )}
+            {canAccept && (
+              <div style={{ marginTop: 14, padding: "12px 14px", background: "var(--primary-soft)", borderRadius: 10, border: "1px solid var(--primary-border)" }}>
+                <label style={{ display: "block", fontSize: 13, fontWeight: 700, color: "var(--ink)", marginBottom: 6 }}>
+                  Hẹn ca bưu tá GHN đến lấy hàng:
+                </label>
+                <select
+                  className="field"
+                  style={{ width: "100%", background: "#fff" }}
+                  value={selectedPickShiftId ?? ""}
+                  onChange={(e) => setSelectedPickShiftId(e.target.value ? Number(e.target.value) : null)}
+                  disabled={busy}
+                  aria-label="Ca lấy hàng GHN"
+                >
+                  <option value="">Ca sớm nhất của bưu tá GHN (Mặc định)</option>
+                  {pickShifts.data?.map((shift) => (
+                    <option key={shift.id} value={shift.id}>
+                      {shift.title}
+                    </option>
+                  ))}
+                </select>
+                <span style={{ display: "block", fontSize: 11.5, color: "var(--muted)", marginTop: 4 }}>
+                  Shipper GHN sẽ đến địa chỉ kho của bạn để nhận kiện hàng theo ca hẹn này.
+                </span>
+              </div>
+            )}
+            {sub && ["CONFIRMED", "SHIPPING"].includes(sub.status.replace(/[^a-z]/gi, "").toUpperCase()) && (
+              <div style={{ marginTop: 16, padding: "14px 16px", borderRadius: 12, border: "1px solid var(--primary-border)", background: "var(--surface)" }}>
+                <h4 style={{ margin: "0 0 6px", fontSize: 13.5, display: "flex", alignItems: "center", gap: 6, color: "var(--ink)" }}>
+                  <Icon name="package" size={15} />
+                  Chuẩn bị kiện hàng & Bàn giao bưu tá GHN
+                </h4>
+                <div style={{ fontSize: 12.5, color: "var(--muted)", lineHeight: 1.45, marginBottom: 10 }}>
+                  Đóng gói đúng {sub.items.reduce((sum, item) => sum + item.quantity, 0)} sản phẩm trong đơn, in phiếu giao hàng dán lên bọc hàng và giao cho shipper khi tới lấy hàng.
+                </div>
+                {shipmentInfo.data?.trackingCode && (
+                  <TrackingCodeBar
+                    carrierCode={shipmentInfo.data.carrierCode}
+                    carrierName={shipmentInfo.data.carrierName}
+                    trackingCode={shipmentInfo.data.trackingCode}
+                    labelPrintUrl={shipmentInfo.data.labelPrintUrl}
+                    shipmentId={sub.subOrderId}
+                    showPrintLabel
+                  />
+                )}
+              </div>
+            )}
             {retryFailure && (
               <p role="alert" className="notice" style={{ marginTop: 12 }}>
                 {retryFailure.message}{" "}
@@ -2820,31 +2929,77 @@ export function SellerOrderDetailScreen() {
 export function SellerShipmentDetailScreen() {
   const params = useParams<{ id: string }>();
   const subOrderId = String(params.id ?? "");
+  const [syncBusy, setSyncBusy] = useState(false);
+  const [syncNotice, setSyncNotice] = useState("");
+  const [syncError, setSyncError] = useState("");
+
   const resource = useApiResource(
     subOrderId ? `seller-shipment-timeline:${subOrderId}` : null,
     (signal) => fulfillmentService.getSubOrderTimeline(subOrderId, signal),
   );
   const data = resource.data;
-  const finished = data ? ["DELIVERED", "COMPLETED"].includes(data.currentStatus.replace(/[^a-z]/gi, "").toUpperCase()) : true;
-  // The carrier's own record explains failed delivery attempts. It is extra detail, so a failure to load it is not shown as an error.
+  // Fetch the carrier's own record whenever a tracking code exists so we have shipment id (for sync-status), shipper info, and failed attempts.
   const carrier = useApiResource(
-    data?.trackingCode && !finished ? `seller-shipment-carrier:${data.trackingCode}` : null,
+    data?.trackingCode ? `seller-shipment-carrier:${data.trackingCode}` : null,
     (signal) => fulfillmentService.getShipmentByTracking(data?.trackingCode ?? "", signal),
   );
   const failedAttempts = countFailedAttempts(carrier.data?.events);
   const lastReason = [...(carrier.data?.events ?? [])].reverse().find((event) => event.status === "DeliveryAttemptFailed" && event.reason)?.reason;
+
+  async function handleSyncFromCarrier() {
+    if (!carrier.data?.id || syncBusy) return;
+    setSyncBusy(true);
+    setSyncNotice("");
+    setSyncError("");
+    try {
+      await fulfillmentService.syncShipmentStatus(carrier.data.id);
+      setSyncNotice("Đã đồng bộ trạng thái mới nhất từ GHN.");
+      resource.reload();
+      carrier.reload();
+    } catch (cause) {
+      setSyncError(cause instanceof Error ? msg(cause) : "Không thể đồng bộ trạng thái từ GHN lúc này.");
+    } finally {
+      setSyncBusy(false);
+    }
+  }
+
   return (
     <>
       <PageHeading
         overline="Kênh người bán"
         title="Theo dõi vận đơn"
-        description="Hành trình giao hàng của đơn gian hàng."
+        description="Hành trình giao hàng và trạng thái cập nhật từ đơn vị vận chuyển GHN."
+        action={
+          carrier.data?.id ? (
+            <button
+              type="button"
+              className="button button-secondary"
+              disabled={syncBusy}
+              onClick={() => void handleSyncFromCarrier()}
+              style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+            >
+              <Icon name="refreshCw" size={15} />
+              {syncBusy ? "Đang đồng bộ…" : "Đồng bộ từ GHN"}
+            </button>
+          ) : undefined
+        }
       />
       {resource.error && (
         <p className="notice" role="alert">
           {msg(resource.error)}
         </p>
       )}
+      {syncError && <p className="notice" role="alert">{syncError}</p>}
+      {syncNotice && <p className="form-success" role="status">{syncNotice}</p>}
+
+      {data && (
+        <OrderProgressStepper
+          status={data.currentStatus}
+          deliveredAt={carrier.data?.deliveredAt}
+          orderNo={data.subOrderNo}
+        />
+      )}
+
       <Card className="card-pad">
         {data ? (
           <>
@@ -2853,15 +3008,7 @@ export function SellerShipmentDetailScreen() {
               <strong className="seller-wrap-value">{data.subOrderNo}</strong>
             </div>
             <div className="info-row">
-              <span>Đơn vị vận chuyển</span>
-              <strong>{data.carrierName ?? data.carrierCode ?? "—"}</strong>
-            </div>
-            <div className="info-row">
-              <span>Mã vận đơn</span>
-              <strong>{data.trackingCode ?? "Chưa có mã vận đơn"}</strong>
-            </div>
-            <div className="info-row">
-              <span>Trạng thái</span>
+              <span>Trạng thái hiện tại</span>
               <Badge>{shipmentStatusLabel(data.currentStatus)}</Badge>
             </div>
             {data.estimatedDeliveryAt && (
@@ -2870,26 +3017,33 @@ export function SellerShipmentDetailScreen() {
                 <strong>{new Date(data.estimatedDeliveryAt).toLocaleString("vi-VN")}</strong>
               </div>
             )}
-            {lastReason && (
-              <p className="notice" role="status">Lần giao gần nhất không thành công: {lastReason}</p>
-            )}
+
+            <TrackingCodeBar
+              carrierCode={data.carrierCode}
+              carrierName={data.carrierName}
+              trackingCode={data.trackingCode}
+              labelPrintUrl={data.labelPrintUrl}
+              shipmentId={carrier.data?.id}
+              showPrintLabel
+            />
+
             {failedAttempts > 0 && !lastReason && (
-              <p className="notice" role="status">Đã có {failedAttempts} lần giao không thành công.</p>
+              <div className="shipment-alert-strip is-danger" role="status" style={{ marginBottom: 12 }}>
+                <Icon name="alertTriangle" size={16} />
+                <span>Đã có {failedAttempts} lần giao không thành công.</span>
+              </div>
             )}
-            <h3 style={{ marginTop: 16 }}>Hành trình</h3>
-            {data.timeline.length ? (
-              <ol style={{ margin: 0, paddingLeft: 18 }}>
-                {data.timeline.map((event, index) => (
-                  <li key={`${event.status}-${event.occurredAt}-${index}`} style={{ marginBottom: 6 }}>
-                    <strong>{event.title || shipmentStatusLabel(event.status)}</strong>
-                    <div>{event.description}</div>
-                    <small>{new Date(event.occurredAt).toLocaleString("vi-VN")}{event.location ? ` · ${event.location}` : ""}</small>
-                  </li>
-                ))}
-              </ol>
-            ) : (
-              <p>Chưa có cập nhật hành trình.</p>
-            )}
+
+            <ShipmentTimelineList
+              events={data.timeline}
+              carrierEvents={carrier.data?.events}
+              loading={resource.loading}
+              refreshing={resource.loading || carrier.loading}
+              onRefresh={() => {
+                resource.reload();
+                if (data.trackingCode) carrier.reload();
+              }}
+            />
           </>
         ) : (
           <NoData

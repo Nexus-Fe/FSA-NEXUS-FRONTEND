@@ -7,22 +7,11 @@ import { AdminPagination, Badge, Card, clickableRowProps, NoData, PageHeading } 
 import { ROUTES } from "@/constants/routes";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatMoney } from "@/lib/presentation";
+import { AUCTION_ORDER_STATUS, statusLabel } from "@/lib/status-labels";
 import { auctionOrderService } from "./services/auction-order.service";
 
-const AUCTION_ORDER_STATUS_LABELS: Record<string, string> = {
-  PAID: "Đã thanh toán",
-  COMPLETED: "Hoàn tất",
-  PENDING: "Chờ thanh toán",
-  AWAITING_PAYMENT: "Chờ thanh toán",
-  AWAITINGPAYMENT: "Chờ thanh toán",
-  CANCELLED: "Đã hủy",
-  CANCELED: "Đã hủy",
-  EXPIRED: "Hết hạn",
-  REFUNDED: "Đã hoàn tiền",
-};
-
 function auctionOrderStatusLabel(status: string): string {
-  return AUCTION_ORDER_STATUS_LABELS[status.toUpperCase()] ?? status;
+  return statusLabel(AUCTION_ORDER_STATUS, status);
 }
 
 export function SellerAuctionOrders() {

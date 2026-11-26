@@ -11,7 +11,7 @@ test("every code the plan names has a message", () => {
     "SELLER_WAREHOUSE_INCOMPLETE", "FULFILLMENT_UNAVAILABLE", "INSUFFICIENT_STOCK", "INSUFFICIENT_AVAILABLE_BALANCE", "QUOTE_EXPIRED",
     "AUCTION_FORCE_CANCEL_REQUIRED", "ROLE_NOT_ALLOWED", "FEATURE_DISABLED", "NOT_FOUND", "CONCURRENT_UPDATE", "BUY_NOW_NOT_AVAILABLE",
     "SUBSIDY_APPROVER_MUST_DIFFER", "LEDGER_SETTINGS_VERSION_CONFLICT", "PRICE_CHANGED",
-    "SHIPPING_QUOTE_FAILED", "SHIPPING_CARRIER_NOT_CONFIGURED", "SHIPPING_CARRIER_UNAVAILABLE", "SHIPPING_CARRIER_TIMEOUT", "LOCATION_SOURCE_UNAVAILABLE", "STOCK_CHECK_UNAVAILABLE",
+    "SHIPPING_QUOTE_FAILED", "SHIPPING_CARRIER_NOT_CONFIGURED", "SHIPPING_CARRIER_UNAVAILABLE", "SHIPPING_CARRIER_TIMEOUT", "SHIPPING_FEE_MISMATCH", "LOCATION_SOURCE_UNAVAILABLE", "STOCK_CHECK_UNAVAILABLE",
   ];
   for (const code of required) {
     assert.ok(ERROR_DICTIONARY[code]?.message, `${code} has no message`);
@@ -24,6 +24,11 @@ test("a known code gives its own text and keeps the code and trace id for suppor
   assert.equal(d.code, "VOUCHER_NO_LONGER_VALID");
   assert.equal(d.traceId, "t-1");
   assert.equal(d.kind, "definite");
+
+  const shipMismatch = describeError(api(409, "SHIPPING_FEE_MISMATCH", "t-ship-1"));
+  assert.match(shipMismatch.message, /Phí vận chuyển đã thay đổi/);
+  assert.equal(shipMismatch.code, "SHIPPING_FEE_MISMATCH");
+  assert.equal(shipMismatch.kind, "definite");
 });
 
 test("the back end's own message is never returned", () => {

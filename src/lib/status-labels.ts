@@ -40,15 +40,35 @@ export const ORDER_STATUS: StatusTable = build({
 /** Commerce `SubOrderStatus` (`Confirmed` = `SellerAccepted`, `Shipping` = `Shipped`). */
 export const SUB_ORDER_STATUS: StatusTable = build({
   PendingPayment: "Chờ thanh toán",
-  Paid: "Đã thanh toán, chờ người bán nhận đơn",
-  Confirmed: "Người bán đã nhận đơn",
-  SellerAccepted: "Người bán đã nhận đơn",
-  Shipping: "Đang giao",
-  Shipped: "Đang giao",
-  Delivered: "Đã giao",
+  Paid: "Đã thanh toán, chờ người bán xác nhận",
+  Confirmed: "Chờ lấy hàng",
+  SellerAccepted: "Chờ lấy hàng",
+  Shipping: "Đang giao hàng",
+  Shipped: "Đang giao hàng",
+  Delivered: "Đã giao hàng",
   Completed: "Hoàn tất",
   Cancelled: "Đã hủy",
   Refunded: "Đã hoàn tiền",
+});
+
+/** Commerce `AuctionOrderStatus`. */
+export const AUCTION_ORDER_STATUS: StatusTable = build({
+  AwaitingPayment: "Chờ thanh toán",
+  PendingPayment: "Chờ thanh toán",
+  Pending: "Chờ thanh toán",
+  Paid: "Đã thanh toán, chờ người bán xác nhận",
+  Confirmed: "Chờ lấy hàng",
+  SellerAccepted: "Chờ lấy hàng",
+  Shipping: "Đang giao hàng",
+  Shipped: "Đang giao hàng",
+  Delivered: "Đã giao hàng",
+  Completed: "Hoàn tất",
+  Cancelled: "Đã hủy",
+  Canceled: "Đã hủy",
+  Expired: "Hết hạn thanh toán",
+  Refunded: "Đã hoàn tiền",
+  Returning: "Đang hoàn hàng",
+  Returned: "Đã hoàn hàng",
 });
 
 /**

@@ -19,8 +19,11 @@ export const sellerOrdersService = {
     return unwrap(response);
   },
 
-  async accept(orderId: string, subOrderId: string): Promise<void> {
-    await api.post("/api/v1/orders/" + encodeURIComponent(orderId) + "/accept", { subOrderId });
+  async accept(orderId: string, subOrderId: string, pickShiftId?: number | null): Promise<void> {
+    await api.post("/api/v1/orders/" + encodeURIComponent(orderId) + "/accept", {
+      subOrderId,
+      pickShiftId: pickShiftId ?? undefined,
+    });
   },
 
   async reject(orderId: string, subOrderId: string, reasonText: string): Promise<void> {
