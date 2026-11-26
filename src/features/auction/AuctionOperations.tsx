@@ -6,7 +6,7 @@ import { describeAuctionPriceFailure, parseOptionalAmount, reserveRestrictionTex
 import { SellerReserveApprovalPanel } from "./SellerReserveApprovalPanel";
 import { mayAnswerBelowReserve } from "./reserve-approval";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState, type FormEvent } from "react";
+import { useMemo, useState, useSyncExternalStore, type FormEvent } from "react";
 import { Badge, ButtonLink, Card, NoData, PageHeading } from "@/components/ui/Primitives";
 import { ROUTES } from "@/constants/routes";
 import { useApiResource } from "@/lib/api/use-api-resource";
@@ -527,32 +527,37 @@ function defaultAuctionWindow(): { start: string; end: string } {
   const end = new Date(start.getTime() + 60 * 60_000);
   return { start: localDate(start), end: localDate(end) };
 }
+const emptySubscribe = () => () => {};
 export function SellerAuctionEditorScreen({ edit = false, recreate = false }: { edit?: boolean; recreate?: boolean }) {
   const id = String(useParams<{ id?: string }>().id ?? ""); const router = useRouter(); const { user } = useSession();
+  const isClient = useSyncExternalStore(emptySubscribe, () => true, () => false);
   const detail = useApiResource((edit || recreate) && isAuctionId(id) ? `edit-auction:${id}` : null, (signal) => auctionService.detail(id, signal).then((response) => response.data.data));
   const products = useApiResource(!edit && !recreate ? "seller-auction-products" : null, (signal) => catalogService.listSellerAuctionProducts("", signal).then((response) => response.data.items.filter((product) => product.status.toUpperCase() === "ACTIVE")));
   const sellerProfile = useApiResource(!edit && !recreate ? "auction-seller-profile" : null, (signal) => sellerService.getProfile(signal).then((response) => "data" in response ? response.data : response));
-  const [form, setForm] = useState({ productId: "", skuId: "", startPriceAmount: "", bidStepAmount: "", scheduledStartAt: "", scheduledEndAt: "", reservePriceAmount: "", buyNowPriceAmount: "" });
+  const [form, setForm] = useState<{
+    productId: string;
+    skuId: string;
+    startPriceAmount: string;
+    bidStepAmount: string;
+    scheduledStartAt?: string;
+    scheduledEndAt?: string;
+    reservePriceAmount: string;
+    buyNowPriceAmount: string;
+  }>({ productId: "", skuId: "", startPriceAmount: "", bidStepAmount: "", reservePriceAmount: "", buyNowPriceAmount: "" });
   const [error, setError] = useState(""); const [busy, setBusy] = useState(false);
-  useEffect(() => {
-    if (edit || recreate) return;
-    setForm((previous) => {
-      if (previous.scheduledStartAt && previous.scheduledEndAt) return previous;
-      const defaults = defaultAuctionWindow();
-      return {
-        ...previous,
-        scheduledStartAt: previous.scheduledStartAt || defaults.start,
-        scheduledEndAt: previous.scheduledEndAt || defaults.end,
-      };
-    });
-  }, [edit, recreate]);
+  const defaultWindow = useMemo(() => (isClient && !edit && !recreate ? defaultAuctionWindow() : null), [isClient, edit, recreate]);
   // The reserve price may be locked after three declines in a row; the seller sees why instead of a refusal after sending.
   const reserveStatus = useApiResource("seller-reserve-status-editor", (signal) => auctionService.sellerReserveStatus(signal));
   const reserveLocked = Boolean(reserveStatus.data?.isReserveRestricted);
   // Only when editing: the stored prices, so the form can show them and check the new ones against them. Older servers answer 404 and the form works without.
   const storedPricing = useApiResource(edit && isAuctionId(id) ? `edit-auction-pricing:${id}` : null, (signal) => auctionService.sellerPricing(id, signal));
   const initial = (edit || recreate) && detail.data ? { productId: detail.data.productId, skuId: detail.data.skuId ?? "", startPriceAmount: String(detail.data.startPriceAmount), bidStepAmount: String(detail.data.bidStepAmount), scheduledStartAt: recreate ? "" : localDate(detail.data.scheduledStartAt), scheduledEndAt: recreate ? "" : localDate(detail.data.scheduledEndAt), reservePriceAmount: "", buyNowPriceAmount: "" } : null;
-  const fields = initial && !form.productId ? initial : form;
+  const baseFields = initial && !form.productId ? initial : form;
+  const fields = {
+    ...baseFields,
+    scheduledStartAt: baseFields.scheduledStartAt ?? defaultWindow?.start ?? "",
+    scheduledEndAt: baseFields.scheduledEndAt ?? defaultWindow?.end ?? "",
+  };
   const selectedProduct = useApiResource(!edit && !recreate && fields.productId ? `auction-product:${fields.productId}` : null, (signal) => catalogService.getAuctionProduct(fields.productId, signal).then((response) => response.data));
   const productIsOwned = Boolean(selectedProduct.data && user && [user.id, sellerProfile.data?.shopId].includes(selectedProduct.data.sellerId) && selectedProduct.data.saleType.toUpperCase() === "AUCTION" && selectedProduct.data.status.toUpperCase() === "ACTIVE");
   const set = (key: keyof typeof form, value: string) => setForm((previous) => ({ ...(initial && !previous.productId ? initial : previous), [key]: value }));
