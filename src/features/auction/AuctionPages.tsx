@@ -17,6 +17,7 @@ import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatMoney, resolveImageUrl } from "@/lib/presentation";
 import { AuctionOrderPayment } from "./AuctionOrderPayment";
 import { auctionOrderService } from "./services/auction-order.service";
+import { fulfillmentService, OrderProgressStepper, ShipmentTimelineList, TrackingCodeBar } from "@/features/fulfillment";
 import { AuctionBidLeaderboard } from "./AuctionBidLeaderboard";
 import { AuctionUnavailableState } from "./AuctionUnavailableState";
 import { BuyerAuctionOffers } from "./BuyerAuctionOffers";
@@ -198,6 +199,13 @@ export function BuyerAuctionResultScreen({ payment = false }: { payment?: boolea
   const orderId = won ? result?.orderId : null;
   const order = useApiResource(orderId ? `auction-order:${orderId}` : null, (signal) => auctionOrderService.detail(orderId ?? "", signal));
   const actualOrderStatus = order.data?.status.replace(/[^a-z]/gi, "").toUpperCase();
+  const canTrackAuctionShipping = Boolean(
+    orderId && actualOrderStatus && ["CONFIRMED", "SELLERACCEPTED", "SHIPPING", "SHIPPED", "DELIVERED", "COMPLETED", "RETURNING", "RETURNED"].includes(actualOrderStatus),
+  );
+  const auctionTimeline = useApiResource(
+    canTrackAuctionShipping && orderId ? `buyer-auction-order-timeline:${orderId}` : null,
+    (signal) => fulfillmentService.getAuctionOrderTimeline(orderId ?? "", signal),
+  );
   const orderClosed = actualOrderStatus === "CANCELLED" || actualOrderStatus === "CANCELED" || actualOrderStatus === "EXPIRED" || actualOrderStatus === "REFUNDED";
   const closedOrderText = actualOrderStatus === "EXPIRED" ? "hết hạn" : actualOrderStatus === "REFUNDED" ? "đã hoàn tiền" : "đã hủy";
   const checkingOrder = Boolean(orderId && !order.data);
@@ -231,6 +239,31 @@ export function BuyerAuctionResultScreen({ payment = false }: { payment?: boolea
         <div className="action-row"><ButtonLink href={ROUTES.buyer.auctions} variant={outcome.hasOffer ? "primary" : "secondary"}>{outcome.hasOffer ? "Phản hồi lời mời" : "Đấu giá của tôi"}</ButtonLink></div>
       </Card>
     </div> : <NoData title="Chưa có kết quả phiên đấu giá" />}
+    {canTrackAuctionShipping && order.data && (
+      <div style={{ marginTop: 18 }}>
+        <OrderProgressStepper
+          status={auctionTimeline.data?.currentStatus ?? order.data.status}
+          orderNo={order.data.orderNo}
+        />
+        <Card className="card-pad">
+          <TrackingCodeBar
+            carrierCode={auctionTimeline.data?.carrierCode}
+            carrierName={auctionTimeline.data?.carrierName}
+            trackingCode={auctionTimeline.data?.trackingCode}
+          />
+          <ShipmentTimelineList
+            events={auctionTimeline.data?.timeline ?? []}
+            loading={auctionTimeline.loading}
+            refreshing={auctionTimeline.loading}
+            onRefresh={() => {
+              auctionTimeline.reload();
+              order.reload();
+            }}
+            title="Hành trình giao hàng đơn đấu giá"
+          />
+        </Card>
+      </div>
+    )}
   </div>;
 }
 

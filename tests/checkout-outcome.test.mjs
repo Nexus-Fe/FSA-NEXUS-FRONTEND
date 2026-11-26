@@ -25,6 +25,12 @@ test("a refusal with a code is definite and needs a new quote", () => {
   assert.equal(stock.needsNewQuote, true);
   assert.match(stock.message, /ví của bạn chưa bị trừ tiền/i);
   assert.equal(describePlaceOrderFailure(api(409, "VOUCHER_NO_LONGER_VALID")).unknownOutcome, false);
+
+  const shipMismatch = describePlaceOrderFailure(api(409, "SHIPPING_FEE_MISMATCH"));
+  assert.equal(shipMismatch.unknownOutcome, false);
+  assert.equal(shipMismatch.needsNewQuote, true);
+  assert.equal(shipMismatch.reloadCart, false);
+  assert.match(shipMismatch.message, /Phí vận chuyển đã thay đổi/i);
 });
 
 test("a price increase reloads the cart so the buyer sees the new prices", () => {

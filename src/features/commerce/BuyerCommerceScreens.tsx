@@ -13,6 +13,9 @@ import { ApiError, api, unwrap, type ApiResponse } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatMoney, resolveImageUrl } from "@/lib/presentation";
 import { OrderShipmentsCard } from "@/features/fulfillment/components/OrderShipmentsCard";
+import { OrderProgressStepper } from "@/features/fulfillment/components/OrderProgressStepper";
+import { Icon } from "@/components/ui/Icon";
+import "@/features/fulfillment/components/shipping-tracking.css";
 import { walletService } from "@/features/wallet";
 import { CheckoutVoucherPanel } from "@/features/coupons/CheckoutVoucherPanel";
 import { describeRejectedVoucher } from "@/features/coupons/voucher-outcome";
@@ -89,16 +92,20 @@ export function describeOrderStatus(status: string): string {
   return (
     {
       PENDINGPAYMENT: "Chờ thanh toán",
-      PAID: "Đã thanh toán · Đã chuyển đến Seller",
-      CONFIRMED: "Đơn hàng đã được khởi tạo thành công",
-      SELLERACCEPTED: "Đơn hàng đã được khởi tạo thành công",
+      PAYMENTPROCESSING: "Đang xử lý thanh toán",
+      PAID: "Chờ người bán xác nhận",
+      CONFIRMED: "Chờ lấy hàng",
+      SELLERACCEPTED: "Chờ lấy hàng",
       SHIPPING: "Đang giao hàng",
       SHIPPED: "Đang giao hàng",
-      DELIVERED: "Đã giao hàng · Chờ xác nhận nhận hàng",
-      COMPLETED: "Đã nhận hàng · Hoàn tất",
-      SELLERREJECTED: "Đã bị từ chối · Đã hoàn tiền",
+      DELIVERED: "Đã giao hàng",
+      COMPLETED: "Hoàn tất",
+      SELLERREJECTED: "Người bán từ chối",
       CANCELLED: "Đã hủy",
+      EXPIRED: "Hết hạn thanh toán",
       REFUNDED: "Đã hoàn tiền",
+      RETURNING: "Đang hoàn hàng",
+      RETURNED: "Đã hoàn hàng",
     } as Record<string, string>
   )[key] ?? status;
 }
@@ -650,6 +657,7 @@ export function CheckoutScreen() {
     orderLock.current = true;
     setSubmitting(true);
     try {
+      const expectedShippingFee = activeQuote.shops.reduce((sum, shop) => sum + shop.shippingFeeAmount, 0);
       const created = unwrap(
         await api.post<ApiResponse<CreateOrderResponse> | CreateOrderResponse>("/api/v1/orders", {
           quoteId: activeQuote.quoteId,
@@ -657,6 +665,7 @@ export function CheckoutScreen() {
           shippingAddress: fullAddress,
           contactPhone: form.phone.trim(),
           note: extra.note.trim() || undefined,
+          expectedShippingFee,
         }),
       );
 
@@ -820,9 +829,34 @@ export function CheckoutScreen() {
   </>;
 }
 
+const BUYER_ORDER_TABS = [
+  { key: "all", label: "Tất cả" },
+  { key: "pending", label: "Chờ thanh toán" },
+  { key: "confirm", label: "Chờ xác nhận" },
+  { key: "shipping", label: "Đang giao" },
+  { key: "delivered", label: "Đã giao" },
+  { key: "completed", label: "Hoàn tất" },
+  { key: "cancelled", label: "Đã hủy / Hoàn hàng" },
+] as const;
+
+type BuyerOrderTabKey = (typeof BUYER_ORDER_TABS)[number]["key"];
+
+function matchesBuyerOrderTab(status: string, tab: BuyerOrderTabKey): boolean {
+  if (tab === "all") return true;
+  const key = status.replace(/[^a-z]/gi, "").toUpperCase();
+  if (tab === "pending") return key === "PENDINGPAYMENT" || key === "PAYMENTPROCESSING";
+  if (tab === "confirm") return key === "PAID" || key === "CONFIRMED" || key === "SELLERACCEPTED";
+  if (tab === "shipping") return key === "SHIPPING" || key === "SHIPPED";
+  if (tab === "delivered") return key === "DELIVERED";
+  if (tab === "completed") return key === "COMPLETED";
+  if (tab === "cancelled") return ["CANCELLED", "EXPIRED", "SELLERREJECTED", "REFUNDED", "RETURNING", "RETURNED"].includes(key);
+  return true;
+}
+
 export function OrdersScreen() {
   const { user } = useSession();
   const [page, setPage] = useState(1);
+  const [activeTab, setActiveTab] = useState<BuyerOrderTabKey>("all");
   const buyerId = user?.id ?? "";
   const orders = useApiResource(
     buyerId ? `buyer-orders:${buyerId}:${page}` : null,
@@ -831,30 +865,53 @@ export function OrdersScreen() {
         .get<ApiResponse<Paged<Order>> | Paged<Order>>(`/api/v1/orders?page=${page}&pageSize=20`, { signal })
         .then(unwrap),
   );
+  const allItems = orders.data?.items ?? [];
+  const visibleItems = allItems.filter((order) => matchesBuyerOrderTab(order.status, activeTab));
+
   return <>
     <PageHeading
       title="Đơn mua của tôi"
-      description="Theo dõi trạng thái người bán xác nhận và bấm xác nhận khi bạn đã nhận được hàng."
+      description="Theo dõi trạng thái giao hàng và xác nhận khi bạn đã nhận được hàng."
     />
+    <div className="order-tabs" role="tablist" aria-label="Lọc trạng thái đơn mua">
+      {BUYER_ORDER_TABS.map((tab) => {
+        const count = tab.key === "all" ? allItems.length : allItems.filter((item) => matchesBuyerOrderTab(item.status, tab.key)).length;
+        const selected = activeTab === tab.key;
+        return (
+          <button
+            key={tab.key}
+            type="button"
+            role="tab"
+            aria-selected={selected}
+            className={`order-tab${selected ? " is-active" : ""}`}
+            onClick={() => setActiveTab(tab.key)}
+          >
+            <span>{tab.label}</span>
+            {count > 0 && <span className="order-tab-count">{count}</span>}
+          </button>
+        );
+      })}
+    </div>
     {orders.error && <ErrorState cause={orders.error} onRetry={orders.reload} />}
     <Card className="card-pad">
-      {orders.data?.items.length ? (
-        orders.data.items.map((order) => {
+      {visibleItems.length ? (
+        visibleItems.map((order) => {
           const resolvedId = order.orderId ?? order.id ?? "";
           const resolvedNo = order.orderNo ?? `ORD-${resolvedId.slice(0, 8).toUpperCase()}`;
           return (
             <div className="info-row order-list-row" key={resolvedId}>
               <div>
-                <Link href={ROUTES.buyer.order(resolvedId)}>
+                <Link href={ROUTES.buyer.order(resolvedId)} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <Icon name="package" size={16} />
                   <strong>Đơn hàng {resolvedNo}</strong>
                 </Link>
-                <p style={{ margin: "4px 0 0" }}>
+                <p style={{ margin: "6px 0 0", display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
                   <Badge>{describeOrderStatus(order.status)}</Badge>
-                  {order.createdAt ? ` · Đặt lúc ${new Date(order.createdAt).toLocaleString("vi-VN")}` : ""}
+                  {order.createdAt ? <span style={{ color: "var(--muted)", fontSize: 13 }}>Đặt lúc {new Date(order.createdAt).toLocaleString("vi-VN")}</span> : null}
                 </p>
               </div>
               <div style={{ textAlign: "right" }}>
-                <strong style={{ display: "block", marginBottom: 6 }}>{formatMoney(order.totalAmount)}</strong>
+                <strong style={{ display: "block", marginBottom: 6, fontVariantNumeric: "tabular-nums" }}>{formatMoney(order.totalAmount)}</strong>
                 <Link className="button button-secondary" href={ROUTES.buyer.order(resolvedId)}>
                   Xem chi tiết
                 </Link>
@@ -863,7 +920,16 @@ export function OrdersScreen() {
           );
         })
       ) : (
-        orders.loading ? <LoadingState rows={4} label="Đang tải đơn hàng…" /> : orders.error ? null : <EmptyState title="Bạn chưa có đơn hàng" description="Đơn hàng sau khi đặt sẽ xuất hiện tại đây." actionLabel="Bắt đầu mua sắm" actionHref={ROUTES.catalog.index} />
+        orders.loading ? (
+          <LoadingState rows={4} label="Đang tải đơn hàng…" />
+        ) : orders.error ? null : (
+          <EmptyState
+            title={activeTab === "all" ? "Bạn chưa có đơn hàng" : "Không có đơn hàng ở mục này"}
+            description={activeTab === "all" ? "Đơn hàng sau khi đặt sẽ xuất hiện tại đây." : "Thử chuyển sang mục Tất cả để xem các đơn khác."}
+            actionLabel={activeTab === "all" ? "Bắt đầu mua sắm" : undefined}
+            actionHref={activeTab === "all" ? ROUTES.catalog.index : undefined}
+          />
+        )
       )}
       {orders.data && orders.data.pagination.totalPages > 1 && (
         <AdminPagination
@@ -933,7 +999,7 @@ export function OrderDetailScreen() {
       } catch {
         await api.post(`/api/v1/orders/${encodeURIComponent(orderId)}/cancel`, payload);
       }
-      setConfirmMessage("Đã hủy đơn hàng thành công! Tồn kho tạm giữ (Reserved) đã được nhả lại vào khả dụng (Available) và tiền đơn hàng (nếu đã thanh toán qua Ví) đã được hoàn trả.");
+      setConfirmMessage("Đã hủy đơn hàng. Nếu bạn đã thanh toán qua Ví Nexus, tiền sẽ được hoàn lại.");
       order.reload();
       setShipmentRefresh((value) => value + 1);
     } catch (reason) {
@@ -975,6 +1041,13 @@ export function OrderDetailScreen() {
     {confirmError && <p className="notice" role="alert">{confirmError}</p>}
     {order.error && <ErrorState cause={order.error} onRetry={order.reload} />}
     {confirmMessage && <p className="form-success" role="status">{confirmMessage}</p>}
+    {order.data && (
+      <OrderProgressStepper
+        status={primaryStatus}
+        createdAt={order.data.createdAt}
+        orderNo={order.data.orderNo}
+      />
+    )}
     <div className="order-detail-layout">
       {subOrders.map((sub) => {
         const sellerAccepted = isSellerConfirmedOrDelivering(sub.status);

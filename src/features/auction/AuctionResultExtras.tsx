@@ -5,13 +5,21 @@ import type { AuctionResult } from "./types";
 const SETTLEMENT_LABELS: Record<string, string> = {
   PENDING: "Đang tạo đơn",
   PENDINGPAYMENT: "Chờ thanh toán",
-  PAID: "Đã thanh toán",
+  AWAITINGPAYMENT: "Chờ thanh toán",
+  PAID: "Đã thanh toán, chờ người bán xác nhận",
+  CONFIRMED: "Chờ lấy hàng",
+  SELLERACCEPTED: "Chờ lấy hàng",
+  SHIPPING: "Đang giao hàng",
+  SHIPPED: "Đang giao hàng",
+  DELIVERED: "Đã giao hàng",
   EXPIRED: "Quá hạn thanh toán",
   FAILED: "Thanh toán thất bại",
   CANCELLED: "Đã hủy",
   CANCELED: "Đã hủy",
   COMPLETED: "Hoàn tất",
   REFUNDED: "Đã hoàn tiền",
+  RETURNING: "Đang hoàn hàng",
+  RETURNED: "Đã hoàn hàng",
 };
 export const auctionOrderStatusLabel = (status: string) => SETTLEMENT_LABELS[status.replace(/[^a-z]/gi, "").toUpperCase()] ?? status;
 

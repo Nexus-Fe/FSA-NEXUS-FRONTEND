@@ -22,4 +22,32 @@ export const fulfillmentService = {
   async getShipmentByTracking(trackingCode: string, signal?: AbortSignal): Promise<ShipmentDetail> {
     return unwrap(await api.get<ApiResponse<ShipmentDetail> | ShipmentDetail>(`/api/v1/shipments/tracking/${encodeURIComponent(trackingCode)}`, { signal }));
   },
+  /** Pulls the latest carrier status directly from GHN for a shipment (seller/staff/admin). */
+  async syncShipmentStatus(shipmentId: string): Promise<ShipmentDetail> {
+    return unwrap(await api.post<ApiResponse<ShipmentDetail> | ShipmentDetail>(`/api/v1/shipments/${encodeURIComponent(shipmentId)}/sync-status`, {}));
+  },
+  /** Status history of a winning auction order's shipment (Commerce). */
+  async getAuctionOrderTimeline(auctionOrderId: string, signal?: AbortSignal): Promise<ShipmentTimeline> {
+    return unwrap(await api.get<ApiResponse<ShipmentTimeline> | ShipmentTimeline>(`/api/v1/auction-orders/${encodeURIComponent(auctionOrderId)}/shipments/timeline`, { signal }));
+  },
+  /** Retries creating a GHN shipment for an accepted auction order (seller only). */
+  async retryAuctionOrderShipment(auctionOrderId: string): Promise<{ subOrderId?: string; auctionOrderId?: string; trackingCode: string; carrierCode: string }> {
+    return unwrap(await api.post<
+      ApiResponse<{ subOrderId?: string; auctionOrderId?: string; trackingCode: string; carrierCode: string }>
+      | { subOrderId?: string; auctionOrderId?: string; trackingCode: string; carrierCode: string }
+    >(`/api/v1/auction-orders/${encodeURIComponent(auctionOrderId)}/shipments/retry`, {}));
+  },
+  /** Fetches available pickup shifts from GHN (Fulfillment). */
+  async getPickShifts(signal?: AbortSignal): Promise<Array<{ id: number; title: string; fromTime: number; toTime: number }>> {
+    return unwrap(await api.get<ApiResponse<Array<{ id: number; title: string; fromTime: number; toTime: number }>> | Array<{ id: number; title: string; fromTime: number; toTime: number }>>(
+      "/api/v1/shipping/pick-shifts",
+      { signal },
+    ));
+  },
+  /** Generates a fresh print label token and URL from GHN (Fulfillment). */
+  async getPrintLabel(shipmentId: string, pageSize: "A5" | "80x80" | "52x70" = "A5"): Promise<{ shipmentId: string; trackingCode: string; printToken: string; printUrl: string; pageSize: string }> {
+    return unwrap(await api.get<ApiResponse<{ shipmentId: string; trackingCode: string; printToken: string; printUrl: string; pageSize: string }> | { shipmentId: string; trackingCode: string; printToken: string; printUrl: string; pageSize: string }>(
+      `/api/v1/shipments/${encodeURIComponent(shipmentId)}/print-label?pageSize=${encodeURIComponent(pageSize)}`,
+    ));
+  },
 };
