@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/Primitives";
 import { FileDropZone, IMAGE_UPLOAD_PRESET } from "@/components/ui/FileDropZone";
-import { StarRatingInput } from "@/components/ui/StarRatingInput";
+import { EvidenceThumbnailGrid } from "@/components/ui/ImageLightbox";
+import { StarDisplay, StarRatingInput } from "@/components/ui/StarRatingInput";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { reviewErrorText } from "./PartnerReviewCard";
 import { REVIEW_REASON_TEXT, reviewService } from "./services/review.service";
@@ -98,15 +99,24 @@ export function ProductReviewCard({ productId, productName, subOrderId }: { prod
     {notice && <p className="form-success" role="status">{notice}</p>}
     {error && <p className="notice" role="alert">{error}</p>}
 
-    {existing && !editing && <div>
-      <p>Đánh giá của bạn: <strong>{existing.rating}/5 sao</strong>{existing.status !== "Published" && <> · <em>{existing.status === "Hidden" ? "đã bị ẩn bởi quản trị" : existing.status}</em></>}</p>
-      {existing.comment && <p>{existing.comment}</p>}
-      <small>Gửi ngày {DATE.format(new Date(existing.createdAt))}</small>
-      {existing.status !== "Hidden" && <div className="action-row">
-        <button type="button" className="button button-secondary" onClick={startEdit} disabled={busy}>Sửa đánh giá</button>
+    {existing && !editing && <div style={{ display: "grid", gap: "8px", padding: "12px 14px", borderRadius: 12, background: "#f8fafc", border: "1px solid rgba(31,32,36,0.09)" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+          <StarDisplay rating={existing.rating} />
+          <strong>{existing.rating}/5 sao</strong>
+          {existing.status !== "Published" && <em style={{ fontSize: 12, color: "var(--muted)" }}>· {existing.status === "Hidden" ? "đã bị ẩn bởi quản trị" : existing.status}</em>}
+        </span>
+        <small style={{ color: "var(--muted)" }}>Gửi ngày {DATE.format(new Date(existing.createdAt))}</small>
+      </div>
+      {existing.comment && <p style={{ margin: 0, lineHeight: 1.5 }}>{existing.comment}</p>}
+      {existing.reviewImages && existing.reviewImages.length > 0 && (
+        <EvidenceThumbnailGrid urls={existing.reviewImages} size={64} title="Ảnh đánh giá của bạn" />
+      )}
+      {existing.status !== "Hidden" && <div className="action-row" style={{ marginTop: 4 }}>
+        <button type="button" className="button button-secondary button-small" onClick={startEdit} disabled={busy}>Sửa đánh giá</button>
         {confirmDelete
-          ? <><button type="button" className="button button-primary" onClick={() => void remove()} disabled={busy}>Xác nhận xóa</button><button type="button" className="button button-secondary" onClick={() => setConfirmDelete(false)} disabled={busy}>Giữ lại</button></>
-          : <button type="button" className="button button-secondary" onClick={() => setConfirmDelete(true)} disabled={busy}>Xóa đánh giá</button>}
+          ? <><button type="button" className="button button-primary button-small" onClick={() => void remove()} disabled={busy}>Xác nhận xóa</button><button type="button" className="button button-secondary button-small" onClick={() => setConfirmDelete(false)} disabled={busy}>Giữ lại</button></>
+          : <button type="button" className="button button-secondary button-small" onClick={() => setConfirmDelete(true)} disabled={busy}>Xóa đánh giá</button>}
       </div>}
     </div>}
 

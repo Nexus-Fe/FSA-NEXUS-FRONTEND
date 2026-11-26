@@ -14,6 +14,7 @@ async function auctionList(path: string, signal?: AbortSignal): Promise<ApiRespo
 
 export const auctionService = {
   list: (page = 1, pageSize = 20, status?: AuctionStatus | "ALL", signal?: AbortSignal) => auctionList(`/api/v1/auctions${query(page, pageSize, status)}`, signal),
+  adminList: (page = 1, pageSize = 20, status?: AuctionStatus | "ALL", signal?: AbortSignal) => auctionList(`/api/v1/admin/auctions${query(page, pageSize, status)}`, signal),
   sellerList: (page = 1, status?: AuctionStatus | "ALL", signal?: AbortSignal) => auctionList(`/api/v1/seller/auctions${query(page, 20, status)}`, signal),
   detail: async (id: string, signal?: AbortSignal) => {
     const response = await api.getWithMetadata<ApiResponse<AuctionDetail> | AuctionDetail>(`/api/v1/auctions/${idPath(id)}`, { signal });

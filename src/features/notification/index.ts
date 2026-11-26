@@ -1,4 +1,4 @@
-export { notificationService } from "./services/notification.service";
+export { notificationService, notifyNotificationsChanged } from "./services/notification.service";
 export { NotificationBell } from "./NotificationBell";
 export { NotificationsScreen } from "./NotificationsScreen";
 export { notificationTarget, parsePayload } from "./notification-target";

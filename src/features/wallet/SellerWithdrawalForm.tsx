@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { AdminPagination, Badge, Card, NoData, PageHeading } from "@/components/ui/Primitives";
+import { FluidChoiceBar } from "@/components/ui/FluidChoiceBar";
 import { ErrorState, LoadingState } from "@/components/ui/States";
 import { ApiError } from "@/lib/api/client";
 import { createIntentKeyStore, isDefiniteOutcome } from "@/lib/idempotency/intent-key";
@@ -11,14 +12,16 @@ import { walletService } from "./services/wallet.service";
 import { Modal } from "@/components/ui/Modal";
 import { BankAccountsPanel } from "./BankAccountsPanel";
 import { describeError, formatError } from "@/lib/errors/error-messages";
-import { canCancelWithdrawal, withdrawalService, withdrawalStatus } from "./services/withdrawal.service";
-import type { WithdrawalResponse } from "./types";
+import { canCancelWithdrawal, WITHDRAWAL_STATUS_ORDER, withdrawalService, withdrawalStatus } from "./services/withdrawal.service";
+import type { WithdrawalResponse, WithdrawalSummary } from "./types";
 import { transactionDate } from "./WalletScreen";
 
 export function SellerWithdrawalForm() {
   const balance = useApiResource("seller-withdrawal-balance", (signal) => walletService.getBalance(signal));
   const [page, setPage] = useState(1);
-  const requests = useApiResource(`seller-withdrawals:${page}`, (signal) => withdrawalService.mine(page, 10, undefined, signal));
+  const [statusFilter, setStatusFilter] = useState("");
+  const requests = useApiResource(`seller-withdrawals:${page}:${statusFilter}`, (signal) => withdrawalService.mine(page, 10, statusFilter || undefined, signal));
+  const [detailTarget, setDetailTarget] = useState<WithdrawalSummary | null>(null);
   const [amount, setAmount] = useState("");
   const [bankCode, setBankCode] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
@@ -110,6 +113,13 @@ export function SellerWithdrawalForm() {
     </Card></div>
 
     <h2 className="section-title">Yêu cầu rút của bạn</h2>
+    <FluidChoiceBar
+      mode="filter"
+      ariaLabel="Lọc yêu cầu rút theo trạng thái"
+      options={[{ value: "", label: "Tất cả" }, ...WITHDRAWAL_STATUS_ORDER.map((s) => ({ value: s, label: withdrawalStatus(s).label }))]}
+      value={statusFilter}
+      onChange={(next) => { setStatusFilter(next); setPage(1); }}
+    />
     {cancelMessage && <p className="form-success" role="status">{cancelMessage}</p>}
     {cancelError && <p className="notice" role="alert">{cancelError}</p>}
     {requests.error && <ErrorState cause={requests.error} onRetry={requests.reload} />}
@@ -123,11 +133,26 @@ export function SellerWithdrawalForm() {
             <td>{item.bankName} · {item.maskedAccountNumber}<br /><small>{item.accountHolderName}</small></td>
             <td><Badge tone={status.tone}>{status.label}</Badge></td>
             <td>{item.statusReason ? <>Lý do: {item.statusReason}</> : status.hint}{item.completedAt && <><br /><small>Chuyển lúc {transactionDate(item.completedAt)}</small></>}</td>
-            <td>{canCancelWithdrawal(item.status) && <button type="button" className="button button-secondary button-small" disabled={cancelling} onClick={() => setCancelTarget({ id: item.withdrawalId, amount: item.amount })}>Hủy yêu cầu</button>}</td>
+            <td><div className="action-row"><button type="button" className="button button-secondary button-small" onClick={() => setDetailTarget(item)}>Chi tiết</button>{canCancelWithdrawal(item.status) && <button type="button" className="button button-secondary button-small" disabled={cancelling} onClick={() => setCancelTarget({ id: item.withdrawalId, amount: item.amount })}>Hủy yêu cầu</button>}</div></td>
           </tr>;
         })}
       </tbody></table></div>
     </Card> : !requests.error && <NoData title="Bạn chưa có yêu cầu rút nào." />}
+    <Modal open={detailTarget !== null} title="Chi tiết yêu cầu rút tiền" onClose={() => setDetailTarget(null)}>
+      {detailTarget && (() => {
+        const st = withdrawalStatus(detailTarget.status);
+        return <div className="auth-fields">
+          <div className="info-row"><span>Mã yêu cầu</span><strong className="mono">{detailTarget.withdrawalId}</strong></div>
+          <div className="info-row"><span>Trạng thái</span><Badge tone={st.tone}>{st.label}</Badge></div>
+          <div className="info-row"><span>Số tiền</span><strong>{formatMoney(detailTarget.amount)}</strong></div>
+          <div className="info-row"><span>Ngân hàng</span><strong>{detailTarget.bankName} · {detailTarget.maskedAccountNumber}</strong></div>
+          <div className="info-row"><span>Chủ tài khoản</span><strong>{detailTarget.accountHolderName}</strong></div>
+          <div className="info-row"><span>Gửi lúc</span><strong>{transactionDate(detailTarget.requestedAt)}</strong></div>
+          {detailTarget.completedAt && <div className="info-row"><span>Hoàn tất lúc</span><strong>{transactionDate(detailTarget.completedAt)}</strong></div>}
+          <p className="notice" style={{ marginTop: 8 }}>{detailTarget.statusReason ? `Lý do / Ghi chú: ${detailTarget.statusReason}` : st.hint}</p>
+        </div>;
+      })()}
+    </Modal>
     <Modal open={cancelTarget !== null} title="Hủy yêu cầu rút tiền?" busy={cancelling} onClose={() => setCancelTarget(null)}
       footer={<><button type="button" className="button button-secondary" disabled={cancelling} onClick={() => setCancelTarget(null)}>Giữ yêu cầu</button><button type="button" className="button button-primary" disabled={cancelling} onClick={() => void confirmCancel()}>{cancelling ? "Đang hủy…" : "Hủy yêu cầu"}</button></>}>
       <p>{cancelTarget ? `Yêu cầu rút ${formatMoney(cancelTarget.amount)} sẽ bị hủy và số tiền đang giữ trả lại số dư khả dụng.` : ""}</p>

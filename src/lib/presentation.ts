@@ -23,7 +23,23 @@ const PRODUCT_STATUS_LABELS: Record<string, string> = {
   SUSPENDED: "Bị đình chỉ",
 };
 
-export function describeProductStatus(status?: string | null): string {
-  if (!status) return "—";
-  return PRODUCT_STATUS_LABELS[status.toUpperCase()] ?? status;
+export function describeProductStatus(status?: string | null, statusReason?: string | null): string {
+  return sellerProductStatusBadge(status, statusReason).label;
+}
+
+export function sellerProductStatusBadge(
+  status?: string | null,
+  statusReason?: string | null,
+): { label: string; tone: "slate" | "green" | "amber" | "red" } {
+  const s = (status ?? "").toUpperCase().replace(/[^A-Z]/g, "");
+  const r = (statusReason ?? "").toUpperCase().replace(/[^A-Z]/g, "");
+  if (s === "DRAFT" && r === "REJECTED") return { label: "Bị từ chối", tone: "red" };
+  if (s === "INACTIVE" && r === "ADMINLOCKED") return { label: "Bị đình chỉ", tone: "red" };
+  if (s === "ACTIVE") return { label: "Đang bán", tone: "green" };
+  if (s === "PENDINGAPPROVAL") return { label: "Chờ duyệt", tone: "amber" };
+  if (s === "REJECTED") return { label: "Bị từ chối", tone: "red" };
+  if (s === "SUSPENDED") return { label: "Bị đình chỉ", tone: "red" };
+  if (s === "DRAFT") return { label: "Bản nháp", tone: "slate" };
+  if (s === "INACTIVE") return { label: "Tạm ngưng", tone: "slate" };
+  return { label: status ? (PRODUCT_STATUS_LABELS[status.toUpperCase()] ?? status) : "—", tone: "slate" };
 }

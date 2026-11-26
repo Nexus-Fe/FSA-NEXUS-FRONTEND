@@ -38,16 +38,20 @@ export const staffNavigation: NavigationItem[] = [
   { label: "Duyệt sản phẩm", href: ROUTES.staff.productModeration, icon: "grid" },
   { label: "Duyệt rút tiền", href: ROUTES.staff.withdrawals, icon: "wallet" },
   { label: "Khiếu nại & Vi phạm", href: ROUTES.staff.reports, icon: "flag" },
+  { label: "Báo cáo sản phẩm", href: ROUTES.staff.productReports, icon: "flag" },
   { label: "Hoàn tiền", href: ROUTES.staff.refunds, icon: "orders", feature: "refunds" },
   { label: "Trung tâm thông báo", href: ROUTES.staff.notificationCenter, icon: "orders" },
   { label: "Xử phạt vi phạm", href: ROUTES.staff.penalties, icon: "gavel" },
-  { label: "Đối soát giao dịch", href: ROUTES.staff.discrepancies, icon: "orders" },
 ];
 
 export const adminNavigation: NavigationItem[] = [
   { label: "Tổng quan hệ thống", href: ROUTES.admin.overview, icon: "home" },
   { label: "Tài khoản & Phân quyền", href: ROUTES.admin.users, icon: "users" },
+  { label: "Duyệt người bán", href: ROUTES.admin.sellers, icon: "users" },
   { label: "Danh mục sản phẩm", href: ROUTES.admin.categories, icon: "grid" },
+  { label: "Duyệt sản phẩm", href: ROUTES.admin.productModeration, icon: "grid" },
+  { label: "Khiếu nại & Vi phạm", href: ROUTES.admin.reports, icon: "flag" },
+  { label: "Báo cáo sản phẩm", href: ROUTES.admin.productReports, icon: "flag" },
   { label: "Xử phạt vi phạm", href: ROUTES.admin.penalties, icon: "gavel" },
   { label: "Điều chỉnh số dư ví", href: ROUTES.admin.ledger, icon: "wallet" },
   { label: "Duyệt rút tiền", href: ROUTES.admin.withdrawals, icon: "wallet" },

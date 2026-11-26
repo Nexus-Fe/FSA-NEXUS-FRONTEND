@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { usePathname } from "next/navigation";
 import {
   AdminPagination,
   Badge,
@@ -9,6 +10,7 @@ import {
   PageHeading,
 } from "@/components/ui/Primitives";
 import { CopyableId } from "@/components/ui/CopyableId";
+import { EvidenceThumbnailGrid } from "@/components/ui/ImageLightbox";
 import { ApiError } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import {
@@ -24,6 +26,7 @@ import { extractAdminError, formatPolicyClause } from "./services/admin-helpers"
 const GUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function AdminPenaltiesScreen() {
+  const isStaff = usePathname().startsWith("/staff/");
   const [userIdFilter, setUserIdFilter] = useState("");
   const [userIdInput, setUserIdInput] = useState("");
   const [targetRole, setTargetRole] = useState("");
@@ -120,9 +123,9 @@ export function AdminPenaltiesScreen() {
   return (
     <>
       <PageHeading
-        overline="Quản trị hệ thống"
+        overline={isStaff ? "Nhân viên vận hành" : "Quản trị hệ thống"}
         title="Quản lý xử phạt toàn sàn"
-        description="Tra cứu biên bản xử phạt vi phạm của Người mua và Gian hàng. Thu hồi chế tài kỷ luật khi khắc phục vi phạm."
+        description={isStaff ? "Tra cứu biên bản xử phạt vi phạm của Người mua và Gian hàng." : "Tra cứu biên bản xử phạt vi phạm của Người mua và Gian hàng. Thu hồi chế tài kỷ luật khi khắc phục vi phạm."}
         action={
           <button
             type="button"
@@ -459,20 +462,7 @@ export function AdminPenaltiesScreen() {
                     <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--ink)", display: "block", marginBottom: "6px" }}>
                       Tài liệu & Bằng chứng vi phạm:
                     </span>
-                    <ul style={{ margin: 0, paddingLeft: "18px", fontSize: "12px" }}>
-                      {detail.data.evidenceUrls.map((url, idx) => (
-                        <li key={idx} style={{ marginBottom: "4px" }}>
-                          <a
-                            href={url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={{ color: "var(--sky-dark)", textDecoration: "underline", wordBreak: "break-all" }}
-                          >
-                            {url}
-                          </a>
-                        </li>
-                      ))}
-                    </ul>
+                    <EvidenceThumbnailGrid urls={detail.data.evidenceUrls} size={68} title="Bằng chứng xử phạt" />
                   </div>
                 )}
 
@@ -533,7 +523,7 @@ export function AdminPenaltiesScreen() {
                       marginTop: "14px",
                     }}
                   >
-                    {String(detail.data.status).toUpperCase() === "ACTIVE" && (
+                    {!isStaff && String(detail.data.status).toUpperCase() === "ACTIVE" && (
                       <button
                         type="button"
                         className="button button-danger button-small"

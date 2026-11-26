@@ -791,7 +791,9 @@
 .buyer-glass-shell .auction-tile-image,
 .buyer-glass-shell .product-detail-image,
 .buyer-glass-shell .product-detail-related-image,
-.buyer-glass-shell .public-shop-logo { background: rgba(247, 241, 232, .42); }
+.buyer-glass-shell .public-shop-logo,
+.buyer-glass-shell .matching-shop-logo,
+.buyer-glass-shell .shop-directory-logo { background: rgba(247, 241, 232, .42); }
 .buyer-glass-shell .product-detail-option.active { border-color: var(--primary); background: var(--mint-light); color: var(--primary-hover); }
 .buyer-glass-shell .product-detail-availability { border-color: var(--primary); background: var(--mint-light); }
 .buyer-glass-shell .catalog-page-number.active,
@@ -809,13 +811,19 @@
 .buyer-glass-shell .color-indigo { --sky: var(--primary); --sky-dark: var(--primary-hover); --sky-soft: var(--primary-soft); }
 .buyer-glass-shell .checkout-main,
 .buyer-glass-shell .checkout-summary,
-.buyer-glass-shell .public-shop-profile {
+.buyer-glass-shell .public-shop-profile,
+.buyer-glass-shell .matching-shop-card,
+.buyer-glass-shell .shop-directory-card {
   border-color: var(--glass-border);
   border-radius: 20px;
   background: var(--glass-surface);
   box-shadow: var(--glass-shadow);
   -webkit-backdrop-filter: blur(10px) saturate(120%);
   backdrop-filter: blur(10px) saturate(120%);
+}
+.buyer-glass-shell .matching-shop-badge {
+  background: var(--mint-light);
+  color: var(--primary-hover);
 }
 .buyer-glass-shell .checkout-summary-total strong,
 .buyer-glass-shell .checkout-summary-line strong { white-space: nowrap; }

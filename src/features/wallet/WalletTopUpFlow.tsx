@@ -61,7 +61,11 @@ export function WalletTopUpForm() {
   }
 
   return <>
-    <PageHeading title="Nạp tiền vào ví" description="Thanh toán qua Stripe. Số dư chỉ cập nhật sau khi ví xác nhận giao dịch." />
+    <PageHeading
+      title="Nạp tiền vào ví"
+      description="Thanh toán qua Stripe. Số dư chỉ cập nhật sau khi ví xác nhận giao dịch."
+      action={<Link className="button button-secondary button-small" href={ROUTES.buyer.wallet}>Quay lại ví</Link>}
+    />
     <div className="split">
       <Card className="card-pad"><h2>Thông tin nạp tiền</h2>
         <form className="auth-fields" onSubmit={submit}>

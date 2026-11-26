@@ -4,16 +4,20 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useSession } from "@/components/auth/SessionProvider";
+import { useToast } from "@/components/ui/Toast";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { NotificationAction } from "./NotificationAction";
-import { notificationService } from "./services/notification.service";
+import { notificationService, notificationsChangedEvent, notifyNotificationsChanged } from "./services/notification.service";
 import { describeError, formatError } from "@/lib/errors/error-messages";
 import "./NotificationBell.css";
+
+const POLL_INTERVAL_MS = 30_000;
 
 export function NotificationBell({ href, portal = false }: { href: string; portal?: boolean }) {
   // The seller portal links to the seller's pages; every other bell is the buyer's.
   const viewer = href.startsWith("/seller") ? "seller" : "buyer";
   const { user } = useSession();
+  const { showToast } = useToast();
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<"all" | "unread">("all");
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -25,24 +29,51 @@ export function NotificationBell({ href, portal = false }: { href: string; porta
   const rootRef = useRef<HTMLDivElement>(null);
   const bellRef = useRef<HTMLButtonElement>(null);
   const prevCountRef = useRef<number | null>(null);
+  const lastToastedIdRef = useRef<string | null>(null);
 
   const resource = useApiResource(user?.id ? `notifications:bell:${user.id}` : null, async (signal) => {
-    const [latest, unread] = await Promise.all([
+    const [latest, unreadCount] = await Promise.all([
       notificationService.getNotifications(1, 5, undefined, signal),
-      notificationService.getNotifications(1, 1, false, signal),
+      notificationService.getUnreadCount(signal),
     ]);
-    return { latest: latest.items, unreadCount: unread.pagination.totalCount };
+    return { latest: latest.items, unreadCount };
   });
 
   const count = resource.data?.unreadCount ?? 0;
+  const reloadNotifications = resource.reload;
 
   useEffect(() => {
     if (prevCountRef.current !== null && count > prevCountRef.current) {
       setRinging(true);
       setBadgePop(true);
+      const newestUnread = resource.data?.latest.find((item) => !item.isRead);
+      if (newestUnread && newestUnread.id !== lastToastedIdRef.current) {
+        lastToastedIdRef.current = newestUnread.id;
+        showToast(newestUnread.title || "Bạn có thông báo mới.", "info");
+      }
     }
     prevCountRef.current = count;
-  }, [count]);
+  }, [count, resource.data?.latest, showToast]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const onChanged = () => reloadNotifications();
+    const onFocus = () => {
+      if (document.visibilityState === "visible") reloadNotifications();
+    };
+    window.addEventListener(notificationsChangedEvent, onChanged);
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === "visible") reloadNotifications();
+    }, POLL_INTERVAL_MS);
+    return () => {
+      window.removeEventListener(notificationsChangedEvent, onChanged);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+      window.clearInterval(interval);
+    };
+  }, [user?.id, reloadNotifications]);
 
   useEffect(() => {
     if (!open) return;
@@ -61,6 +92,7 @@ export function NotificationBell({ href, portal = false }: { href: string; porta
       await notificationService.markAsRead(id);
       setActionError("");
       resource.reload();
+      notifyNotificationsChanged();
     } catch (error) {
       setActionError(formatError(describeError(error, { operation: "write" })));
     } finally {
@@ -69,13 +101,13 @@ export function NotificationBell({ href, portal = false }: { href: string; porta
   }
 
   async function markAllRead() {
-    const unreadItems = (resource.data?.latest ?? []).filter((item) => !item.isRead);
-    if (!unreadItems.length || markingAll) return;
+    if ((count <= 0 && !allItems.some((item) => !item.isRead)) || markingAll) return;
     setMarkingAll(true);
     setActionError("");
     try {
-      await Promise.all(unreadItems.map((item) => notificationService.markAsRead(item.id)));
+      await notificationService.markAllAsRead();
       resource.reload();
+      notifyNotificationsChanged();
     } catch (error) {
       setActionError(error instanceof Error ? error.message : "Không thể đánh dấu tất cả đã đọc.");
     } finally {
@@ -150,7 +182,7 @@ export function NotificationBell({ href, portal = false }: { href: string; porta
             type="button"
             className="u074-all"
             tabIndex={open ? 0 : -1}
-            disabled={!unreadInList || markingAll}
+            disabled={(count <= 0 && !unreadInList) || markingAll}
             onClick={() => void markAllRead()}
           >
             {markingAll ? "Đang xử lý…" : "Đánh dấu tất cả"}

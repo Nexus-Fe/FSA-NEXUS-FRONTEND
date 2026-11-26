@@ -2,10 +2,13 @@
 
 import { useState, type FormEvent } from "react";
 import { ButtonLink } from "@/components/ui/Primitives";
+import { useToast } from "@/components/ui/Toast";
 import { ROUTES } from "@/constants/routes";
+import { notifyNotificationsChanged } from "@/features/notification";
 import { auctionOrderService } from "./services/auction-order.service";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatMoney } from "@/lib/presentation";
+import { walletService } from "@/features/wallet/services/wallet.service";
 import { GhnLocationSelect } from "@/features/shipping/GhnLocationSelect";
 import { EMPTY_GHN_SELECTION, validateGhnSelection, type GhnSelection } from "@/features/shipping/ghn-address";
 import { describeError, formatError } from "@/lib/errors/error-messages";
@@ -19,6 +22,7 @@ const addressFields = [["fullName", "Người nhận"], ["phoneNumber", "Số đ
 const writeFailure = (cause: unknown) => formatError(describeError(cause, { operation: "write" }));
 
 export function AuctionOrderPayment({ orderId, deadlinePassed, onOrderChanged }: { orderId: string; deadlinePassed: boolean; onOrderChanged?: () => void }) {
+  const { showToast } = useToast();
   const order = useApiResource(`auction-order:${orderId}`, (signal) => auctionOrderService.detail(orderId, signal));
   const [shipping, setShipping] = useState<AddressForm>(initialAddress);
   const [ghn, setGhn] = useState<GhnSelection>(EMPTY_GHN_SELECTION);
@@ -29,6 +33,9 @@ export function AuctionOrderPayment({ orderId, deadlinePassed, onOrderChanged }:
   const [success, setSuccess] = useState("");
   const status = order.data?.status.replace(/[^a-z]/gi, "").toUpperCase();
   const payable = status === "PENDINGPAYMENT" && !deadlinePassed;
+  const wallet = useApiResource(payable ? `auction-order-wallet:${orderId}` : null, (signal) => walletService.getBalance(signal));
+  const availableBalance = wallet.data?.availableBalance;
+  const insufficientWallet = Boolean(payable && order.data?.totalAmount != null && availableBalance !== undefined && availableBalance < order.data.totalAmount);
 
   async function saveShipping(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -50,7 +57,11 @@ export function AuctionOrderPayment({ orderId, deadlinePassed, onOrderChanged }:
     setBusy(true); setError(""); setSuccess("");
     try {
       const result = await auctionOrderService.pay(orderId);
-      if (result.status.toUpperCase() === "PAID") setSuccess("Đã thanh toán bằng Ví Nexus.");
+      if (result.status.toUpperCase() === "PAID") {
+        setSuccess("Đã thanh toán bằng Ví Nexus.");
+        showToast("Thanh toán đơn đấu giá thành công.", "success");
+        notifyNotificationsChanged(true);
+      }
       order.reload(); onOrderChanged?.();
     } catch (cause) { setError(writeFailure(cause)); order.reload(); onOrderChanged?.(); }
     finally { setBusy(false); }
@@ -76,6 +87,13 @@ export function AuctionOrderPayment({ orderId, deadlinePassed, onOrderChanged }:
       <div className="info-row"><span>Cọc áp dụng</span><strong>−{formatMoney(order.data.depositAmount)}</strong></div>
       <div className="info-row"><span>Phí giao hàng</span><strong>{formatMoney(order.data.shippingFeeAmount)}</strong></div>
       <div className="info-row"><span>Còn phải trả</span><strong>{formatMoney(order.data.totalAmount)}</strong></div>
+      {payable && (
+        <div className="info-row">
+          <span>Số dư khả dụng</span>
+          <strong>{wallet.loading && availableBalance === undefined ? "Đang tải…" : availableBalance !== undefined ? formatMoney(availableBalance) : "Không xác định"}</strong>
+        </div>
+      )}
+      {insufficientWallet && <p className="notice" role="status">Số dư khả dụng chưa đủ để thanh toán phần còn lại. Hãy nạp thêm vào Ví Nexus.</p>}
       <div className="info-row"><span>Trạng thái</span><strong>{auctionOrderStatusLabel(order.data.status)}</strong></div>
       {payable && order.data.totalAmount === null && <form className="auction-shipping-form" onSubmit={(event) => void saveShipping(event)}>
         <h3>Địa chỉ nhận hàng</h3>

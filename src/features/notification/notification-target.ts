@@ -37,15 +37,17 @@ export function notificationTarget(
   viewer: NotificationViewer,
   now: number = Date.now(),
 ): NotificationTarget | null {
-  const payload = parsePayload(item.payload);
-  if (!payload) return null;
+  const payload = parsePayload(item.payload) ?? {};
 
   const type = id(payload, "type") ?? item.notificationType ?? "";
+  if (!type) return null;
   const auctionId = id(payload, "auctionId");
+  const subOrderId = id(payload, "orderId") ?? id(payload, "subOrderId");
+  const productId = id(payload, "productId");
+  const audience = (id(payload, "audience") ?? viewer).toLowerCase() === "seller" ? "seller" : "buyer";
 
   switch (type) {
     case "OrderPaid": {
-      const audience = (id(payload, "audience") ?? viewer).toLowerCase() === "seller" ? "seller" : "buyer";
       if (payload.orderKind === "Auction") {
         if (!auctionId) return null;
         return audience === "seller"
@@ -53,21 +55,44 @@ export function notificationTarget(
           : { kind: "link", href: ROUTES.buyer.auctionPayment(auctionId), label: "Xem đơn đấu giá" };
       }
 
-      const subOrderId = id(payload, "orderId");
       if (!subOrderId) return null;
       return audience === "seller"
         ? { kind: "link", href: ROUTES.seller.order(subOrderId), label: "Xử lý đơn hàng" }
         : { kind: "link", href: ROUTES.buyer.orderBySubOrder(subOrderId), label: "Xem đơn hàng" };
     }
 
+    case "OrderShipped":
+    case "OrderDecision":
+    case "OrderCompleted":
+    case "OrderBuyerCancelled":
+    case "OrderPaymentExpired": {
+      if (payload.orderKind === "Auction" && auctionId) {
+        return audience === "seller"
+          ? { kind: "link", href: ROUTES.seller.auctionResult(auctionId), label: "Xem đơn đấu giá" }
+          : { kind: "link", href: ROUTES.buyer.auctionPayment(auctionId), label: "Xem đơn đấu giá" };
+      }
+      if (!subOrderId) {
+        return { kind: "link", href: audience === "seller" ? ROUTES.seller.orders : ROUTES.buyer.orders, label: "Xem đơn hàng" };
+      }
+      return audience === "seller"
+        ? { kind: "link", href: ROUTES.seller.order(subOrderId), label: "Xem đơn hàng" }
+        : { kind: "link", href: ROUTES.buyer.orderBySubOrder(subOrderId), label: "Xem đơn hàng" };
+    }
+
+    case "OrderSellerSettled":
+      return { kind: "link", href: ROUTES.seller.wallet, label: "Xem ví người bán" };
+
     case "AuctionWon":
+    case "AuctionPaymentTimedOut":
       return auctionId ? { kind: "link", href: ROUTES.buyer.auctionPayment(auctionId), label: "Thanh toán đơn đấu giá" } : null;
 
     case "AuctionOutbid":
+    case "AuctionStarted":
       return auctionId ? { kind: "link", href: ROUTES.auction.room(auctionId), label: "Vào phòng đấu giá" } : null;
 
     case "AuctionFailed":
     case "AuctionCancelled":
+    case "AuctionSellerResult":
       return auctionId ? { kind: "link", href: ROUTES.seller.auctionResult(auctionId), label: "Xem kết quả phiên" } : null;
 
     case "AuctionWinnerOffer": {
@@ -96,14 +121,59 @@ export function notificationTarget(
       return { kind: "link", href: viewer === "seller" ? ROUTES.seller.withdrawals : ROUTES.buyer.wallet, label: "Xem yêu cầu rút tiền" };
 
     case "ProductBannedByReport":
-      return { kind: "link", href: ROUTES.seller.products, label: "Xem sản phẩm của tôi" };
+    case "ProductApproved":
+    case "ProductRejected":
+    case "ProductSuspended":
+    case "ProductBanned":
+      return {
+        kind: "link",
+        href: productId ? ROUTES.seller.product(productId) : ROUTES.seller.products,
+        label: "Xem sản phẩm của tôi",
+      };
 
     case "AuctionReportResolved":
     case "ProductReportResolved":
+    case "ProductReportDismissed":
       return { kind: "link", href: ROUTES.buyer.reports, label: "Xem báo cáo của tôi" };
 
     case "OrderRefunded":
       return { kind: "link", href: viewer === "seller" ? ROUTES.seller.refunds : ROUTES.buyer.refunds, label: "Xem hoàn tiền" };
+
+    case "ReputationPenalty":
+      return { kind: "link", href: ROUTES.buyer.reputation, label: "Xem điểm uy tín" };
+
+    case "SecurityAlert": {
+      const kind = id(payload, "kind");
+      if (kind === "SellerDecision") {
+        return id(payload, "decision") === "Approved"
+          ? { kind: "link", href: ROUTES.seller.shop, label: "Vào kênh người bán" }
+          : { kind: "link", href: ROUTES.buyer.becomeSeller, label: "Xem hồ sơ đăng ký" };
+      }
+      if (kind === "PasswordChange") {
+        return { kind: "link", href: ROUTES.auth.sessions, label: "Kiểm tra phiên đăng nhập" };
+      }
+      if (kind === "AccountStatus") {
+        return { kind: "link", href: ROUTES.auth.profile, label: "Xem tài khoản" };
+      }
+      return null;
+    }
+
+    case "NewProductReview":
+      return {
+        kind: "link",
+        href: productId ? ROUTES.seller.product(productId) : ROUTES.seller.reviews,
+        label: "Xem đánh giá",
+      };
+
+    case "ReviewHidden":
+      return {
+        kind: "link",
+        href: productId ? ROUTES.catalog.product(productId) : ROUTES.buyer.orders,
+        label: "Xem chi tiết",
+      };
+
+    case "Promotion":
+      return { kind: "link", href: ROUTES.home, label: "Khám phá ưu đãi" };
 
     default:
       return null;

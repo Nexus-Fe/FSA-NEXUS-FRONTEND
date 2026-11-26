@@ -15,6 +15,14 @@ import { refundService } from "./refund.service";
 const DATE = new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium", timeStyle: "short" });
 const when = (value: string | null) => (value ? DATE.format(new Date(value)) : "—");
 
+function refundTone(status: string): "slate" | "amber" | "green" | "red" {
+  const s = status.toUpperCase();
+  if (s === "COMPLETED") return "green";
+  if (s === "REJECTED" || s === "FAILED") return "red";
+  if (s === "REQUESTED" || s === "WALLETPENDING") return "amber";
+  return "slate";
+}
+
 type Role = "buyer" | "seller" | "admin" | "staff";
 type Decision = { row: RefundRow; kind: "approve" | "reject" } | null;
 
@@ -68,7 +76,7 @@ export function RefundsScreen({ role }: { role: Role }) {
           <td>{row.subOrderNo}</td>
           <td>{formatMoney(row.amount)}</td>
           <td>{row.reason}{row.rejectReason && <><br /><small>Lý do từ chối: {row.rejectReason}</small></>}</td>
-          <td><Badge tone="slate">{statusLabel(REFUND_STATUS, row.status)}</Badge></td>
+          <td><Badge tone={refundTone(row.status)}>{statusLabel(REFUND_STATUS, row.status)}</Badge></td>
           <td><small>Yêu cầu: {when(row.requestedAt)}<br />Xong: {when(row.completedAt)}</small></td>
           {role !== "buyer" && <td>{canDecideRefund(role, row.status) ? <div className="action-row">
             <button type="button" className="button button-primary" onClick={() => open(row, "approve")}>Duyệt hoàn tiền</button>

@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSession } from "@/components/auth/SessionProvider";
 import { AdminPagination, Card, PageHeading } from "@/components/ui/Primitives";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { usePathname } from "next/navigation";
 import { NotificationAction } from "./NotificationAction";
-import { notificationService, notificationsChangedEvent } from "./services/notification.service";
+import { notificationService, notificationsChangedEvent, notifyNotificationsChanged } from "./services/notification.service";
 import { describeError, formatError } from "@/lib/errors/error-messages";
 import { ErrorState, LoadingState } from "@/components/ui/States";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -17,9 +17,17 @@ export function NotificationsScreen() {
   const [page, setPage] = useState(1);
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [markingAll, setMarkingAll] = useState(false);
   const [actionError, setActionError] = useState("");
   const resource = useApiResource(user?.id ? `notifications:${user.id}:${page}:${unreadOnly}` : null,
     (signal) => notificationService.getNotifications(page, 20, unreadOnly ? false : undefined, signal));
+  const reloadNotifications = resource.reload;
+
+  useEffect(() => {
+    const onChanged = () => reloadNotifications();
+    window.addEventListener(notificationsChangedEvent, onChanged);
+    return () => window.removeEventListener(notificationsChangedEvent, onChanged);
+  }, [reloadNotifications]);
 
   async function markRead(id: string) {
     setBusyId(id);
@@ -27,13 +35,30 @@ export function NotificationsScreen() {
     try {
       await notificationService.markAsRead(id);
       resource.reload();
-      window.dispatchEvent(new Event(notificationsChangedEvent));
+      notifyNotificationsChanged();
     } catch (error) {
       setActionError(formatError(describeError(error, { operation: "write" })));
     } finally {
       setBusyId(null);
     }
   }
+
+  async function markAllRead() {
+    if (markingAll) return;
+    setMarkingAll(true);
+    setActionError("");
+    try {
+      await notificationService.markAllAsRead();
+      resource.reload();
+      notifyNotificationsChanged();
+    } catch (error) {
+      setActionError(formatError(describeError(error, { operation: "write" })));
+    } finally {
+      setMarkingAll(false);
+    }
+  }
+
+  const hasUnread = resource.data?.items.some((item) => !item.isRead) ?? false;
 
   return <>
     <PageHeading title="Thông báo" description="Cập nhật về tài khoản, gian hàng và đơn hàng của bạn." />
@@ -43,6 +68,16 @@ export function NotificationsScreen() {
         onChange={(event) => { setUnreadOnly(event.target.value === "unread"); setPage(1); }}>
         <option value="all">Tất cả</option><option value="unread">Chưa đọc</option>
       </select>
+      {hasUnread && (
+        <button
+          type="button"
+          className="button button-secondary button-small"
+          disabled={markingAll}
+          onClick={() => void markAllRead()}
+        >
+          {markingAll ? "Đang cập nhật…" : "Đánh dấu tất cả đã đọc"}
+        </button>
+      )}
     </div>
     {actionError && <p className="notice" role="alert">{actionError}</p>}
     {resource.error && <ErrorState cause={resource.error} onRetry={resource.reload} />}

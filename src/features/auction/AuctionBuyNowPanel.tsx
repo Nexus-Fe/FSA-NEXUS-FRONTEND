@@ -15,7 +15,7 @@ import { auctionService } from "./services/auction.service";
  * "Mua ngay". The route requires an Idempotency-Key and reads the auction's row version from If-Match. The key is kept while the result
  * is unknown, so pressing again cannot lock the money twice; it is released once the server has answered definitely.
  */
-export function AuctionBuyNowPanel({ auctionId, price, version, reload }: { auctionId: string; price: number; version?: string; reload: () => void }) {
+export function AuctionBuyNowPanel({ auctionId, price, version, reload, availableBalance, authorizedDepositAmount = 0 }: { auctionId: string; price: number; version?: string; reload: () => void; availableBalance?: number; authorizedDepositAmount?: number }) {
   const router = useRouter();
   const intent = useRef(createIntentKeyStore(createKeyGenerator("buynow")));
   const [open, setOpen] = useState(false);
@@ -24,6 +24,9 @@ export function AuctionBuyNowPanel({ auctionId, price, version, reload }: { auct
   const [needsTopUp, setNeedsTopUp] = useState(false);
   const [unknown, setUnknown] = useState(false);
   const [done, setDone] = useState(false);
+  const depositCredit = Math.max(0, authorizedDepositAmount);
+  const requiredAvailable = Math.max(0, price - depositCredit);
+  const insufficientAvailable = availableBalance !== undefined && availableBalance < requiredAvailable;
 
   async function confirm() {
     if (busy) return;
@@ -57,15 +60,25 @@ export function AuctionBuyNowPanel({ auctionId, price, version, reload }: { auct
     <Card className="card-pad auction-buy-now">
       <h2>Mua ngay</h2>
       <p>Giá mua ngay: <strong>{formatMoney(price)}</strong></p>
+      {depositCredit > 0 && (
+        <p className="status-note">Đã giữ cọc: <strong>{formatMoney(depositCredit)}</strong> · Cần khóa thêm: <strong>{formatMoney(requiredAvailable)}</strong></p>
+      )}
+      {availableBalance !== undefined && (
+        <p className="status-note">
+          Số dư khả dụng: <strong>{formatMoney(availableBalance)}</strong>
+          {insufficientAvailable ? ` · Cần thêm ${formatMoney(requiredAvailable - availableBalance)} để Mua ngay.` : ""}
+        </p>
+      )}
       {error && !open && <p className="notice" role="alert">{error}</p>}
       {done && <p className="form-success" role="status">{buyNowSuccessText()}</p>}
       <div className="action-row">
-        <button type="button" className="button button-primary" disabled={busy || done} onClick={() => { setError(""); setOpen(true); }}>Mua ngay</button>
-        {needsTopUp && <ButtonLink href={ROUTES.buyer.topUp} variant="secondary">Nạp tiền vào ví</ButtonLink>}
+        <button type="button" className="button button-primary" disabled={busy || done || insufficientAvailable} onClick={() => { setError(""); setOpen(true); }}>Mua ngay</button>
+        {(needsTopUp || insufficientAvailable) && <ButtonLink href={ROUTES.buyer.topUp} variant="secondary">Nạp tiền vào ví</ButtonLink>}
         {unknown && <button type="button" className="button button-secondary" disabled={busy} onClick={() => router.push(ROUTES.buyer.auctionPayment(auctionId))}>Kiểm tra lại</button>}
       </div>
       <ConfirmDialog open={open} title="Xác nhận mua ngay" confirmLabel="Khóa tiền và mua ngay" cancelLabel="Quay lại" busy={busy} onConfirm={() => void confirm()} onClose={() => setOpen(false)}>
         <p>{buyNowConfirmText(formatMoney(price))}</p>
+        {availableBalance !== undefined && <p className="status-note">Số dư khả dụng hiện có: <strong>{formatMoney(availableBalance)}</strong></p>}
         {error && <p className="notice" role="alert">{error}</p>}
       </ConfirmDialog>
     </Card>

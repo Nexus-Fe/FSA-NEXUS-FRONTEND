@@ -1,4 +1,4 @@
-export type AuctionStatus = "DRAFT" | "SCHEDULED" | "RUNNING" | "ENDED" | "SETTLED" | "FAILED" | "CANCELLED";
+export type AuctionStatus = "DRAFT" | "PENDING_APPROVAL" | "SCHEDULED" | "RUNNING" | "ENDED" | "SETTLED" | "FAILED" | "CANCELLED";
 export type Pagination = { pageIndex: number; pageSize: number; totalCount: number; totalPages: number; hasPreviousPage: boolean; hasNextPage: boolean };
 export type PagedData<T> = { items: T[]; pagination: Pagination };
 export type AuctionSummary = { auctionId: string; productId: string; skuId: string | null; sellerId: string; productName: string | null; primaryImageUrl: string | null; status: AuctionStatus; startPriceAmount: number; currentPriceAmount: number | null; bidCount: number; scheduledStartAt: string; scheduledEndAt: string; createdAt: string; /** Buy Now and reserve price fields; older servers do not send them. The reserve price itself is never sent. */ buyNowPriceAmount?: number | null; hasReservePrice?: boolean; isReserveMet?: boolean | null; buyNowAvailable?: boolean };

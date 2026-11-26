@@ -18,6 +18,7 @@ import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatMoney, resolveImageUrl } from "@/lib/presentation";
 import { AuctionOrderPayment } from "./AuctionOrderPayment";
 import { auctionOrderService } from "./services/auction-order.service";
+import { walletService } from "@/features/wallet/services/wallet.service";
 import { fulfillmentService, OrderProgressStepper, ShipmentTimelineList, TrackingCodeBar } from "@/features/fulfillment";
 import { AuctionBidLeaderboard } from "./AuctionBidLeaderboard";
 import { AuctionUnavailableState } from "./AuctionUnavailableState";
@@ -39,7 +40,7 @@ import { isAuctionId } from "./validation";
 
 export { normalizeAuctionStatus, statusLabel, auctionStatusTone } from "./contract";
 
-export const auctionStatuses: (AuctionStatus | "ALL")[] = ["ALL", "RUNNING", "SCHEDULED", "DRAFT", "ENDED", "SETTLED", "FAILED", "CANCELLED"];
+export const auctionStatuses: (AuctionStatus | "ALL")[] = ["ALL", "PENDING_APPROVAL", "RUNNING", "SCHEDULED", "DRAFT", "ENDED", "SETTLED", "FAILED", "CANCELLED"];
 
 export const dateText = (value: string | null | undefined) => value ? new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)) : "Chưa có dữ liệu";
 /** Text for a failed bid or other write: keeps the back end's own wording, because the bid rules are not all in the dictionary yet. */
@@ -99,6 +100,7 @@ export function AuctionRoomScreen() {
   const detail = useApiResource(isAuctionId(id) ? `auction:${id}` : null, (signal) => auctionService.detail(id, signal).then(({ data, headers }) => { const serverTime = Date.parse(headers.get("Date") ?? ""); return { auction: data.data, version: String(data.data.rowVersion), clockOffsetMs: Number.isFinite(serverTime) ? serverTime - Date.now() : 0 }; }));
   const requirement = useApiResource(isAuctionId(id) && user?.id ? `auction-deposit-requirement:${id}:${user.id}` : null, (signal) => auctionService.depositRequirement(id, signal));
   const deposit = useApiResource(isAuctionId(id) && user?.id ? `auction-deposit:${id}:${user.id}` : null, (signal) => auctionService.myDeposit(id, signal));
+  const wallet = useApiResource(isAuctionId(id) && user?.id && canBid ? `auction-wallet:${user.id}` : null, (signal) => walletService.getBalance(signal));
   const now = useClock(detail.data?.clockOffsetMs ?? 0);
   const [bidPage, setBidPage] = useState(1);
   const bids = useApiResource(isAuctionId(id) ? `bids:${id}:${bidPage}` : null, (signal) => auctionService.bids(id, bidPage, signal).then((response) => response.data));
@@ -113,13 +115,29 @@ export function AuctionRoomScreen() {
   });
   const liveConnected = realtime === "connected";
   useEffect(() => { if (!isAuctionId(id)) return; const timer = window.setInterval(() => { if (document.visibilityState === "visible") { reloadDetail(); reloadBids(); if (bidPage > 1) reloadRecentBids(); } }, refreshIntervalMs(liveConnected)); return () => window.clearInterval(timer); }, [id, bidPage, liveConnected, reloadDetail, reloadBids, reloadRecentBids]);
-  const auction = detail.data?.auction; const currentStatus = normalizeAuctionStatus(auction?.status ?? ""); const useLatestBid = Boolean(latestBid && latestBid.auctionId === id && latestBid.rowVersion >= (auction?.rowVersion ?? 0)); const scheduledEndAt = useLatestBid ? latestBid!.scheduledEndAt : auction?.scheduledEndAt ?? ""; const active = Boolean(now && currentStatus === "RUNNING" && new Date(scheduledEndAt).getTime() > now); const scheduled = currentStatus === "SCHEDULED";
-  const currentPrice = useLatestBid ? latestBid!.currentPriceAmount : auction?.currentPriceAmount ?? auction?.startPriceAmount ?? 0; const minimumBid = (useLatestBid || auction?.currentPriceAmount != null) ? currentPrice + (auction?.bidStepAmount ?? 0) : auction?.startPriceAmount ?? 0; const amountValue = Number(amount); const validAmount = /^\d+$/.test(amount) && Number.isSafeInteger(amountValue) && amountValue >= minimumBid;
+  const auction = detail.data?.auction; const currentStatus = normalizeAuctionStatus(auction?.status ?? ""); const useLatestBid = Boolean(latestBid && latestBid.auctionId === id && latestBid.rowVersion >= (auction?.rowVersion ?? 0)); const scheduledEndAt = useLatestBid ? latestBid!.scheduledEndAt : auction?.scheduledEndAt ?? ""; const active = Boolean(now && currentStatus === "RUNNING" && new Date(scheduledEndAt).getTime() > now); const scheduled = currentStatus === "SCHEDULED"; const pendingApproval = currentStatus === "PENDING_APPROVAL";
+  const startPrice = auction?.startPriceAmount ?? 0;
+  const bidStep = auction?.bidStepAmount ?? 0;
+  const hasBids = Boolean(useLatestBid || auction?.currentPriceAmount != null);
+  const currentPrice = useLatestBid ? latestBid!.currentPriceAmount : auction?.currentPriceAmount ?? startPrice;
+  const minimumBid = hasBids ? currentPrice + bidStep : (startPrice > 0 ? startPrice : bidStep);
+  const quickBidOptions = !hasBids && startPrice > 0
+    ? [
+        { label: "Giá khởi điểm", value: startPrice },
+        { label: "+1 bước giá", value: startPrice + bidStep },
+        { label: "+2 bước giá", value: startPrice + 2 * bidStep },
+      ]
+    : [
+        { label: "+1 bước giá", value: minimumBid },
+        { label: "+2 bước giá", value: (hasBids ? currentPrice : 0) + 2 * bidStep },
+        { label: "+5 bước giá", value: (hasBids ? currentPrice : 0) + 5 * bidStep },
+      ];
+  const amountValue = Number(amount); const validAmount = /^\d+$/.test(amount) && Number.isSafeInteger(amountValue) && amountValue >= minimumBid;
   const images = auction ? [...(auction.images ?? []).map((image) => image.url), auction.primaryImageUrl].filter((url, index, all): url is string => Boolean(url) && all.indexOf(url) === index) : [];
   const currentVersion = useLatestBid ? String(latestBid!.rowVersion) : detail.data?.version;
   const canSubmit = active && canBid && deposit.data?.canBid === true && auction?.sellerId !== user?.id && Boolean(currentVersion) && validAmount && !busy;
   async function submit(event: FormEvent) { event.preventDefault(); setError(""); setSuccess(""); if (!active) { setError("Phiên không còn nhận lượt đặt giá."); return; } if (!canBid) { setError("Tài khoản này không có quyền đặt giá."); return; } if (deposit.data?.canBid !== true) { setError("Bạn cần có cọc hợp lệ trước khi đặt giá. Hãy kiểm tra trạng thái cọc."); return; } if (auction?.sellerId === user?.id) { setError("Bạn không thể đặt giá cho phiên của mình."); return; } if (!currentVersion) { setError("Chưa thể đặt giá vì phiên chưa có mã phiên bản mới nhất. Hãy tải lại thông tin."); return; } if (!validAmount) { setError(`Giá đặt phải từ ${formatMoney(minimumBid)} trở lên.`); return; } setBusy(true); try { const placed = await auctionService.placeBid(id, { amount: amountValue }, currentVersion!); setLatestBid(placed); setSuccess("Đã đặt giá thành công."); setAmount(""); refreshAuction(); } catch (cause) { if (cause instanceof ApiError && (cause.status === 409 || cause.status === 412)) { setError("Giá phiên vừa thay đổi. Đang tải lại thông tin; hãy kiểm tra trước khi đặt lại giá."); refreshAuction(); } else setError(writeMessage(cause as Error)); } finally { setBusy(false); } }
-  function refreshAuction() { detail.reload(); bids.reload(); if (bidPage > 1) recentBids.reload(); }
+  function refreshAuction() { detail.reload(); bids.reload(); if (bidPage > 1) recentBids.reload(); wallet.reload(); }
   if (!isAuctionId(id)) return <NoData title="Mã phiên đấu giá không hợp lệ" />;
   if (detail.error instanceof ApiError && detail.error.status === 404) return <AuctionUnavailableState />;
   return <div className="auction-surface auction-room">
@@ -150,7 +168,7 @@ export function AuctionRoomScreen() {
     {detail.error && <div className="notice" role="alert"><p>{message(detail.error)}</p><button className="button button-secondary button-small" type="button" onClick={refreshAuction}>Tải lại phiên</button></div>}
     {error && <p className="notice" role="alert">{error}</p>}{success && <p className="form-success" role="status">{success}</p>}{outbidNotice && <p className="notice" role="status">{outbidNotice} <button type="button" className="button button-secondary button-small" onClick={() => setOutbidNotice("")}>Đã hiểu</button></p>}{realtime === "reconnecting" && <p className="auction-action-note" role="status">Mất kết nối cập nhật trực tiếp, đang nối lại. Giá vẫn được làm mới định kỳ.</p>}
     {detail.loading && !auction ? <SkeletonPage variant="detail" label="Đang tải phiên đấu giá…" /> : auction ? <>
-      {active && canBid && user && auction.sellerId !== user.id && <AuctionDepositPanel auctionId={id} userId={user.id} requirement={requirement.data ?? null} deposit={deposit.data ?? null} loading={requirement.loading || deposit.loading} error={requirement.error ?? deposit.error} reload={() => { requirement.reload(); deposit.reload(); }} />}
+      {active && canBid && user && auction.sellerId !== user.id && <AuctionDepositPanel auctionId={id} userId={user.id} requirement={requirement.data ?? null} deposit={deposit.data ?? null} loading={requirement.loading || deposit.loading} error={requirement.error ?? deposit.error} reload={() => { requirement.reload(); deposit.reload(); wallet.reload(); }} wallet={wallet} />}
       <div className="auction-room-grid">
         <div className="auction-room-main">
           <Card className="card-pad">
@@ -161,17 +179,47 @@ export function AuctionRoomScreen() {
             {specificationRows(auction.specifications).length > 0 && <><SectionHeading title="Thông tin sản phẩm" /><dl className="auction-specifications">{specificationRows(auction.specifications).slice(0, 8).map((row) => <div key={row.name}><dt>{row.name}</dt><dd>{row.value}</dd></div>)}</dl></>}
             {auction.sellerId && <p className="auction-seller-reference">Mã người bán: {auction.sellerId}</p>}
           </Card>
-          <Card className="card-pad auction-rules"><h2>Quy tắc phiên đấu giá</h2><ul><li>Giá đặt phải đạt mức tối thiểu của phiên.</li><li>Hạn thanh toán hiển thị sau khi phiên có kết quả.</li><li>Phiên có thể gia hạn {auction.antiSnipingExtensionMinutes} phút/lần, tối đa {auction.maxExtensionCount} lần.</li></ul></Card>
+          <Card className="card-pad auction-rules"><h2>Quy tắc phiên đấu giá</h2><ul><li>Lượt đặt đầu tiên tối thiểu bằng giá khởi điểm (hoặc 1 bước giá nếu giá khởi điểm 0đ); các lượt sau tăng ít nhất 1 bước giá.</li><li>Hạn thanh toán hiển thị sau khi phiên có kết quả.</li><li>Phiên có thể gia hạn {auction.antiSnipingExtensionMinutes} phút/lần, tối đa {auction.maxExtensionCount} lần.</li></ul></Card>
         </div>
         <aside className="auction-room-rail">
-          {auction.buyNowPriceAmount != null && canOfferBuyNow({ buyNowAvailable: auction.buyNowAvailable, buyNowPriceAmount: auction.buyNowPriceAmount, status: auction.status, sellerId: auction.sellerId, userId: user?.id, canBid }) && active && deposit.data?.canBid !== false && <AuctionBuyNowPanel auctionId={id} price={auction.buyNowPriceAmount} version={currentVersion} reload={refreshAuction} />}
+          {auction.buyNowPriceAmount != null && canOfferBuyNow({ buyNowAvailable: auction.buyNowAvailable, buyNowPriceAmount: auction.buyNowPriceAmount, status: auction.status, sellerId: auction.sellerId, userId: user?.id, canBid }) && active && deposit.data?.canBid !== false && <AuctionBuyNowPanel auctionId={id} price={auction.buyNowPriceAmount} version={currentVersion} reload={refreshAuction} availableBalance={wallet.data?.availableBalance} authorizedDepositAmount={deposit.data?.status.toUpperCase() === "AUTHORIZED" ? (deposit.data.amount ?? 0) : 0} />}
           <Card className="card-pad auction-bid-panel">
-            <div className="auction-status-line"><Badge tone={auctionTone(auction.status)}>{statusLabel(auction.status)}</Badge><div><span>{scheduled ? "Bắt đầu sau" : "Thời gian còn"}</span><strong><Countdown end={scheduled ? auction.scheduledStartAt : scheduledEndAt} offsetMs={detail.data?.clockOffsetMs} /></strong></div></div>
-            <p className="auction-price-label">Giá hiện tại</p><strong className="auction-live-price">{formatMoney(currentPrice)}</strong>
+            <div className="auction-status-line"><Badge tone={auctionTone(auction.status)}>{statusLabel(auction.status)}</Badge><div><span>{scheduled || pendingApproval ? "Bắt đầu sau" : "Thời gian còn"}</span><strong><Countdown end={scheduled || pendingApproval ? auction.scheduledStartAt : scheduledEndAt} offsetMs={detail.data?.clockOffsetMs} /></strong></div></div>
+            <p className="auction-price-label">{hasBids ? "Giá hiện tại" : "Giá khởi điểm (chưa có lượt đặt)"}</p><strong className="auction-live-price">{formatMoney(currentPrice)}</strong>
             <div className="auction-price-facts"><div><span>Giá khởi điểm</span><strong>{formatMoney(auction.startPriceAmount)}</strong></div><div><span>Lượt đặt giá</span><strong>{useLatestBid ? latestBid!.bidCount : auction.bidCount}</strong></div><div><span>Bước giá</span><strong>{formatMoney(auction.bidStepAmount)}</strong></div>{auction.hasReservePrice && <div><span>Giá sàn</span><strong>{auction.isReserveMet ? "Đã đạt" : "Chưa đạt"}</strong></div>}</div>
             {(useLatestBid ? latestBid!.extensionCount : auction.extensionCount) > 0 && <p className="auction-extension-note">Đã gia hạn {auction.antiSnipingExtensionMinutes} phút · lần {useLatestBid ? latestBid!.extensionCount : auction.extensionCount}/{auction.maxExtensionCount}</p>}<div className="auction-schedule-facts"><div><span>Bắt đầu</span><strong>{dateText(auction.scheduledStartAt)}</strong></div><div><span>Kết thúc</span><strong>{dateText(scheduledEndAt)}</strong></div></div>
-            {active && <><p className="auction-reputation">Hệ thống kiểm tra điểm uy tín khi đặt giá.</p><div className="auction-quick-bids"><button type="button" className="button button-secondary" disabled={!canBid || auction.sellerId === user?.id || busy} onClick={() => setAmount(String(minimumBid))}>+1 bước giá</button><button type="button" className="button button-secondary" disabled={!canBid || auction.sellerId === user?.id || busy} onClick={() => setAmount(String(currentPrice + 2 * auction.bidStepAmount))}>+2 bước giá</button><button type="button" className="button button-secondary" disabled={!canBid || auction.sellerId === user?.id || busy} onClick={() => setAmount(String(currentPrice + 5 * auction.bidStepAmount))}>+5 bước giá</button></div><form onSubmit={(event) => void submit(event)}>
-              <label className="field-wrap" htmlFor="auction-bid-amount">Mức giá bạn muốn đặt<input id="auction-bid-amount" className="field" type="number" inputMode="numeric" min={minimumBid} step="1" required value={amount} onChange={(event) => setAmount(event.target.value)} /></label>
+            {active && <>
+              {user && canBid && auction.sellerId !== user.id && (
+                <div className="auction-wallet-summary" style={{ padding: "10px 12px", borderRadius: 8, background: "var(--surface-2, #f8fafc)", border: "1px solid var(--border)", marginBottom: 12 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+                    <span style={{ fontSize: 12, color: "var(--muted)" }}>Số dư khả dụng</span>
+                    <strong style={{ fontSize: 15 }}>
+                      {wallet.loading && !wallet.data ? "Đang tải…" : wallet.data ? formatMoney(wallet.data.availableBalance) : "Không xác định"}
+                    </strong>
+                  </div>
+                  {wallet.data && wallet.data.lockedBalance > 0 && (
+                    <small style={{ display: "block", marginTop: 4, fontSize: 12, color: "var(--muted)" }}>
+                      Đang giữ cọc: {formatMoney(wallet.data.lockedBalance)}
+                    </small>
+                  )}
+                  {wallet.data && wallet.data.availableBalance < minimumBid && (
+                    <small style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginTop: 6, fontSize: 12 }}>
+                      <span style={{ color: "var(--muted)" }}>Số dư khả dụng đang thấp hơn mức đặt tối thiểu.</span>
+                      <Link href={ROUTES.buyer.topUp} style={{ fontWeight: 600, whiteSpace: "nowrap" }}>Nạp thêm</Link>
+                    </small>
+                  )}
+                </div>
+              )}
+              <p className="auction-reputation">Hệ thống kiểm tra điểm uy tín khi đặt giá.</p>
+              <div className="auction-quick-bids">
+                {quickBidOptions.map((option) => (
+                  <button key={option.label} type="button" className="button button-secondary" disabled={!canBid || auction.sellerId === user?.id || busy} onClick={() => setAmount(String(option.value))}>
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+              <form onSubmit={(event) => void submit(event)}>
+              <label className="field-wrap" htmlFor="auction-bid-amount">Mức giá bạn muốn đặt<input id="auction-bid-amount" className="field" type="number" inputMode="numeric" min={minimumBid} step="1" placeholder={`Tối thiểu ${formatMoney(minimumBid)}`} required value={amount} onChange={(event) => setAmount(event.target.value)} /></label>
               {amount && !validAmount && <small className="auction-field-error">Giá tối thiểu là {formatMoney(minimumBid)}.</small>}
               <button className="button button-primary full-width" disabled={!canSubmit}>{busy ? "Đang gửi giá…" : "Đặt giá"}</button>
             </form>
@@ -179,6 +227,7 @@ export function AuctionRoomScreen() {
             {user && !canBid && <p className="auction-action-note">Tài khoản này không có quyền đặt giá.</p>}{user && auction.sellerId === user.id && <p className="auction-action-note">Bạn không thể đặt giá cho phiên của mình.</p>}
             {!currentVersion && <p className="auction-action-note" role="status">Chưa có mã phiên bản mới nhất. Hãy tải lại trước khi đặt giá.</p>}
             </>}
+            {pendingApproval && <p className="auction-action-note">Phiên đang chờ Admin/Staff duyệt. Phiên sẽ mở lịch sau khi được phê duyệt.</p>}
             {scheduled && <p className="auction-action-note">Phiên chưa bắt đầu. Bạn có thể đặt giá khi phiên chuyển sang trạng thái đang diễn ra.</p>}
             {(currentStatus === "ENDED" || currentStatus === "SETTLED") && <div className="auction-terminal-actions"><p>Phiên đã kết thúc. {canBid ? "Xem kết quả để biết trạng thái lượt đấu của bạn." : "Đăng nhập bằng tài khoản người mua để xem kết quả cá nhân."}</p>{canBid && <ButtonLink href={ROUTES.buyer.auctionResult(id)}>Xem kết quả phiên</ButtonLink>}{!user && <ButtonLink href={ROUTES.auth.login} variant="secondary">Đăng nhập</ButtonLink>}</div>}
             {(currentStatus === "FAILED" || currentStatus === "CANCELLED" || currentStatus === "DRAFT") && <p className="auction-action-note">Phiên này hiện không nhận lượt đặt giá.</p>}

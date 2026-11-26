@@ -82,7 +82,11 @@ export function TransferScreen() {
 
   return (
     <>
-      <PageHeading title="Chuyển tiền giữa các ví" description="Chuyển tiền từ số dư khả dụng sang ví của người dùng khác. Thao tác không hoàn tác được." />
+      <PageHeading
+        title="Chuyển tiền giữa các ví"
+        description="Chuyển tiền từ số dư khả dụng sang ví của người dùng khác. Thao tác không hoàn tác được."
+        action={<Link className="button button-secondary button-small" href={ROUTES.buyer.wallet}>Quay lại ví</Link>}
+      />
       <Card className="card-pad">
         <form className="auth-fields" onSubmit={review} noValidate>
           {field("recipientUserId", "Mã người nhận (UUID)", { placeholder: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" })}

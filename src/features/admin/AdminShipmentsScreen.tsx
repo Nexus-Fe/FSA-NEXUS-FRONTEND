@@ -457,6 +457,7 @@ export function AdminShipmentsScreen() {
               <option value="">Tất cả trạng thái</option>
               <option value="ReadyToPick">Chờ lấy hàng</option>
               <option value="Picking">Đang lấy hàng</option>
+              <option value="Packed">Đã đóng gói</option>
               <option value="HandedOver">Đã lấy hàng (bàn giao)</option>
               <option value="InTransit">Đang vận chuyển</option>
               <option value="Delivered">Đã giao thành công</option>

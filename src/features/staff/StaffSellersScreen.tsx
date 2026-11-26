@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { AdminPagination, Badge, Card, NoData, PageHeading } from "@/components/ui/Primitives";
 import { FluidChoiceBar } from "@/components/ui/FluidChoiceBar";
@@ -198,6 +198,7 @@ function DocPreviewModal({
 
 export function StaffSellersScreen() {
   const router = useRouter();
+  const isAdmin = usePathname().startsWith("/admin/");
   const [status, setStatus] = useState("");
   const [page, setPage] = useState(1);
 
@@ -228,7 +229,7 @@ export function StaffSellersScreen() {
             </thead>
             <tbody>
               {records.map((registration) => {
-                const detailHref = ROUTES.staff.seller(registration.registrationId);
+                const detailHref = isAdmin ? ROUTES.admin.seller(registration.registrationId) : ROUTES.staff.seller(registration.registrationId);
                 return (
                   <tr
                     key={registration.registrationId}

@@ -5,7 +5,7 @@ type Page<T> = { items: T[]; pagination: { pageIndex: number; pageSize: number; 
 
 /** Auction `AdminAuctionSummaryDto`: an auction that needs attention (stuck deposit or overdue settlement). */
 export type AttentionAuction = {
-  auctionId: string; productId: string; sellerId: string; productName: string | null; status: string; startPriceAmount: number; currentPriceAmount: number | null;
+  auctionId: string; productId: string; sellerId: string; productName: string | null; primaryImageUrl?: string | null; status: string; startPriceAmount: number; currentPriceAmount: number | null;
   bidCount: number; scheduledStartAt: string; scheduledEndAt: string; hasAttentionDeposit: boolean; hasOverdueSettlement: boolean; needsAttention: boolean;
 };
 
@@ -41,6 +41,12 @@ export const auctionOpsService = {
   },
   async retrySync(auctionId: string): Promise<{ pushedCommerceSettlement: boolean; pushedCatalogUnlock: boolean; resetPendingFlags: number }> {
     return unwrap(await api.post<Envelope<{ pushedCommerceSettlement: boolean; pushedCatalogUnlock: boolean; resetPendingFlags: number }>>(`/api/v1/admin/auctions/${encodeURIComponent(auctionId)}/sync/retry`, {}));
+  },
+  async approveAuction(auctionId: string): Promise<{ auctionId: string; fromStatus: string; status: string; reviewedAt: string }> {
+    return unwrap(await api.post<Envelope<{ auctionId: string; fromStatus: string; status: string; reviewedAt: string }>>(`/api/v1/admin/auctions/${encodeURIComponent(auctionId)}/approve`, {}));
+  },
+  async rejectAuction(auctionId: string, reason: string): Promise<{ auctionId: string; fromStatus: string; status: string; reason: string | null; reviewedAt: string }> {
+    return unwrap(await api.post<Envelope<{ auctionId: string; fromStatus: string; status: string; reason: string | null; reviewedAt: string }>>(`/api/v1/admin/auctions/${encodeURIComponent(auctionId)}/reject`, { reason }));
   },
 };
 

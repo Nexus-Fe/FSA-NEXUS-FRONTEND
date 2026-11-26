@@ -33,6 +33,8 @@ export type SellerProduct = {
   categoryName?: string | null;
   saleType: string;
   status: string;
+  statusReason?: string | null;
+  rejectionReason?: string | null;
   minPrice?: number | null;
   primaryImageUrl?: string | null;
   variantCount: number;
@@ -156,9 +158,10 @@ export const sellerCatalogService = {
     }
     return categories;
   },
-  async list(page: number, keyword: string, signal?: AbortSignal, pageSize = 20) {
+  async list(page: number, keyword: string, signal?: AbortSignal, pageSize = 20, status?: string) {
     const query = new URLSearchParams({ page: String(page), pageSize: String(pageSize), saleType: "REGULAR" });
     if (keyword) query.set("keyword", keyword);
+    if (status) query.set("status", status);
     return unwrap(
       await api.get<ApiResponse<Paged<SellerProduct>> | Paged<SellerProduct>>(
         `/api/v1/seller/products?${query}`,
@@ -295,6 +298,7 @@ export const sellerCatalogService = {
   async updateVariant(
     variantId: string,
     input: {
+      skuCode?: string;
       name: string;
       price: number;
       currency?: string;
