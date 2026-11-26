@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { canChangeAddress, canCompleteOrder, canRepay, describeFeeChange } from "../src/features/commerce/order-rules.ts";
+import { canChangeAddress, canCompleteOrder, canRepay, describeBuyerOrderStatus, describeFeeChange, isCodPaymentMethod } from "../src/features/commerce/order-rules.ts";
 
 const NOW = Date.parse("2026-11-23T10:00:00Z");
 const future = "2026-11-23T10:10:00Z";
@@ -36,4 +36,13 @@ test("fee change direction", () => {
   assert.equal(describeFeeChange(30000, 40000), "up");
   assert.equal(describeFeeChange(30000, 20000), "down");
   assert.equal(describeFeeChange(30000, 30000), "same");
+});
+
+test("buyer order status labels distinguish COD from Wallet", () => {
+  assert.equal(isCodPaymentMethod("Cod"), true);
+  assert.equal(isCodPaymentMethod("Wallet"), false);
+  assert.equal(describeBuyerOrderStatus("PendingPayment", "Cod"), "Chờ người bán xác nhận (COD)");
+  assert.equal(describeBuyerOrderStatus("PendingPayment", "Wallet"), "Chờ thanh toán");
+  assert.equal(describeBuyerOrderStatus("SellerRejected", "Cod"), "Đã bị từ chối");
+  assert.equal(describeBuyerOrderStatus("SellerRejected", "Wallet"), "Đã bị từ chối · Đã hoàn tiền");
 });

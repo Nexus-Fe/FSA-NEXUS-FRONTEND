@@ -359,7 +359,7 @@ async function ensureAccountActive(path: string): Promise<void> {
   }
   await accountCheckInFlight.promise;
   const currentToken = getStoredToken(SESSION_ACCESS_KEY);
-  if (!currentToken) throw new ApiError("Phiên đăng nhập đã kết thúc.", 401, null, "SESSION_INVALIDATED");
+  if (!currentToken) return;
   if (currentToken !== accessToken) await ensureAccountActive(path);
 }
 

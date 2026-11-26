@@ -10,6 +10,34 @@ export type RulesSubOrder = { status: string; paymentMethod?: string | null };
 
 const key = (status: string | null | undefined) => normalizeStatus(status);
 
+export function isCodPaymentMethod(method: string | null | undefined): boolean {
+  return (method ?? "").trim().toUpperCase() === "COD";
+}
+
+export function describeBuyerOrderStatus(status: string, paymentMethod?: string | null): string {
+  const k = status.replace(/[^a-z]/gi, "").toUpperCase();
+  if (k === "PENDINGPAYMENT" && isCodPaymentMethod(paymentMethod)) return "Chờ người bán xác nhận (COD)";
+  if (k === "SELLERREJECTED" && isCodPaymentMethod(paymentMethod)) return "Đã bị từ chối";
+  return (
+    (
+      {
+        PENDINGPAYMENT: "Chờ thanh toán",
+        PAID: "Đã thanh toán · Đã chuyển đến Seller",
+        PENDINGCONFIRMATION: "Chờ người bán xác nhận",
+        CONFIRMED: "Đơn hàng đã được khởi tạo thành công",
+        SELLERACCEPTED: "Đơn hàng đã được khởi tạo thành công",
+        SHIPPING: "Đang giao hàng",
+        SHIPPED: "Đang giao hàng",
+        DELIVERED: "Đã giao hàng · Chờ xác nhận nhận hàng",
+        COMPLETED: "Đã nhận hàng · Hoàn tất",
+        SELLERREJECTED: "Đã bị từ chối · Đã hoàn tiền",
+        CANCELLED: "Đã hủy",
+        REFUNDED: "Đã hoàn tiền",
+      } as Record<string, string>
+    )[k] ?? status
+  );
+}
+
 /** `RepayOrderAsync`: only an order in PendingPayment, before its deadline, and not cash on delivery. */
 export function canRepay(order: RulesOrder, subOrders: readonly RulesSubOrder[], now: number): boolean {
   if (key(order.status) !== "PENDINGPAYMENT") return false;

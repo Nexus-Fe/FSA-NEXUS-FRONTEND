@@ -65,7 +65,10 @@ function PanelContent({ cartItemIds, selectedCodes, disabled = false, cashOnDeli
       }
       const item = vouchers.find((voucher) => voucher.code.toUpperCase() === code);
       if (item) toggle(item);
-      else if (!selectedCodes.includes(code)) onChange([...selectedCodes, code]);
+      else if (cashOnDelivery && result.scopeType === "System") {
+        setError("Mã của sàn không dùng được khi thanh toán khi nhận hàng (COD).");
+        return;
+      } else if (!selectedCodes.includes(code)) onChange([...selectedCodes, code]);
       setManualCode("");
     } catch (cause) {
       setError(describeVoucherFailure(cause));

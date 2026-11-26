@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ROUTES } from "@/constants/routes";
 import { useSession } from "@/components/auth/SessionProvider";
 import { Icon } from "@/components/ui/Icon";
+import { FluidChoiceBar } from "@/components/ui/FluidChoiceBar";
 import { AdminPagination, Badge, ButtonLink, Card, clickableRowProps, NoData, PageHeading, SectionHeading } from "@/components/ui/Primitives";
 import { PaginationBar } from "@/components/ui/PaginationBar";
 import { RowActionsMenu } from "@/components/ui/RowActionsMenu";
@@ -34,6 +35,7 @@ import { MAX_INVENTORY_QUANTITY } from "./services/inventory-quantity";
 import { InventoryAlertsPanel } from "./components/InventoryAlertsPanel";
 import { InventoryLedgerPanel } from "./components/InventoryLedgerPanel";
 import { describeCategoryError, leafCategoryOptions } from "./services/category-options";
+import { canSellerAccept, describeSellerOrderStatus, isCodPayment, paymentMethodLabel, sellerOrderStatusTone } from "./seller-order-rules";
 
 export { BecomeSellerScreen } from "./BecomeSellerScreen";
 
@@ -1401,6 +1403,14 @@ export function SellerProductEditorScreen({ initialProduct }: { initialProduct?:
   );
 }
 
+const SELLER_INVENTORY_TABS = [
+  { value: "stock", label: "Sản phẩm & SKU trong kho" },
+  { value: "alerts", label: "Cảnh báo tồn kho" },
+  { value: "ledger", label: "Sổ kho" },
+] as const;
+
+type SellerInventoryTabKey = (typeof SELLER_INVENTORY_TABS)[number]["value"];
+
 export function SellerInventoryScreen() {
   const { user } = useSession();
   const sellerProfile = useApiResource(
@@ -1434,6 +1444,7 @@ export function SellerInventoryScreen() {
     (signal) => sellerCatalogService.listAllProductDetails(signal),
   );
 
+  const [activeTab, setActiveTab] = useState<SellerInventoryTabKey>("stock");
   const [productId, setProductId] = useState("");
   const [searchKeyword, setSearchKeyword] = useState("");
   const [stockFilter, setStockFilter] = useState<"ALL" | "IN_STOCK" | "OUT_OF_STOCK" | "UNDECLARED">("ALL");
@@ -1732,11 +1743,21 @@ export function SellerInventoryScreen() {
         </Card>
       </div>
 
-      <InventoryAlertsPanel />
-      <InventoryLedgerPanel />
+      <div style={{ marginBottom: 16 }}>
+        <FluidChoiceBar
+          options={SELLER_INVENTORY_TABS}
+          value={activeTab}
+          onChange={setActiveTab}
+          ariaLabel="Chuyển đổi mục quản lý kho"
+        />
+      </div>
+
+      {activeTab === "alerts" && <InventoryAlertsPanel />}
+      {activeTab === "ledger" && <InventoryLedgerPanel />}
 
       {/* Full Warehouse Product & SKU Inventory Management */}
-      <Card className="card-pad seller-inventory-selector" style={{ marginBottom: 20 }}>
+      {activeTab === "stock" && (
+        <Card className="card-pad seller-inventory-selector" style={{ marginBottom: 20 }}>
         <SectionHeading
           title={`Danh sách toàn bộ Sản phẩm & SKU trong kho (${filteredRows.length}/${totalSkusCount} SKU)`}
         />
@@ -1884,7 +1905,8 @@ export function SellerInventoryScreen() {
             </p>
           )
         )}
-      </Card>
+        </Card>
+      )}
 
       {/* Stock Intake Modal */}
       {intakeModalOpen && (
@@ -2267,7 +2289,7 @@ export function SellerShipmentsScreen() {
                       <td style={{ fontVariantNumeric: "tabular-nums" }}>
                         <strong>{formatMoney(sub.totalAmount)}</strong>
                       </td>
-                      <td><Badge tone={sellerOrderStatusTone(sub.status)}>{describeSellerOrderStatus(sub.status)}</Badge></td>
+                      <td><Badge tone={sellerOrderStatusTone(sub.status, sub.paymentMethod)}>{describeSellerOrderStatus(sub.status, sub.paymentMethod)}</Badge></td>
                       <td>
                         <Link className="tracking-icon-btn" href={shipmentHref}>
                           <Icon name="mapPin" size={14} />
@@ -2362,36 +2384,6 @@ type SellerPaged<T> = {
   pagination: { pageIndex: number; pageSize: number; totalCount: number; totalPages: number; hasNextPage: boolean };
 };
 
-function describeSellerOrderStatus(status: string): string {
-  const key = status.replace(/[^a-z]/gi, "").toUpperCase();
-  return (
-    (
-      {
-        PENDINGPAYMENT: "Chờ thanh toán",
-        PAID: "Đã thanh toán · Chờ bạn xác nhận",
-        PENDINGCONFIRMATION: "Chờ bạn xác nhận",
-        PROCESSING: "Đang chuẩn bị hàng",
-        CONFIRMED: "Đã xác nhận · Đã khởi tạo đơn hàng",
-        SELLERACCEPTED: "Đã xác nhận · Đã khởi tạo đơn hàng",
-        SHIPPING: "Đang giao hàng",
-        SHIPPED: "Đang giao hàng",
-        DELIVERED: "Đã giao · Chờ người mua xác nhận",
-        COMPLETED: "Hoàn tất · Đã cộng tiền vào ví",
-        SELLERREJECTED: "Đã từ chối · Đã hoàn tiền cho người mua",
-        CANCELLED: "Đã hủy",
-      } as Record<string, string>
-    )[key] ?? status
-  );
-}
-
-function sellerOrderStatusTone(status: string): "sky" | "amber" | "green" | "red" {
-  const key = status.replace(/[^a-z]/gi, "").toUpperCase();
-  if (key === "CONFIRMED" || key === "SELLERACCEPTED" || key === "PROCESSING") return "amber";
-  if (key === "COMPLETED") return "green";
-  if (key === "CANCELLED" || key === "SELLERREJECTED") return "red";
-  return "sky";
-}
-
 export function SellerOrdersScreen() {
   const router = useRouter();
   const [page, setPage] = useState(1);
@@ -2430,7 +2422,7 @@ export function SellerOrdersScreen() {
       <PageHeading
         overline="Kênh người bán"
         title="Đơn cần xử lý"
-        description="Các đơn hàng người mua đã thanh toán bằng Ví Nexus và chuyển tới gian hàng của bạn."
+        description="Các đơn hàng người mua đã đặt (thanh toán bằng Ví Nexus hoặc COD) và chuyển tới gian hàng của bạn."
       />
       {(resource.error || actionError) && (
         <p role="alert" className="notice">
@@ -2454,8 +2446,9 @@ export function SellerOrdersScreen() {
           Trạng thái đơn
           <select className="select-field" value={statusFilter} onChange={(event) => { setPage(1); setStatusFilter(event.target.value); }}>
             <option value="">Tất cả trạng thái</option>
-            <option value="PendingConfirmation">Chờ xác nhận</option>
-            <option value="Processing">Đang chuẩn bị hàng</option>
+            <option value="PendingPayment">Chờ xác nhận (COD) / Chờ thanh toán</option>
+            <option value="Paid">Đã thanh toán · Chờ xác nhận</option>
+            <option value="Confirmed">Đã xác nhận</option>
             <option value="Shipped">Đang giao hàng</option>
             <option value="Delivered">Đã giao</option>
             <option value="Completed">Hoàn tất</option>
@@ -2479,8 +2472,7 @@ export function SellerOrdersScreen() {
               </thead>
               <tbody>
                 {resource.data.items.map((sub) => {
-                  const normalizedStatus = sub.status.replace(/[^a-z]/gi, "").toUpperCase();
-                  const canAccept = ["PAID", "PENDINGCONFIRMATION"].includes(normalizedStatus);
+                  const canAccept = canSellerAccept(sub);
                   return (
                     <tr
                       key={sub.subOrderId}
@@ -2503,10 +2495,16 @@ export function SellerOrdersScreen() {
                         <div style={{ fontSize: 11, color: "var(--muted)" }}>
                           Ship: {formatMoney(sub.shippingFeeAmount)}
                         </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
+                          <Badge tone={isCodPayment(sub.paymentMethod) ? "amber" : "slate"}>{paymentMethodLabel(sub.paymentMethod)}</Badge>
+                          {isCodPayment(sub.paymentMethod) && (
+                            <span style={{ fontSize: 11, color: "var(--muted)" }}>Thu hộ: {formatMoney(sub.totalAmount)}</span>
+                          )}
+                        </div>
                       </td>
                       <td>
-                        <Badge tone={sellerOrderStatusTone(sub.status)}>
-                          {describeSellerOrderStatus(sub.status)}
+                        <Badge tone={sellerOrderStatusTone(sub.status, sub.paymentMethod)}>
+                          {describeSellerOrderStatus(sub.status, sub.paymentMethod)}
                         </Badge>
                       </td>
                       <td>
@@ -2610,7 +2608,7 @@ export function SellerOrderDetailScreen() {
     (signal) => fulfillmentService.getSubOrderTimeline(subOrderId, signal),
   );
   const canRetryShipment = Boolean(accepted && shipmentInfo.data && needsShipmentRetry(sub?.status, shipmentInfo.data.trackingCode));
-  const canAccept = Boolean(sub && ["PAID", "PENDINGCONFIRMATION"].includes(sub.status.replace(/[^a-z]/gi, "").toUpperCase()));
+  const canAccept = Boolean(sub && canSellerAccept(sub));
   const pickShifts = useApiResource(canAccept ? "shipping-pick-shifts" : null, (signal) => fulfillmentService.getPickShifts(signal));
   const [selectedPickShiftId, setSelectedPickShiftId] = useState<number | null>(null);
 
@@ -2657,7 +2655,9 @@ export function SellerOrderDetailScreen() {
     try {
       await sellerOrdersService.reject(sub.orderId, sub.subOrderId, rejectReason.trim());
       setFeedback(
-        "Đã từ chối đơn hàng. Vui lòng kiểm tra trạng thái hoàn tiền trên ví của người mua.",
+        isCodPayment(sub.paymentMethod)
+          ? "Đã từ chối đơn hàng COD."
+          : "Đã từ chối đơn hàng. Vui lòng kiểm tra trạng thái hoàn tiền trên ví của người mua.",
       );
       setRejecting(false);
       setRejectReason("");
@@ -2700,15 +2700,21 @@ export function SellerOrderDetailScreen() {
               }}
             >
               <h2 style={{ margin: 0 }}>Đơn hàng {sub.subOrderNo}</h2>
-              <Badge tone={sellerOrderStatusTone(sub.status)}>{describeSellerOrderStatus(sub.status)}</Badge>
+              <Badge tone={sellerOrderStatusTone(sub.status, sub.paymentMethod)}>{describeSellerOrderStatus(sub.status, sub.paymentMethod)}</Badge>
             </div>
             <div className="seller-order-detail-columns">
               <div className="seller-order-detail-main">
             <div className="seller-order-detail-facts">
             <div className="info-row">
               <span>Phương thức thanh toán</span>
-              <strong>Ví Nexus ({sub.paymentMethod})</strong>
+              <Badge tone={isCodPayment(sub.paymentMethod) ? "amber" : "slate"}>{paymentMethodLabel(sub.paymentMethod)}</Badge>
             </div>
+            {isCodPayment(sub.paymentMethod) && (
+              <div className="info-row">
+                <span>Thu hộ (COD)</span>
+                <strong>{formatMoney(sub.totalAmount)}</strong>
+              </div>
+            )}
             <div className="info-row">
               <span>Người nhận</span>
               <strong>
