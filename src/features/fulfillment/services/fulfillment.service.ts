@@ -1,5 +1,14 @@
 import { api, unwrap, type ApiResponse } from "@/lib/api/client";
-import type { OrderShipmentTracking, Shipment, ShipmentDetail, ShipmentTimeline } from "../types";
+import type {
+  OrderShipmentTracking,
+  PagedShipments,
+  Shipment,
+  ShipmentDetail,
+  ShipmentFilterQuery,
+  ShipmentTimeline,
+  SimulateShipperStatusParams,
+  SimulateShipperStatusResult,
+} from "../types";
 
 export const fulfillmentService = {
   async getShipmentByTrackingNumber(trackingNumber: string, signal?: AbortSignal): Promise<Shipment> {
@@ -48,6 +57,24 @@ export const fulfillmentService = {
   async getPrintLabel(shipmentId: string, pageSize: "A5" | "80x80" | "52x70" = "A5"): Promise<{ shipmentId: string; trackingCode: string; printToken: string; printUrl: string; pageSize: string }> {
     return unwrap(await api.get<ApiResponse<{ shipmentId: string; trackingCode: string; printToken: string; printUrl: string; pageSize: string }> | { shipmentId: string; trackingCode: string; printToken: string; printUrl: string; pageSize: string }>(
       `/api/v1/shipments/${encodeURIComponent(shipmentId)}/print-label?pageSize=${encodeURIComponent(pageSize)}`,
+    ));
+  },
+  /** Lists shipments with optional filter query (admin/seller/staff). */
+  async listShipments(query?: ShipmentFilterQuery, signal?: AbortSignal): Promise<PagedShipments> {
+    const params = new URLSearchParams();
+    if (query?.page) params.set("page", String(query.page));
+    if (query?.pageSize) params.set("pageSize", String(query.pageSize));
+    if (query?.trackingNumber) params.set("trackingNumber", query.trackingNumber);
+    if (query?.status) params.set("status", query.status);
+    if (query?.orderId) params.set("orderId", query.orderId);
+    const qs = params.toString() ? `?${params.toString()}` : "";
+    return unwrap(await api.get<ApiResponse<PagedShipments> | PagedShipments>(`/api/v1/shipments${qs}`, { signal }));
+  },
+  /** Simulates shipper status updates for sandbox testing (admin/seller/staff). */
+  async simulateShipperStatus(params: SimulateShipperStatusParams): Promise<SimulateShipperStatusResult> {
+    return unwrap(await api.post<ApiResponse<SimulateShipperStatusResult> | SimulateShipperStatusResult>(
+      `/api/v1/shipments/${encodeURIComponent(params.trackingNumber)}/simulate-shipper-status`,
+      params,
     ));
   },
 };
