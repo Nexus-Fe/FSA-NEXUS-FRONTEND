@@ -4,7 +4,7 @@
 }
 
 .buyer-glass-shell .buyer-header {
-  background: #f4f6ee var(--site-background-image) center / cover no-repeat fixed;
+  background: var(--page-bg);
   border-color: rgba(35, 83, 71, .12);
   box-shadow: none;
   -webkit-backdrop-filter: none;
@@ -914,15 +914,14 @@
 .auth-split-body .field:focus { background: var(--surface); }
 .auth-split-body .field::placeholder { color: var(--muted); }
 
-/* Shared botanical backdrop for public pages, authentication, and all roles. */
-body,
+/* Shared page backdrop. The grid and glow layers live in theme.css (body::before / body::after); body only supplies the base colour. */
+body {
+  background-color: var(--page-bg);
+}
+
+/* The auth split screen stays transparent so the shared backdrop shows through. */
 .auth-split-container {
-  background-color: #f4f6ee;
-  background-image: var(--site-background-image);
-  background-position: center;
-  background-repeat: no-repeat;
-  background-size: cover;
-  background-attachment: fixed;
+  background: transparent;
 }
 
 /* Keep the botanical canvas beneath a readable mint surface in detail dialogs. */
@@ -1040,7 +1039,7 @@ body,
 .buyer-header,
 .auth-header,
 .mobile-menu {
-  background: #f4f6ee var(--site-background-image) center / cover no-repeat fixed;
+  background: var(--page-bg);
 }
 
 /* Shared frosted containers; images and text remain sharp above the surface. */
@@ -1108,7 +1107,7 @@ body,
 }
 
 @media (max-width: 900px) {
-  .auth-split-container { background: #f4f6ee var(--site-background-image) center / cover no-repeat !important; }
+  .auth-split-container { background: transparent !important; }
   .auth-split-right { background: transparent; }
 }
 .auth-submit-btn {

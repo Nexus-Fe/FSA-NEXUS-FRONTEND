@@ -23,3 +23,24 @@ export type MyDepositItem = { depositId: string; auctionId: string; auctionTitle
 export type MyWatchlistItem = { auctionId: string; productId: string; skuId: string | null; sellerId: string; productName: string | null; primaryImageUrl: string | null; status: AuctionStatus | string; startPriceAmount: number; currentPriceAmount: number | null; bidCount: number; notifyOnNewBid: boolean; scheduledStartAt: string; scheduledEndAt: string; watchedAt: string };
 export type WatchState = { isWatching: boolean; notifyOnNewBid: boolean };
 export type SellerAuctionPricing = { auctionId: string; startPriceAmount: number; reservePriceAmount: number | null; buyNowPriceAmount: number | null };
+
+export type AuctionReportReason =
+  | "SuspectedShillBidding"
+  | "CounterfeitOrFake"
+  | "MisleadingInfo"
+  | "ExternalContact"
+  | "Other";
+
+export type CreateAuctionReportRequest = {
+  reason: AuctionReportReason;
+  description: string;
+};
+
+export type CreateAuctionReportResponse = {
+  reportId: string;
+  auctionId: string;
+  reason: AuctionReportReason;
+  status: string;
+  createdAt: string;
+};
+
