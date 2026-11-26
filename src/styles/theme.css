@@ -66,7 +66,8 @@
   /* Màu chữ phụ / xám mờ */
   --canvas: #8eb69b;
   /* Nền xanh chung của toàn website */
-  --site-background-image: url("/botanical-background.png");
+  /* Ảnh nền cũ đã được thay bằng nền lưới + ánh sáng ở mục 6 bên dưới; giữ biến này là `none` để các chỗ còn dùng nó không vẽ ảnh nữa. */
+  --site-background-image: none;
   --surface: rgba(255, 255, 255, 0.94);
   /* Nền sáng cho phần nội dung và form */
   --line: #d4e4d9;
@@ -86,4 +87,51 @@
   /* Vàng: Chờ xử lý, cảnh báo */
   --amber-soft: #fffbeb;
   --indigo: #4f46e5;
+
+  /* =======================================================================
+   * 6. NỀN TRANG (SITE BACKGROUND): Crimson & Alabaster
+   * Đổi các giá trị này để đổi nền toàn site. Lớp vẽ nằm ở cuối file.
+   * ======================================================================= */
+  --page-bg: #F2F1EB;
+  /* Nền trắng ngà */
+  --page-grid-color: rgba(106, 7, 16, 0.08);
+  /* Màu đường lưới (đỏ đô nhạt) */
+  --page-grid-size: 56px;
+  /* Kích thước một ô lưới */
+  --page-glow-a: rgba(106, 7, 16, 0.12);
+  /* Quầng sáng đỏ góc trên phải */
+  --page-glow-b: rgba(180, 142, 116, 0.16);
+  /* Quầng sáng taupe góc dưới trái */
+  --page-grain-opacity: 0.04;
+  /* Độ đậm hạt giấy */
+}
+
+
+/* =========================================================================
+ * LỚP NỀN TOÀN TRANG: lưới + quầng sáng (::before) và hạt giấy (::after).
+ * Cố định theo khung nhìn, nằm dưới mọi nội dung và không bắt chuột.
+ * Màu lấy từ các biến --page-* ở mục 6.
+ * ========================================================================= */
+body::before,
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
+body::before {
+  background-color: var(--page-bg);
+  background-image:
+    linear-gradient(to right, var(--page-grid-color) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--page-grid-color) 1px, transparent 1px),
+    radial-gradient(circle at 82% 18%, var(--page-glow-a) 0%, transparent 50%),
+    radial-gradient(circle at 15% 85%, var(--page-glow-b) 0%, transparent 45%);
+  background-size: var(--page-grid-size) var(--page-grid-size), var(--page-grid-size) var(--page-grid-size), 100% 100%, 100% 100%;
+}
+
+body::after {
+  opacity: var(--page-grain-opacity);
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
 }
