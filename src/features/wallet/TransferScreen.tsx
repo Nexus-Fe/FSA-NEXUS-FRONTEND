@@ -41,7 +41,14 @@ export function TransferScreen() {
     setBusy(true);
     setFailure("");
     try {
-      const result = unwrap(await api.post<ApiResponse<TransferResult> | TransferResult>("/api/v1/wallets/transfers", toTransferRequest(form)));
+      const idempotencyKey = crypto.randomUUID();
+      const result = unwrap(
+        await api.post<ApiResponse<TransferResult> | TransferResult>(
+          "/api/v1/wallets/transfers",
+          toTransferRequest(form),
+          { headers: { "Idempotency-Key": idempotencyKey } },
+        ),
+      );
       setDone(result);
       setConfirming(false);
     } catch (cause) {

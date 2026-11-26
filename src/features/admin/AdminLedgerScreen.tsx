@@ -25,14 +25,14 @@ export function AdminLedgerScreen() {
     if (busy) return;
     const id = walletId.trim();
     const value = Number(amount);
-    if (!isWalletId(id)) { setError("Mã ví điện tử phải đúng định dạng UUID."); return; }
+    if (!isWalletId(id)) { setError("Mã người dùng (User ID) phải đúng định dạng UUID."); return; }
     if (!Number.isSafeInteger(value) || value <= 0) { setError("Số tiền điều chỉnh phải là số nguyên dương."); return; }
     if (!reason.trim()) { setError("Vui lòng nhập lý do hoặc căn cứ đối soát."); return; }
     setBusy(true); setError(""); setSuccess("");
     try {
       const result = await adminLedgerService.adjustBalance(id, { amount: value, adjustmentType, reason: reason.trim() });
       setHistory((current) => [{ ...result, adjustmentType }, ...current]);
-      setSuccess(`Đã ghi bút toán cho ví ${result.walletId}. Số dư mới: ${formatMoney(result.balanceAfter)}.`);
+      setSuccess(`Đã ghi bút toán cho ví của người dùng ${id}. Số dư mới: ${formatMoney(result.balanceAfter)}.`);
       setWalletId(""); setAmount(""); setReason("");
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : cause instanceof Error ? cause.message : "Không thể điều chỉnh số dư ví.");
@@ -46,7 +46,7 @@ export function AdminLedgerScreen() {
       {error && <p className="notice" role="alert">{error}</p>}
       {success && <p className="form-success" role="status">{success}</p>}
       <form className="auth-fields" onSubmit={(event) => void handleAdjustBalance(event)}>
-        <label className="field-wrap">Mã ví điện tử (Wallet ID)<input className="field" required value={walletId} onChange={(event) => setWalletId(event.target.value)} placeholder="UUID của ví" /></label>
+        <label className="field-wrap">Mã người dùng (User ID)<input className="field" required value={walletId} onChange={(event) => setWalletId(event.target.value)} placeholder="UUID của tài khoản người dùng sở hữu ví" /></label>
         <div className="split">
           <label className="field-wrap">Loại bút toán<select className="select-field" value={adjustmentType} onChange={(event) => setAdjustmentType(event.target.value as "Credit" | "Debit")}><option value="Credit">Cộng tiền vào ví</option><option value="Debit">Trừ tiền khỏi ví</option></select></label>
           <label className="field-wrap">Số tiền (₫)<input className="field" type="number" min="1" step="1" required value={amount} onChange={(event) => setAmount(event.target.value)} /></label>

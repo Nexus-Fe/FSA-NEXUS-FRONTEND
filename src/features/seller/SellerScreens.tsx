@@ -2815,7 +2815,6 @@ export function SellerOrderDetailScreen() {
                     carrierName={shipmentInfo.data.carrierName}
                     trackingCode={shipmentInfo.data.trackingCode}
                     labelPrintUrl={shipmentInfo.data.labelPrintUrl}
-                    shipmentId={sub.subOrderId}
                     showPrintLabel
                   />
                 )}

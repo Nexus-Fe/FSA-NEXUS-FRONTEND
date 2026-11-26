@@ -23,7 +23,7 @@ export const accountService = {
     form.append("backCccd", files.back);
     if (files.license) form.append("businessLicense", files.license);
     if (registrationId) form.append("registrationId", registrationId);
-    return unwrap(await api.post<unknown>("/api/v1/seller/registration/documents", form));
+    return unwrap(await api.post<unknown>("/api/v1/sellers/registration/documents", form));
   },
   async reputationPolicy(signal?: AbortSignal): Promise<ReputationPolicy> {
     return unwrap(await api.get<ReputationPolicy>("/api/v1/reputation/policy", { signal }));

@@ -35,12 +35,12 @@ export function StaffSellersScreen() {
   const [status, setStatus] = useState("PENDING");
   const queryStatus = status ? `&status=${encodeURIComponent(status)}` : "";
   const resource = useApiResource(
-    `/api/v1/admin/seller-registrations?page=1&limit=50${queryStatus}`,
+    `/api/v1/admin/seller-registrations?page=1&pageSize=50${queryStatus}`,
     async () =>
       rows(
         unwrap(
           await api.get<ApiResponse<any>>(
-            `/api/v1/admin/seller-registrations?page=1&limit=50${queryStatus}`,
+            `/api/v1/admin/seller-registrations?page=1&pageSize=50${queryStatus}`,
           ),
         ),
       ),
@@ -164,7 +164,7 @@ export function StaffSellerDetailScreen() {
         const listResult = rows(
           unwrap(
             await api.get<ApiResponse<any>>(
-              "/api/v1/admin/seller-registrations?page=1&limit=100",
+              "/api/v1/admin/seller-registrations?page=1&pageSize=100",
             ),
           ),
         );
