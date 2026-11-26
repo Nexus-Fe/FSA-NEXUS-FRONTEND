@@ -14,40 +14,40 @@
   --font-ui: var(--font-plus-jakarta-sans, "Plus Jakarta Sans"), "Segoe UI", Arial, sans-serif;
 
   /* =======================================================================
-   * 1. MÀU XANH CHỦ ĐẠO (DEEP FOREST)
-   * Thay đổi mã hex này để thay đổi toàn bộ màu xanh của web.
+   * 1. MÀU CHỦ ĐẠO (DEEP BURGUNDY - ĐỎ RƯỢU VANG)
+   * Thay đổi mã hex này để thay đổi toàn bộ màu thương hiệu của web.
    * ======================================================================= */
-  --primary: #235347;
+  --primary: #6e1e2b;
   /* Màu chính: Nút bấm (Buttons), liên kết, tab active, brand */
-  --primary-hover: #0b2b26;
+  --primary-hover: #541520;
   /* Màu khi di chuột (hover) vào nút bấm hoặc menu */
-  --primary-active: #051f20;
+  --primary-active: #3d0e17;
   /* Màu khi bấm giữ (active/click) */
-  --primary-soft: #daf1de;
+  --primary-soft: #f5e9eb;
   /* Nền nhạt: Huy hiệu (badge), avatar, card highlight */
-  --primary-border: #8eb69b;
-  /* Viền nhạt màu xanh đồng bộ */
-  --primary-rgb: 35, 83, 71;
+  --primary-border: #c49099;
+  /* Viền nhạt đồng bộ */
+  --primary-rgb: 110, 30, 43;
   /* RGB của --primary (dùng cho hiệu ứng đổ bóng shadow, độ mờ) */
-  --forest-mid: #163832;
-  --mint: #8eb69b;
-  --mint-light: #daf1de;
+  --forest-mid: #3a1720;
+  --mint: #b98b93;
+  --mint-light: #f5e9eb;
   --glass-surface: radial-gradient(ellipse at 12% 0%, rgba(255, 255, 255, .56), transparent 48%), linear-gradient(145deg, rgba(255, 255, 255, .42), rgba(255, 255, 255, .2) 58%, rgba(255, 255, 255, .3));
   --dialog-glass-surface: radial-gradient(ellipse at 12% 0%, rgba(255, 255, 255, .5), transparent 48%), linear-gradient(145deg, color-mix(in srgb, var(--primary-soft) 96%, transparent), color-mix(in srgb, var(--primary-soft) 90%, transparent));
   --glass-border: rgba(255, 255, 255, 0.88);
-  --glass-shadow: 0 16px 36px rgba(5, 31, 32, 0.13);
+  --glass-shadow: 0 16px 36px rgba(31, 32, 36, 0.12);
 
   /* =======================================================================
-   * 2. ĐIỂM NHẤN SÁNG TRÊN NỀN TỐI (HERO / AUTH EFFECTS)
+   * 2. ĐIỂM NHẤN SÁNG TRÊN NỀN TỐI (CHARCOAL HERO / AUTH EFFECTS)
    * Các chi tiết phát sáng và chữ nổi bật ở cột trái trang đăng nhập/đăng ký.
    * ======================================================================= */
-  --primary-accent: #8eb69b;
+  --primary-accent: #b98b93;
   /* Màu phát sáng (glow orb, pill viền, dot) */
-  --primary-accent-light: #daf1de;
-  /* Chữ nổi bật và icon trên nền tối */
-  --primary-accent-rgb: 142, 182, 155;
-  --hero-bg-deep: #051f20;
-  /* Nền tối sâu nhất của hiệu ứng gradient */
+  --primary-accent-light: #f7f1e8;
+  /* Chữ nổi bật Cream và icon trên nền tối Charcoal */
+  --primary-accent-rgb: 185, 139, 147;
+  --hero-bg-deep: #18181b;
+  /* Nền tối sâu nhất (Charcoal) của hiệu ứng gradient */
 
   /* =======================================================================
    * 3. TƯƠNG THÍCH VỚI BIẾN CŨ (BACKWARD COMPATIBILITY)
@@ -58,19 +58,21 @@
   --sky-border: var(--primary-border);
 
   /* =======================================================================
-   * 4. MÀU NỀN & MÀU CHỮ CƠ BẢN
+   * 4. MÀU NỀN CREAM & MÀU CHỮ CHARCOAL CƠ BẢN
    * ======================================================================= */
-  --ink: #051f20;
-  /* Màu chữ đậm chính */
-  --muted: #49665b;
-  /* Màu chữ phụ / xám mờ */
-  --canvas: #8eb69b;
-  /* Nền xanh chung của toàn website */
-  --site-background-image: url("/botanical-background.png");
-  --surface: rgba(255, 255, 255, 0.94);
-  /* Nền sáng cho phần nội dung và form */
-  --line: #d4e4d9;
-  /* Đường kẻ chia vạch phân cách */
+  --ink: #1f2024;
+  /* Màu chữ đậm chính (Charcoal) */
+  --ink-rgb: 31, 32, 36;
+  /* RGB của --ink dùng cho bóng đổ và viền mờ */
+  --muted: #5e5a58;
+  /* Màu chữ phụ */
+  --canvas: #f4efe6;
+  /* Nền Cream chung của toàn website */
+  --site-background-image: radial-gradient(circle at 12% 0%, rgba(110, 30, 43, 0.06), transparent 45%), radial-gradient(circle at 88% 100%, rgba(31, 32, 36, 0.05), transparent 45%);
+  --surface: rgba(253, 250, 245, 0.94);
+  /* Nền Cream sáng cho phần nội dung và form */
+  --line: #e2d9cc;
+  /* Đường kẻ chia vạch phân cách tông ấm */
 
   /* =======================================================================
    * 5. MÀU TRẠNG THÁI NGHIỆP VỤ (STATUS COLORS)

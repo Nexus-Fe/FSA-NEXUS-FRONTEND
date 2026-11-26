@@ -1,14 +1,14 @@
-/* Lucian UX/UI Prompt #449 · MIT License (c) 2026 Seokwoooo · https://lucianlabs.dev/uxui-prompt/#449 */
+﻿/* Lucian UX/UI Prompt #449 · MIT License (c) 2026 Seokwoooo · https://lucianlabs.dev/uxui-prompt/#449 */
 .u449{
-  --ux-accent:var(--primary,#235347);
+  --ux-accent:var(--primary,#6e1e2b);
   --ux-surface:#FFFFFF;
-  --ux-surface-2:#F1F6F2;
+  --ux-surface-2:#f6f0e8;
   --ux-surface-3:#E3ECE5;
-  --ux-ink:#051F20;
+  --ux-ink:var(--ink,#1f2024);
   --ux-ink-2:#475569;
   --ux-ink-3:#94A3B8;
-  --ux-line:rgba(5,31,32,.09);
-  --ux-shadow-strong:rgba(5,31,32,.22);
+  --ux-line:rgba(var(--ink-rgb,31,32,36),.09);
+  --ux-shadow-strong:rgba(var(--ink-rgb,31,32,36),.22);
   --ux-ease:cubic-bezier(.2,.8,.2,1);
   --ux-spring:cubic-bezier(.34,1.45,.64,1);
   display:inline-flex;align-items:center;gap:6px;padding:6px;border-radius:16px;background:var(--ux-surface);box-shadow:inset 0 0 0 1px var(--ux-line),0 10px 26px -18px var(--ux-shadow-strong);

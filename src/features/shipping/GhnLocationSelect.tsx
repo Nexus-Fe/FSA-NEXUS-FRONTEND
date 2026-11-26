@@ -31,8 +31,16 @@ export function GhnLocationSelect({
   onCheck?: (check: GhnCheck) => void;
 }) {
   const provinces = useApiResource("ghn-provinces", (signal) => locationService.provinces(signal));
-  const districts = useApiResource(value.provinceId ? `ghn-districts:${value.provinceId}` : null, (signal) => locationService.districts(value.provinceId as number, signal));
-  const wards = useApiResource(value.districtId ? `ghn-wards:${value.districtId}` : null, (signal) => locationService.wards(value.districtId as number, signal));
+  const provinceConfirmed =
+    Boolean(value.provinceId) &&
+    Boolean(provinces.data) &&
+    (provinces.data!.source === "unknown" || provinces.data!.items.some((entry) => entry.provinceId === value.provinceId));
+  const districts = useApiResource(provinceConfirmed ? `ghn-districts:${value.provinceId}` : null, (signal) => locationService.districts(value.provinceId as number, signal));
+  const districtConfirmed =
+    Boolean(value.districtId) &&
+    Boolean(districts.data) &&
+    (districts.data!.source === "unknown" || districts.data!.items.some((entry) => entry.districtId === value.districtId));
+  const wards = useApiResource(districtConfirmed ? `ghn-wards:${value.districtId}` : null, (signal) => locationService.wards(value.districtId as number, signal));
 
   const failed = provinces.error ?? districts.error ?? wards.error;
 
@@ -64,9 +72,9 @@ export function GhnLocationSelect({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [checkState, provinces.data, districts.data, wards.data, value.provinceId, value.districtId, value.wardCode]);
   const retry = () => {
-    provinces.reload();
-    if (value.provinceId) districts.reload();
-    if (value.districtId) wards.reload();
+    if (provinces.error || !provinces.data || provinces.data.source === "unknown") provinces.reload();
+    if (provinceConfirmed && (districts.error || !districts.data || districts.data.source === "unknown")) districts.reload();
+    if (districtConfirmed && (wards.error || !wards.data || wards.data.source === "unknown")) wards.reload();
   };
 
   return (
