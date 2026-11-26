@@ -92,10 +92,12 @@ export type SimulateShipperStatusParams = {
 };
 
 export type SimulateShipperStatusResult = {
-  shipmentId: string;
+  shipmentId?: string;
   trackingNumber: string;
+  orderId?: string;
   previousStatus: string;
-  newStatus: string;
+  currentStatus: string;
+  newStatus?: string;
   commerceStatusNotified?: string | null;
   isSuccess: boolean;
   message: string;

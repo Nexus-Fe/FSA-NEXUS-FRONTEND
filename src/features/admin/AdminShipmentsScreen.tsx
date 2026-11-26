@@ -141,7 +141,7 @@ export function AdminShipmentsScreen() {
       });
 
       setSuccessMessage(
-        `Cập nhật trạng thái thành công! Trạng thái vận đơn: "${shipmentStatusLabel(res.newStatus)}". ${
+        `Cập nhật trạng thái thành công! Trạng thái vận đơn: "${shipmentStatusLabel(res.currentStatus ?? res.newStatus)}". ${
           res.commerceStatusNotified ? `Đã đồng bộ sang Commerce đơn hàng (${res.commerceStatusNotified}).` : ""
         }`,
       );
