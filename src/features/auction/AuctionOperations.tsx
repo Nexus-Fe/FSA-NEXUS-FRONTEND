@@ -109,7 +109,7 @@ export function OperationsListScreen({ role }: { role: Role }) {
       {resource.loading ? (
         <NoData title="Đang tải phiên đấu giá…" />
       ) : resource.data?.items.length ? (
-        <Card className="auction-table-card">
+        <Card>
           <div className="table-scroll">
             <table className="data-table auction-operations-table">
               <thead>
@@ -252,7 +252,7 @@ export function OperationsDetailScreen({ role }: { role: Role }) {
           {/* CỘT TRÁI: CHỈ SỐ CHÍNH & LỊCH SỬ ĐẶT GIÁ */}
           <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
             {/* Dải chỉ số phiên */}
-            <Card style={{ padding: "18px 20px", borderRadius: "10px" }}>
+            <Card style={{ padding: "18px 20px" }}>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: "16px", textAlign: "center" }}>
                 <div style={{ borderRight: "1px solid var(--border)", paddingRight: "12px" }}>
                   <span style={{ fontSize: "12px", color: "var(--muted)", textTransform: "uppercase", fontWeight: 600 }}>
@@ -286,7 +286,7 @@ export function OperationsDetailScreen({ role }: { role: Role }) {
             <SellerBidHistory id={id} />
 
             {/* Lịch sử chuyển trạng thái */}
-            <Card className="card-pad" style={{ borderRadius: "10px" }}>
+            <Card className="card-pad">
               <h2 style={{ fontSize: "15px", fontWeight: 700, margin: "0 0 12px 0" }}>Lịch sử chuyển trạng thái</h2>
               {history.error && <p role="alert" className="notice">{message(history.error)}</p>}
               {history.data?.items.length ? (
@@ -323,7 +323,7 @@ export function OperationsDetailScreen({ role }: { role: Role }) {
           {/* CỘT PHẢI: THÔNG SỐ PHIÊN & KHUNG CAN THIỆP XỬ LÝ */}
           <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
             {/* Hình ảnh sản phẩm đấu giá */}
-            <Card className="card-pad" style={{ borderRadius: "10px" }}>
+            <Card className="card-pad">
               <h2 style={{ fontSize: "15px", fontWeight: 700, margin: "0 0 12px 0" }}>Hình ảnh sản phẩm</h2>
               {(() => {
                 const detailImages = [
@@ -346,7 +346,7 @@ export function OperationsDetailScreen({ role }: { role: Role }) {
             </Card>
 
             {/* Thông số phiên */}
-            <Card className="card-pad" style={{ borderRadius: "10px" }}>
+            <Card className="card-pad">
               <h2 style={{ fontSize: "15px", fontWeight: 700, margin: "0 0 14px 0" }}>Thông số phiên đấu giá</h2>
               <div style={{ display: "flex", flexDirection: "column", gap: "10px", fontSize: "13px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>

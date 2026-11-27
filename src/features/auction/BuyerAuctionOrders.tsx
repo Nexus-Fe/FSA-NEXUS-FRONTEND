@@ -76,7 +76,7 @@ export function BuyerAuctionOrders() {
       {orders.loading && !orders.data ? (
         <NoData title="Đang tải đơn hàng đấu giá…" />
       ) : items.length ? (
-        <Card className="auction-table-card">
+        <Card>
           <div className="table-scroll">
             <table className="data-table auction-operations-table">
               <thead>
@@ -104,6 +104,11 @@ export function BuyerAuctionOrders() {
                         <Link href={detailHref} onClick={(event) => event.stopPropagation()}>
                           <strong>{order.orderNo}</strong>
                         </Link>
+                        {order.trackingCode && (
+                          <div style={{ fontSize: 12, color: "var(--primary)", marginTop: 2 }}>
+                            GHN: <strong className="mono">{order.trackingCode}</strong>
+                          </div>
+                        )}
                       </td>
                       <td>
                         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -129,19 +134,19 @@ export function BuyerAuctionOrders() {
               </tbody>
             </table>
           </div>
+          {orders.data && orders.data.totalPages > 1 && (
+            <AdminPagination
+              page={page}
+              pageSize={orders.data.pageSize}
+              totalItems={orders.data.totalCount}
+              totalPages={orders.data.totalPages}
+              onPageChange={setPage}
+              itemLabel="đơn đấu giá"
+            />
+          )}
         </Card>
       ) : (
         !orders.error && <NoData title="Bạn chưa có đơn hàng đấu giá nào" />
-      )}
-      {orders.data && orders.data.totalPages > 1 && (
-        <AdminPagination
-          page={page}
-          pageSize={orders.data.pageSize}
-          totalItems={orders.data.totalCount}
-          totalPages={orders.data.totalPages}
-          onPageChange={setPage}
-          itemLabel="đơn đấu giá"
-        />
       )}
     </div>
   );

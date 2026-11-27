@@ -482,7 +482,7 @@ export function PortalShell({
   const portalHomeLabel = getRoleHomeLabel(user, role);
 
   return (
-    <div className={`portal-shell${role === "Nhân viên" || role === "Quản trị viên" ? " portal-shell-operations" : ""}`}>
+    <div className={`portal-shell${role === "Người bán" || role === "Nhân viên" || role === "Quản trị viên" ? " portal-shell-operations" : ""}`}>
       <aside className="portal-sidebar">
         <div className="sidebar-brand">
           <Link

@@ -30,7 +30,7 @@ function AttentionTab({ role }: { role: "admin" | "staff" }) {
   const [page, setPage] = useState(1);
   const list = useApiResource(`ops-attention:${page}`, (signal) => auctionOpsService.attention(page, signal));
   return (
-    <Card className="card-pad">
+    <Card>
       <DataState loading={list.loading} error={list.error} empty={!list.data?.items.length} emptyTitle="Không có phiên nào cần chú ý" onRetry={list.reload}>
         <div className="table-scroll">
           <table className="data-table">
@@ -92,34 +92,40 @@ function ReportsTab() {
   }
 
   return (
-    <Card className="card-pad">
+    <>
       {notice && <p className="form-success" role="status">{notice}</p>}
-      <div className="voucher-filters"><label>Trạng thái<input className="field" value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }} placeholder="Ví dụ: Pending" /></label></div>
-      <DataState loading={list.loading} error={list.error} empty={!list.data?.items.length} emptyTitle="Không có báo cáo nào" onRetry={list.reload}>
-        <div className="table-scroll">
-          <table className="data-table">
-            <thead><tr><th>Phiên</th><th>Lý do</th><th>Mô tả</th><th>Trạng thái</th><th>Gửi lúc</th><th>Thao tác</th></tr></thead>
-            <tbody>
-              {list.data?.items.map((report) => (
-                <tr key={report.reportId}>
-                  <td>{report.auctionTitle ?? report.auctionId}</td>
-                  <td>{report.reason}</td>
-                  <td>{report.description}</td>
-                  <td><Badge tone={report.status === "Pending" ? "amber" : "slate"}>{report.status}</Badge>{report.adminNote && <><br /><small>{report.adminNote}</small></>}</td>
-                  <td>{new Date(report.createdAt).toLocaleString("vi-VN")}</td>
-                  <td>{report.status === "Pending" && <button type="button" className="button button-secondary button-small" onClick={() => { setFailure(null); setProblem(""); setNote(""); setTarget(report); }}>Bác báo cáo</button>}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      <Card className="card-pad" style={{ marginBottom: 16 }}>
+        <div className="ops-filters" style={{ margin: 0 }}>
+          <label>Trạng thái<input className="field" value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }} placeholder="Ví dụ: Pending" /></label>
         </div>
-      </DataState>
-      {list.data && list.data.pagination.totalPages > 1 && <AdminPagination page={page} pageSize={list.data.pagination.pageSize} totalItems={list.data.pagination.totalCount} totalPages={list.data.pagination.totalPages} onPageChange={setPage} itemLabel="báo cáo" />}
-      <ConfirmDialog open={target !== null} title="Bác các báo cáo của phiên này?" confirmLabel="Bác báo cáo" busy={busy} error={failure} onConfirm={() => void dismiss()} onClose={() => setTarget(null)}>
-        <p>Mọi báo cáo đang chờ của phiên này bị bác và người gửi được thông báo. Chỉ làm khi không thấy vi phạm.</p>
-        <label>Ghi chú gửi người báo cáo (bắt buộc)<textarea className="field" rows={3} value={note} disabled={busy} aria-invalid={Boolean(problem)} onChange={(event) => setNote(event.target.value)} /></label>
-        {problem && <p className="form-error" role="alert">{problem}</p>}
-      </ConfirmDialog>
-    </Card>
+      </Card>
+      <Card>
+        <DataState loading={list.loading} error={list.error} empty={!list.data?.items.length} emptyTitle="Không có báo cáo nào" onRetry={list.reload}>
+          <div className="table-scroll">
+            <table className="data-table">
+              <thead><tr><th>Phiên</th><th>Lý do</th><th>Mô tả</th><th>Trạng thái</th><th>Gửi lúc</th><th>Thao tác</th></tr></thead>
+              <tbody>
+                {list.data?.items.map((report) => (
+                  <tr key={report.reportId}>
+                    <td>{report.auctionTitle ?? report.auctionId}</td>
+                    <td>{report.reason}</td>
+                    <td>{report.description}</td>
+                    <td><Badge tone={report.status === "Pending" ? "amber" : "slate"}>{report.status}</Badge>{report.adminNote && <><br /><small>{report.adminNote}</small></>}</td>
+                    <td>{new Date(report.createdAt).toLocaleString("vi-VN")}</td>
+                    <td>{report.status === "Pending" && <button type="button" className="button button-secondary button-small" onClick={() => { setFailure(null); setProblem(""); setNote(""); setTarget(report); }}>Bác báo cáo</button>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </DataState>
+        {list.data && list.data.pagination.totalPages > 1 && <AdminPagination page={page} pageSize={list.data.pagination.pageSize} totalItems={list.data.pagination.totalCount} totalPages={list.data.pagination.totalPages} onPageChange={setPage} itemLabel="báo cáo" />}
+        <ConfirmDialog open={target !== null} title="Bác các báo cáo của phiên này?" confirmLabel="Bác báo cáo" busy={busy} error={failure} onConfirm={() => void dismiss()} onClose={() => setTarget(null)}>
+          <p>Mọi báo cáo đang chờ của phiên này bị bác và người gửi được thông báo. Chỉ làm khi không thấy vi phạm.</p>
+          <label>Ghi chú gửi người báo cáo (bắt buộc)<textarea className="field" rows={3} value={note} disabled={busy} aria-invalid={Boolean(problem)} onChange={(event) => setNote(event.target.value)} /></label>
+          {problem && <p className="form-error" role="alert">{problem}</p>}
+        </ConfirmDialog>
+      </Card>
+    </>
   );
 }

@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { AdminPagination, Badge, Card, NoData, PageHeading } from "@/components/ui/Primitives";
 import { FluidChoiceBar } from "@/components/ui/FluidChoiceBar";
+import { TableSkeleton } from "@/components/ui/Skeleton";
 import { ErrorState } from "@/components/ui/States";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { semanticStatusTone } from "@/lib/status-labels";
@@ -67,35 +68,39 @@ function Deliveries({ canWrite }: { canWrite: boolean }) {
     }
   }
 
-  return <Card className="card-pad">
-    <div className="ops-filters">
-      <label>Trạng thái<select className="field" value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}><option value="">Tất cả</option>{["Pending", "Sending", "Sent", "Failed", "Skipped"].map((item) => <option key={item} value={item}>{deliveryStatusLabel(item)}</option>)}</select></label>
-      <label>Kênh<input className="field" value={channel} onChange={(event) => { setChannel(event.target.value); setPage(1); }} placeholder="Email, Push…" /></label>
-    </div>
+  return <>
+    <Card className="card-pad" style={{ marginBottom: 16 }}>
+      <div className="ops-filters" style={{ margin: 0 }}>
+        <label>Trạng thái<select className="field" value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}><option value="">Tất cả</option>{["Pending", "Sending", "Sent", "Failed", "Skipped"].map((item) => <option key={item} value={item}>{deliveryStatusLabel(item)}</option>)}</select></label>
+        <label>Kênh<input className="field" value={channel} onChange={(event) => { setChannel(event.target.value); setPage(1); }} placeholder="Email, Push…" /></label>
+      </div>
+    </Card>
     {notice && <p className="form-success" role="status">{notice}</p>}
     {list.error != null && <ErrorState cause={list.error} operation="read" onRetry={list.reload} />}
-    {list.loading && !list.data ? <p>Đang tải…</p> : list.data?.items.length ? <div className="table-scroll"><table className="data-table">
-      <thead><tr><th>Kênh</th><th>Trạng thái</th><th>Lần thử</th><th>Mã lỗi</th><th>Gửi tới</th><th>Cập nhật</th><th></th></tr></thead>
-      <tbody>{list.data.items.map((row) => <tr key={row.id}>
-        <td>{row.channel}</td><td><Badge tone={semanticStatusTone(row.status)}>{deliveryStatusLabel(row.status)}</Badge></td><td>{row.attemptCount}</td><td>{row.errorCode ?? "—"}</td><td>{row.destinationHint}</td><td>{when(row.updatedAt)}</td>
-        <td><div className="action-row">
-          <button type="button" className="button button-secondary button-small" onClick={() => setLogsFor(logsFor === row.id ? null : row.id)}>Nhật ký</button>
-          {canWrite && canRetryDelivery(row.status) && <button type="button" className="button button-primary button-small" onClick={() => openRetry(row)}>Gửi lại</button>}
-        </div></td>
-      </tr>)}</tbody>
-    </table></div> : !list.error && <NoData title="Chưa có lượt gửi nào." />}
-    {list.data && <Pager page={page} setPage={setPage} info={list.data.pagination} />}
-    {logsFor && <div style={{ marginTop: 16 }}>
+    <Card>
+      {list.loading && !list.data ? <TableSkeleton rows={5} cols={7} label="Đang tải lượt gửi…" /> : list.data?.items.length ? <div className="table-scroll"><table className="data-table">
+        <thead><tr><th>Kênh</th><th>Trạng thái</th><th>Lần thử</th><th>Mã lỗi</th><th>Gửi tới</th><th>Cập nhật</th><th></th></tr></thead>
+        <tbody>{list.data.items.map((row) => <tr key={row.id}>
+          <td>{row.channel}</td><td><Badge tone={semanticStatusTone(row.status)}>{deliveryStatusLabel(row.status)}</Badge></td><td>{row.attemptCount}</td><td>{row.errorCode ?? "—"}</td><td>{row.destinationHint}</td><td>{when(row.updatedAt)}</td>
+          <td><div className="action-row" style={{ marginTop: 0 }}>
+            <button type="button" className="button button-secondary button-small" onClick={() => setLogsFor(logsFor === row.id ? null : row.id)}>Nhật ký</button>
+            {canWrite && canRetryDelivery(row.status) && <button type="button" className="button button-primary button-small" onClick={() => openRetry(row)}>Gửi lại</button>}
+          </div></td>
+        </tr>)}</tbody>
+      </table></div> : !list.error && <NoData title="Chưa có lượt gửi nào." />}
+      {list.data && <Pager page={page} setPage={setPage} info={list.data.pagination} />}
+    </Card>
+    {logsFor && <Card className="card-pad" style={{ marginTop: 16 }}>
       <h3>Nhật ký lượt gửi</h3>
-      {logs.error != null ? <ErrorState cause={logs.error} operation="read" onRetry={logs.reload} /> : logs.loading && !logs.data ? <p>Đang tải…</p> : logs.data?.items.length ? logs.data.items.map((log) => <div className="info-row" key={log.id}><span>{when(log.createdAt)} · {log.action}{log.attempt != null ? ` · lần ${log.attempt}` : ""}</span><strong>{log.message}{log.errorCode && <small> ({log.errorCode})</small>}</strong></div>) : <p className="muted">Chưa có nhật ký.</p>}
-    </div>}
+      {logs.error != null ? <ErrorState cause={logs.error} operation="read" onRetry={logs.reload} /> : logs.loading && !logs.data ? <TableSkeleton rows={3} cols={2} label="Đang tải nhật ký…" /> : logs.data?.items.length ? logs.data.items.map((log) => <div className="info-row" key={log.id}><span>{when(log.createdAt)} · {log.action}{log.attempt != null ? ` · lần ${log.attempt}` : ""}</span><strong>{log.message}{log.errorCode && <small> ({log.errorCode})</small>}</strong></div>) : <p className="muted">Chưa có nhật ký.</p>}
+    </Card>}
     <ConfirmDialog open={retrying !== null} title="Gửi lại thông báo?" confirmLabel="Gửi lại" busy={busy} error={failure} onConfirm={() => void confirmRetry()} onClose={() => setRetrying(null)}>
       <label className="field-wrap">Lý do gửi lại
         <textarea className="field" rows={3} maxLength={500} aria-invalid={Boolean(problem)} value={reason} onChange={(event) => setReason(event.target.value)} />
         {problem && <small className="checkout-field-error" role="alert">{problem}</small>}
       </label>
     </ConfirmDialog>
-  </Card>;
+  </>;
 }
 
 function Templates({ canWrite }: { canWrite: boolean }) {
@@ -130,24 +135,28 @@ function Templates({ canWrite }: { canWrite: boolean }) {
     }
   }
 
-  return <Card className="card-pad">
-    <div className="ops-filters"><label>Mã mẫu<input className="field" value={code} onChange={(event) => { setCode(event.target.value); setPage(1); }} /></label></div>
+  return <>
+    <Card className="card-pad" style={{ marginBottom: 16 }}>
+      <div className="ops-filters" style={{ margin: 0 }}><label>Mã mẫu<input className="field" value={code} onChange={(event) => { setCode(event.target.value); setPage(1); }} /></label></div>
+    </Card>
     {list.error != null && <ErrorState cause={list.error} operation="read" onRetry={list.reload} />}
-    {list.loading && !list.data ? <p>Đang tải…</p> : list.data?.items.length ? <div className="table-scroll"><table className="data-table">
-      <thead><tr><th>Mã</th><th>Kênh</th><th>Loại</th><th>Bắt buộc</th><th>Đang bật</th><th>Cập nhật</th><th></th></tr></thead>
-      <tbody>{list.data.items.map((row) => <tr key={row.id}>
-        <td>{row.code}</td><td>{row.channelCode}</td><td>{row.notificationType}</td><td>{row.isMandatory ? "Có" : "Không"}</td><td>{row.isActive ? "Bật" : "Tắt"}</td><td>{when(row.updatedAt)}</td>
-        <td>{canWrite ? <button type="button" className="button button-secondary button-small" onClick={() => open(row)}>Sửa</button> : "—"}</td>
-      </tr>)}</tbody>
-    </table></div> : !list.error && <NoData title="Không có mẫu phù hợp." />}
-    {list.data && <Pager page={page} setPage={setPage} info={list.data.pagination} />}
+    <Card>
+      {list.loading && !list.data ? <TableSkeleton rows={5} cols={7} label="Đang tải mẫu thông báo…" /> : list.data?.items.length ? <div className="table-scroll"><table className="data-table">
+        <thead><tr><th>Mã</th><th>Kênh</th><th>Loại</th><th>Bắt buộc</th><th>Đang bật</th><th>Cập nhật</th><th></th></tr></thead>
+        <tbody>{list.data.items.map((row) => <tr key={row.id}>
+          <td>{row.code}</td><td>{row.channelCode}</td><td>{row.notificationType}</td><td>{row.isMandatory ? "Có" : "Không"}</td><td>{row.isActive ? "Bật" : "Tắt"}</td><td>{when(row.updatedAt)}</td>
+          <td>{canWrite ? <button type="button" className="button button-secondary button-small" onClick={() => open(row)}>Sửa</button> : "—"}</td>
+        </tr>)}</tbody>
+      </table></div> : !list.error && <NoData title="Không có mẫu phù hợp." />}
+      {list.data && <Pager page={page} setPage={setPage} info={list.data.pagination} />}
+    </Card>
     <ConfirmDialog open={editing !== null} title={`Sửa mẫu ${editing?.code ?? ""}`} confirmLabel="Lưu mẫu" busy={busy} error={failure} onConfirm={() => void save()} onClose={() => setEditing(null)}>
       <label className="field-wrap">Tiêu đề<input className="field" maxLength={MAX_SUBJECT} value={subject} onChange={(event) => setSubject(event.target.value)} /></label>
       <label className="field-wrap">Nội dung<textarea className="field" rows={8} maxLength={MAX_BODY} value={body} onChange={(event) => setBody(event.target.value)} /></label>
       <label className="voucher-checkbox"><input type="checkbox" checked={editing?.isMandatory ? true : active} disabled={editing?.isMandatory} onChange={(event) => setActive(event.target.checked)} /> <span>Đang bật{editing?.isMandatory ? " (mẫu bắt buộc, không tắt được)" : ""}</span></label>
       {problem && <small className="checkout-field-error" role="alert">{problem}</small>}
     </ConfirmDialog>
-  </Card>;
+  </>;
 }
 
 function Channels({ canWrite }: { canWrite: boolean }) {
@@ -171,9 +180,9 @@ function Channels({ canWrite }: { canWrite: boolean }) {
     }
   }
 
-  return <Card className="card-pad">
+  return <Card>
     {list.error != null && <ErrorState cause={list.error} operation="read" onRetry={list.reload} />}
-    {list.loading && !list.data ? <p>Đang tải…</p> : list.data?.items.length ? <div className="table-scroll"><table className="data-table">
+    {list.loading && !list.data ? <TableSkeleton rows={4} cols={5} label="Đang tải kênh gửi…" /> : list.data?.items.length ? <div className="table-scroll"><table className="data-table">
       <thead><tr><th>Mã</th><th>Tên</th><th>Nhà cung cấp</th><th>Trạng thái</th><th></th></tr></thead>
       <tbody>{list.data.items.map((row) => <tr key={row.id}>
         <td>{row.code}</td><td>{row.name}</td><td>{row.provider ?? "—"}</td><td>{row.isDisabled ? "Đang tắt" : "Đang bật"}</td>

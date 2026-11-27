@@ -84,18 +84,18 @@ export function RefundsScreen({ role }: { role: Role }) {
           </div> : "—"}</td>}
         </tr>)}</tbody>
       </table></div>
+      {data && data.pagination.totalPages > 1 && (
+        <AdminPagination
+          page={data.pagination.pageIndex}
+          pageSize={data.pagination.pageSize}
+          totalItems={data.pagination.totalCount}
+          totalPages={data.pagination.totalPages}
+          loading={refunds.loading}
+          onPageChange={setPage}
+          itemLabel="yêu cầu"
+        />
+      )}
     </Card> : !refunds.error && <NoData title="Chưa có yêu cầu hoàn tiền nào." />}
-    {data && data.pagination.totalPages > 1 && (
-      <AdminPagination
-        page={data.pagination.pageIndex}
-        pageSize={data.pagination.pageSize}
-        totalItems={data.pagination.totalCount}
-        totalPages={data.pagination.totalPages}
-        loading={refunds.loading}
-        onPageChange={setPage}
-        itemLabel="yêu cầu"
-      />
-    )}
     <ConfirmDialog open={decision !== null} title={decision?.kind === "approve" ? "Duyệt hoàn tiền?" : "Từ chối hoàn tiền?"} confirmLabel={decision?.kind === "approve" ? "Duyệt và hoàn tiền" : "Từ chối yêu cầu"} busy={busy} error={failure} onConfirm={() => void confirm()} onClose={() => setDecision(null)}>
       {decision?.kind === "approve"
         ? <p>Hoàn {decision ? formatMoney(decision.row.amount) : ""} vào ví người mua cho đơn {decision?.row.subOrderNo}. Không thể hoàn tác.</p>

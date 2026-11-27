@@ -9,6 +9,7 @@ import {
   NoData,
   PageHeading,
 } from "@/components/ui/Primitives";
+import { TableSkeleton } from "@/components/ui/Skeleton";
 import { ErrorState } from "@/components/ui/States";
 import { REPORT_REFUND_STATUS, statusLabel } from "@/lib/status-labels";
 import { ApiError } from "@/lib/api/client";
@@ -256,8 +257,8 @@ export function StaffReportsScreen() {
         description="Tiếp nhận, kiểm tra chứng cứ và ban hành quyết định xử lý báo cáo vi phạm từ người dùng sàn."
       />
 
-      <Card>
-        <div className="toolbar">
+      <Card className="card-pad" style={{ marginBottom: 16 }}>
+        <div className="ops-filters" style={{ margin: 0 }}>
           <label className="field-wrap">
             Trạng thái xử lý
             <select
@@ -295,7 +296,9 @@ export function StaffReportsScreen() {
             </select>
           </label>
         </div>
+      </Card>
 
+      <Card>
         {reports.error && (
           <p role="alert" className="notice">
             {reports.error instanceof ApiError
@@ -304,18 +307,18 @@ export function StaffReportsScreen() {
           </p>
         )}
 
-        {reports.loading ? (
-          <NoData title="Đang nạp danh sách báo cáo…" />
+        {reports.loading && !reports.data ? (
+          <TableSkeleton rows={5} cols={5} label="Đang nạp danh sách báo cáo…" />
         ) : records.length > 0 ? (
           <div className="table-scroll">
             <table className="data-table" style={{ width: "100%", tableLayout: "fixed" }}>
               <thead>
                 <tr>
-                  <th style={{ width: "18%", padding: "12px 10px" }}>Mã báo cáo</th>
-                  <th style={{ width: "28%", padding: "12px 10px" }}>Loại vi phạm</th>
-                  <th style={{ width: "16%", padding: "12px 10px" }}>Đối tượng</th>
-                  <th style={{ width: "18%", padding: "12px 10px" }}>Trạng thái</th>
-                  <th style={{ width: "20%", padding: "12px 10px" }}>Thời gian gửi</th>
+                  <th style={{ width: "18%" }}>Mã báo cáo</th>
+                  <th style={{ width: "28%" }}>Loại vi phạm</th>
+                  <th style={{ width: "16%" }}>Đối tượng</th>
+                  <th style={{ width: "18%" }}>Trạng thái</th>
+                  <th style={{ width: "20%" }}>Thời gian gửi</th>
                 </tr>
               </thead>
               <tbody>

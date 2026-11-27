@@ -454,7 +454,7 @@ export function AdminNotificationsScreen() {
             {selectedNotif.payload && (
               <div>
                 <span style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600 }}>Dữ liệu Payload:</span>
-                <pre style={{ margin: "4px 0 0", padding: "10px", background: "#1e293b", color: "#f8fafc", borderRadius: "6px", fontSize: "12px", overflowX: "auto" }}>
+                <pre style={{ margin: "4px 0 0", padding: "10px", background: "var(--hero-bg-deep)", color: "var(--primary-accent-light)", borderRadius: "8px", fontSize: "12px", overflowX: "auto" }}>
                   {(() => {
                     try {
                       return JSON.stringify(JSON.parse(selectedNotif.payload), null, 2);
@@ -526,7 +526,7 @@ export function AdminNotificationsScreen() {
 
                 <div style={{ marginBottom: "14px" }}>
                   <span style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600 }}>Message Payload (JSON):</span>
-                  <pre style={{ margin: "4px 0 0", padding: "10px", background: "#1e293b", color: "#f8fafc", borderRadius: "6px", fontSize: "12px", overflowX: "auto", maxHeight: "250px" }}>
+                  <pre style={{ margin: "4px 0 0", padding: "10px", background: "var(--hero-bg-deep)", color: "var(--primary-accent-light)", borderRadius: "8px", fontSize: "12px", overflowX: "auto", maxHeight: "250px" }}>
                     {JSON.stringify(eventDetailResource.data.payload, null, 2)}
                   </pre>
                 </div>
@@ -534,7 +534,7 @@ export function AdminNotificationsScreen() {
                 {eventDetailResource.data.headers && (
                   <div>
                     <span style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600 }}>Correlation Headers:</span>
-                    <pre style={{ margin: "4px 0 0", padding: "10px", background: "#1e293b", color: "#f8fafc", borderRadius: "6px", fontSize: "12px", overflowX: "auto" }}>
+                    <pre style={{ margin: "4px 0 0", padding: "10px", background: "var(--hero-bg-deep)", color: "var(--primary-accent-light)", borderRadius: "8px", fontSize: "12px", overflowX: "auto" }}>
                       {JSON.stringify(eventDetailResource.data.headers, null, 2)}
                     </pre>
                   </div>

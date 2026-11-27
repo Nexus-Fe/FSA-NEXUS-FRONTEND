@@ -10,6 +10,7 @@ import {
   NoData,
   PageHeading,
 } from "@/components/ui/Primitives";
+import { TableSkeleton } from "@/components/ui/Skeleton";
 import { ThumbnailBox } from "@/components/ui/BackendImage";
 import { resolveImageUrl } from "@/lib/presentation";
 import { ApiError } from "@/lib/api/client";
@@ -211,17 +212,19 @@ export function StaffProductModerationScreen() {
           </p>
         )}
 
-        {products.length ? (
+        {resource.loading && !resource.data ? (
+          <TableSkeleton rows={5} cols={6} label="Đang tải danh sách sản phẩm…" />
+        ) : products.length ? (
           <div className="table-scroll">
             <table className="data-table" style={{ width: "100%", tableLayout: "fixed" }}>
               <thead>
                 <tr>
-                  <th style={{ width: 64, padding: "12px 8px" }}>Ảnh</th>
-                  <th style={{ width: "36%", padding: "12px 10px" }}>Tên sản phẩm</th>
-                  <th style={{ width: "18%", padding: "12px 10px" }}>Danh mục</th>
-                  <th style={{ width: "14%", padding: "12px 10px" }}>Hình thức bán</th>
-                  <th style={{ width: "16%", padding: "12px 10px" }}>Khoảng giá</th>
-                  <th style={{ width: "16%", padding: "12px 10px" }}>Trạng thái</th>
+                  <th style={{ width: 68 }}>Ảnh</th>
+                  <th style={{ width: "34%" }}>Tên sản phẩm</th>
+                  <th style={{ width: "18%" }}>Danh mục</th>
+                  <th style={{ width: "14%" }}>Hình thức bán</th>
+                  <th style={{ width: "16%" }}>Khoảng giá</th>
+                  <th style={{ width: "16%" }}>Trạng thái</th>
                 </tr>
               </thead>
               <tbody>

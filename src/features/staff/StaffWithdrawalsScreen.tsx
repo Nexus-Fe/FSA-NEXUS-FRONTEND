@@ -103,18 +103,18 @@ export function StaffWithdrawalsScreen() {
           </Fragment>;
         })}
       </tbody></table></div>
+      {list.data && list.data.pagination.totalPages > 1 && (
+        <AdminPagination
+          page={list.data.pagination.pageIndex}
+          pageSize={list.data.pagination.pageSize}
+          totalItems={list.data.pagination.totalCount}
+          totalPages={list.data.pagination.totalPages}
+          loading={list.loading}
+          onPageChange={setPage}
+          itemLabel="yêu cầu"
+        />
+      )}
     </Card> : !list.error && <NoData title="Không có yêu cầu nào ở trạng thái này." />}
-    {list.data && list.data.pagination.totalPages > 1 && (
-      <AdminPagination
-        page={list.data.pagination.pageIndex}
-        pageSize={list.data.pagination.pageSize}
-        totalItems={list.data.pagination.totalCount}
-        totalPages={list.data.pagination.totalPages}
-        loading={list.loading}
-        onPageChange={setPage}
-        itemLabel="yêu cầu"
-      />
-    )}
   </>;
 }
 

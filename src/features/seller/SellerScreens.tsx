@@ -2285,35 +2285,28 @@ export function SellerShipmentsScreen() {
         title="Vận đơn & giao nhận"
         description="Quản lý vận đơn GHN cho các đơn bạn đã tiếp nhận. Chọn đơn để xem hành trình và in phiếu giao hàng."
       />
-      <div className="order-tabs" role="tablist" aria-label="Lọc trạng thái vận đơn">
-        {SELLER_SHIPMENT_TABS.map((tab) => {
+      <FluidChoiceBar
+        mode="filter"
+        ariaLabel="Lọc trạng thái vận đơn"
+        options={SELLER_SHIPMENT_TABS.map((tab) => {
           const count = tab.key === "all"
             ? trackableRows.length
             : trackableRows.filter((item) => matchesSellerShipmentTab(item.status, tab.key)).length;
-          const selected = activeTab === tab.key;
-          return (
-            <button
-              key={tab.key}
-              type="button"
-              role="tab"
-              aria-selected={selected}
-              className={`order-tab${selected ? " is-active" : ""}`}
-              onClick={() => setActiveTab(tab.key)}
-            >
-              <span>{tab.label}</span>
-              {count > 0 && <span className="order-tab-count">{count}</span>}
-            </button>
-          );
+          return { value: tab.key, label: count > 0 ? `${tab.label} (${count})` : tab.label };
         })}
-      </div>
+        value={activeTab}
+        onChange={setActiveTab}
+      />
       {resource.error && <p className="notice" role="alert">{msg(resource.error)}</p>}
-      <Card className="card-pad">
+      <Card>
         {rows.length ? (
           <div className="table-scroll">
             <table className="data-table">
               <thead>
                 <tr>
                   <th>Mã đơn gian hàng</th>
+                  <th>Mã vận đơn GHN</th>
+                  <th>Sản phẩm</th>
                   <th>Tổng tiền</th>
                   <th>Trạng thái</th>
                   <th>Thao tác</th>
@@ -2322,6 +2315,10 @@ export function SellerShipmentsScreen() {
               <tbody>
                 {rows.map((sub) => {
                   const shipmentHref = ROUTES.seller.shipment(sub.subOrderId);
+                  const itemsPreview = sub.items?.length
+                    ? sub.items.slice(0, 2).map((item) => `${item.productName} ×${item.quantity}`).join(", ") +
+                      (sub.items.length > 2 ? ` (+${sub.items.length - 2})` : "")
+                    : `${sub.itemCount} mặt hàng`;
                   return (
                     <tr key={sub.subOrderId} {...clickableRowProps(() => router.push(shipmentHref), "Nhấn để theo dõi vận đơn")}>
                       <td>
@@ -2331,15 +2328,30 @@ export function SellerShipmentsScreen() {
                         </Link>
                         <div style={{ fontSize: 12, color: "var(--muted)" }}>{new Date(sub.createdAt).toLocaleString("vi-VN")}</div>
                       </td>
+                      <td>
+                        {sub.trackingCode ? (
+                          <strong className="mono">{sub.trackingCode}</strong>
+                        ) : (
+                          <span style={{ color: "var(--muted)", fontSize: 12 }}>Chưa có mã vận đơn</span>
+                        )}
+                      </td>
+                      <td>
+                        <div style={{ fontSize: 13 }}>{itemsPreview}</div>
+                      </td>
                       <td style={{ fontVariantNumeric: "tabular-nums" }}>
                         <strong>{formatMoney(sub.totalAmount)}</strong>
                       </td>
                       <td><Badge tone={sellerOrderStatusTone(sub.status, sub.paymentMethod)}>{describeSellerOrderStatus(sub.status, sub.paymentMethod)}</Badge></td>
                       <td>
-                        <Link className="tracking-icon-btn" href={shipmentHref}>
-                          <Icon name="mapPin" size={14} />
-                          Xem hành trình
-                        </Link>
+                        <div style={{ display: "inline-flex", gap: 8, flexWrap: "wrap" }} onClick={(event) => event.stopPropagation()}>
+                          <Link className="tracking-icon-btn" href={shipmentHref}>
+                            <Icon name="mapPin" size={14} />
+                            Xem hành trình
+                          </Link>
+                          <Link className="tracking-icon-btn" href={ROUTES.seller.order(sub.subOrderId)}>
+                            Chi tiết đơn
+                          </Link>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -2348,7 +2360,7 @@ export function SellerShipmentsScreen() {
             </table>
           </div>
         ) : resource.loading ? (
-          <TableSkeleton rows={5} cols={4} label="Đang tải danh sách vận đơn…" />
+          <TableSkeleton rows={5} cols={6} label="Đang tải danh sách vận đơn…" />
         ) : (
           <NoData
             title={
@@ -2415,14 +2427,22 @@ type SellerSubOrder = {
   systemDiscountAmount?: number;
   discountAmount?: number;
   createdAt: string;
+  carrierCode?: string | null;
+  trackingCode?: string | null;
+  labelPrintUrl?: string | null;
+  shipmentPendingCreation?: boolean;
+  sellerAcceptedAt?: string | null;
+  shippedAt?: string | null;
+  deliveredAt?: string | null;
   items: SellerSubOrderItem[];
 };
 
 type SellerSubOrderSummary = Pick<
   SellerSubOrder,
   "subOrderId" | "subOrderNo" | "orderId" | "buyerId" | "sellerId" | "status" | "paymentMethod" |
-  "itemsAmount" | "shippingFeeAmount" | "totalAmount" | "createdAt"
-> & { itemCount: number };
+  "itemsAmount" | "shippingFeeAmount" | "totalAmount" | "createdAt" |
+  "carrierCode" | "trackingCode" | "labelPrintUrl" | "shipmentPendingCreation"
+> & { itemCount: number; items?: SellerSubOrderItem[] | null };
 
 type SellerPaged<T> = {
   items: T[];
@@ -2450,10 +2470,11 @@ export function SellerOrdersScreen() {
     setFeedback("");
     setActionError("");
     try {
-      await sellerOrdersService.accept(sub.orderId, sub.subOrderId);
-      const okMsg = `Đã chấp nhận đơn ${sub.subOrderNo}. Mở "Theo dõi vận đơn" để xem mã vận đơn; nếu chưa có, mở chi tiết đơn để tạo lại vận đơn.`;
+      const result = await sellerOrdersService.accept(sub.orderId, sub.subOrderId);
+      const trackingInfo = result?.trackingCode ? ` · Mã vận đơn GHN: ${result.trackingCode}` : "";
+      const okMsg = `Đã chấp nhận đơn ${sub.subOrderNo}${trackingInfo}.`;
       setFeedback(okMsg);
-      showToast(`Đã chấp nhận đơn ${sub.subOrderNo}.`, "success");
+      showToast(okMsg, "success");
       resource.reload();
     } catch (reason) {
       setActionError(msg(reason as Error));
@@ -2486,29 +2507,31 @@ export function SellerOrdersScreen() {
           {acceptBlock.message} <Link href={ROUTES.seller.inventory}>Mở Quản lý kho</Link>
         </p>
       )}
-      <div className="seller-orders-filter">
-        <label className="field-wrap">
-          Trạng thái đơn
-          <select className="select-field" value={statusFilter} onChange={(event) => { setPage(1); setStatusFilter(event.target.value); }}>
-            <option value="">Tất cả trạng thái</option>
-            <option value="PendingPayment">Chờ xác nhận (COD) / Chờ thanh toán</option>
-            <option value="PendingConfirmation">Chờ người bán xác nhận</option>
-            <option value="Paid">Đã thanh toán · Chờ xác nhận</option>
-            <option value="Confirmed">Đã xác nhận</option>
-            <option value="Shipped">Đang giao hàng</option>
-            <option value="Delivered">Đã giao</option>
-            <option value="Completed">Hoàn tất</option>
-            <option value="SellerRejected">Người bán từ chối</option>
-            <option value="Returning">Đang hoàn hàng</option>
-            <option value="Returned">Đã hoàn hàng</option>
-            <option value="Refunded">Đã hoàn tiền</option>
-            <option value="Cancelled">Đã hủy</option>
-          </select>
-        </label>
-      </div>
-      <Card className="card-pad seller-orders-card">
+      <Card className="card-pad" style={{ marginBottom: 16 }}>
+        <div className="ops-filters" style={{ margin: 0 }}>
+          <label className="field-wrap">
+            <span>Trạng thái đơn</span>
+            <select className="select-field" value={statusFilter} onChange={(event) => { setPage(1); setStatusFilter(event.target.value); }}>
+              <option value="">Tất cả trạng thái</option>
+              <option value="PendingPayment">Chờ xác nhận (COD) / Chờ thanh toán</option>
+              <option value="PendingConfirmation">Chờ người bán xác nhận</option>
+              <option value="Paid">Đã thanh toán · Chờ xác nhận</option>
+              <option value="Confirmed">Đã xác nhận</option>
+              <option value="Shipped">Đang giao hàng</option>
+              <option value="Delivered">Đã giao</option>
+              <option value="Completed">Hoàn tất</option>
+              <option value="SellerRejected">Người bán từ chối</option>
+              <option value="Returning">Đang hoàn hàng</option>
+              <option value="Returned">Đã hoàn hàng</option>
+              <option value="Refunded">Đã hoàn tiền</option>
+              <option value="Cancelled">Đã hủy</option>
+            </select>
+          </label>
+        </div>
+      </Card>
+      <Card className="seller-orders-card">
         {resource.data?.items.length ? (
-          <div className="table-scroll seller-orders-table-scroll">
+          <div className="table-scroll">
             <table className="data-table">
               <thead>
                 <tr>
@@ -2532,6 +2555,11 @@ export function SellerOrdersScreen() {
                         <Link href={ROUTES.seller.order(sub.subOrderId)}>
                           <strong>{sub.subOrderNo}</strong>
                         </Link>
+                        {sub.trackingCode && (
+                          <div style={{ fontSize: 12, color: "var(--primary)", marginTop: 2 }}>
+                            GHN: <strong className="mono">{sub.trackingCode}</strong>
+                          </div>
+                        )}
                         <div style={{ fontSize: 12, color: "var(--muted)" }}>
                           {new Date(sub.createdAt).toLocaleString("vi-VN")}
                         </div>
@@ -2539,7 +2567,14 @@ export function SellerOrdersScreen() {
                       <td>
                         <strong>{sub.buyerId}</strong>
                       </td>
-                      <td>{sub.itemCount} mặt hàng</td>
+                      <td>
+                        <strong>{sub.itemCount} mặt hàng</strong>
+                        {sub.items && sub.items.length > 0 && (
+                          <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2, maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {sub.items.map((item) => `${item.productName} ×${item.quantity}`).join(", ")}
+                          </div>
+                        )}
+                      </td>
                       <td>
                         <strong>{formatMoney(sub.totalAmount)}</strong>
                         <div style={{ fontSize: 11, color: "var(--muted)" }}>
@@ -2655,13 +2690,19 @@ export function SellerOrderDetailScreen() {
   const [retryBusy, setRetryBusy] = useState(false);
   const [retryFailure, setRetryFailure] = useState<ReturnType<typeof describeShipmentRetryFailure> | null>(null);
   const sub = resource.data;
-  const accepted = Boolean(sub && hasShipmentToTrack(sub.status) && needsShipmentRetry(sub.status, null));
-  // An accepted order whose shipment was never created has no tracking code in its timeline.
+  const accepted = Boolean(sub && hasShipmentToTrack(sub.status));
   const shipmentInfo = useApiResource(
     sub && accepted ? `seller-order-shipment:${sub.subOrderId}` : null,
     (signal) => fulfillmentService.getSubOrderTimeline(subOrderId, signal),
   );
-  const canRetryShipment = Boolean(accepted && shipmentInfo.data && needsShipmentRetry(sub?.status, shipmentInfo.data.trackingCode));
+  const effectiveTrackingCode = sub?.trackingCode ?? shipmentInfo.data?.trackingCode ?? null;
+  const effectiveCarrierCode = sub?.carrierCode ?? shipmentInfo.data?.carrierCode ?? null;
+  const effectiveLabelPrintUrl = sub?.labelPrintUrl ?? shipmentInfo.data?.labelPrintUrl ?? null;
+  const canRetryShipment = Boolean(
+    sub &&
+      needsShipmentRetry(sub.status, effectiveTrackingCode) &&
+      (!accepted || shipmentInfo.data !== undefined),
+  );
   const canAccept = Boolean(sub && canSellerAccept(sub));
   const pickShifts = useApiResource(canAccept ? "shipping-pick-shifts" : null, (signal) => fulfillmentService.getPickShifts(signal));
   const [selectedPickShiftId, setSelectedPickShiftId] = useState<number | null>(null);
@@ -2672,14 +2713,17 @@ export function SellerOrderDetailScreen() {
     setFeedback("");
     setActionError("");
     try {
-      await sellerOrdersService.accept(sub.orderId, sub.subOrderId, selectedPickShiftId);
+      const result = await sellerOrdersService.accept(sub.orderId, sub.subOrderId, selectedPickShiftId);
+      const trackingNotice = result?.trackingCode ? ` Mã vận đơn GHN: ${result.trackingCode}.` : "";
       setFeedback(
-        "Đã chấp nhận đơn hàng và đăng ký bưu tá GHN lấy hàng. Bạn có thể in phiếu giao hàng dán lên kiện hàng dưới đây.",
+        `Đã chấp nhận đơn hàng và đăng ký bưu tá GHN lấy hàng.${trackingNotice} Bạn có thể in phiếu giao hàng dán lên kiện hàng dưới đây.`,
       );
       resource.reload();
       shipmentInfo.reload();
     } catch (reason) {
       setActionError(msg(reason as Error));
+      resource.reload();
+      shipmentInfo.reload();
     } finally {
       setBusy(false);
     }
@@ -2693,9 +2737,12 @@ export function SellerOrderDetailScreen() {
     try {
       const result = await fulfillmentService.retrySubOrderShipment(sub.subOrderId);
       setFeedback(`Đã tạo lại vận đơn ${result.trackingCode}.`);
+      resource.reload();
       shipmentInfo.reload();
     } catch (reason) {
       setRetryFailure(describeShipmentRetryFailure(reason));
+      resource.reload();
+      shipmentInfo.reload();
     } finally {
       setRetryBusy(false);
     }
@@ -2889,12 +2936,12 @@ export function SellerOrderDetailScreen() {
                 <div style={{ fontSize: 12.5, color: "var(--muted)", lineHeight: 1.45, marginBottom: 10 }}>
                   Đóng gói đúng {sub.items.reduce((sum, item) => sum + item.quantity, 0)} sản phẩm trong đơn, in phiếu giao hàng dán lên bọc hàng và giao cho shipper khi tới lấy hàng.
                 </div>
-                {shipmentInfo.data?.trackingCode && (
+                {effectiveTrackingCode && (
                   <TrackingCodeBar
-                    carrierCode={shipmentInfo.data.carrierCode}
-                    carrierName={shipmentInfo.data.carrierName}
-                    trackingCode={shipmentInfo.data.trackingCode}
-                    labelPrintUrl={shipmentInfo.data.labelPrintUrl}
+                    carrierCode={effectiveCarrierCode}
+                    carrierName={shipmentInfo.data?.carrierName}
+                    trackingCode={effectiveTrackingCode}
+                    labelPrintUrl={effectiveLabelPrintUrl}
                     showPrintLabel
                   />
                 )}
@@ -3017,13 +3064,30 @@ export function SellerShipmentDetailScreen() {
     (signal) => fulfillmentService.getSubOrderTimeline(subOrderId, signal),
   );
   const data = resource.data;
-  // Fetch the carrier's own record whenever a tracking code exists so we have shipment id (for sync-status), shipper info, and failed attempts.
+  // Fetch the carrier's own record whenever a tracking code exists so we have shipment id (for sync-status), shipper info, items, and failed attempts.
   const carrier = useApiResource(
     data?.trackingCode ? `seller-shipment-carrier:${data.trackingCode}` : null,
     (signal) => fulfillmentService.getShipmentByTracking(data?.trackingCode ?? "", signal),
   );
   const failedAttempts = countFailedAttempts(carrier.data?.events);
   const lastReason = [...(carrier.data?.events ?? [])].reverse().find((event) => event.status === "DeliveryAttemptFailed" && event.reason)?.reason;
+  const shipmentItems = data?.items?.length
+    ? data.items.map((item) => ({
+        key: item.orderItemId ?? item.skuId,
+        name: item.productName,
+        skuCode: item.skuCode ?? null,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        lineTotal: item.lineTotal,
+      }))
+    : (carrier.data?.items ?? []).map((item, idx) => ({
+        key: `${item.skuId}-${idx}`,
+        name: item.name,
+        skuCode: item.skuId,
+        quantity: item.quantity,
+        unitPrice: item.price,
+        lineTotal: item.price * item.quantity,
+      }));
 
   async function handleSyncFromCarrier() {
     if (!carrier.data?.id || syncBusy) return;
@@ -3096,6 +3160,18 @@ export function SellerShipmentDetailScreen() {
                 <strong>{new Date(data.estimatedDeliveryAt).toLocaleString("vi-VN")}</strong>
               </div>
             )}
+            {carrier.data && (
+              <>
+                <div className="info-row">
+                  <span>Người nhận</span>
+                  <strong>{carrier.data.receiverName} · {carrier.data.receiverPhone}</strong>
+                </div>
+                <div className="info-row">
+                  <span>Địa chỉ nhận</span>
+                  <span style={{ textAlign: "right" }}>{carrier.data.receiverAddress}</span>
+                </div>
+              </>
+            )}
 
             <TrackingCodeBar
               carrierCode={data.carrierCode}
@@ -3105,6 +3181,41 @@ export function SellerShipmentDetailScreen() {
               shipmentId={carrier.data?.id}
               showPrintLabel
             />
+
+            {shipmentItems.length > 0 && (
+              <div style={{ marginTop: 14, marginBottom: 14 }}>
+                <h3 style={{ margin: "0 0 8px", fontSize: 15 }}>Sản phẩm trong đơn vận chuyển</h3>
+                <div className="table-scroll">
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Sản phẩm</th>
+                        <th>Số lượng</th>
+                        <th>Đơn giá</th>
+                        <th>Thành tiền</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {shipmentItems.map((item) => (
+                        <tr key={item.key}>
+                          <td>
+                            <strong>{item.name}</strong>
+                            {item.skuCode && (
+                              <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>
+                                SKU: {item.skuCode}
+                              </div>
+                            )}
+                          </td>
+                          <td className="tabular-nums">{item.quantity}</td>
+                          <td className="tabular-nums">{formatMoney(item.unitPrice)}</td>
+                          <td className="tabular-nums"><strong>{formatMoney(item.lineTotal)}</strong></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
 
             {failedAttempts > 0 && !lastReason && (
               <div className="shipment-alert-strip is-danger" role="status" style={{ marginBottom: 12 }}>
@@ -3138,6 +3249,9 @@ export function SellerShipmentDetailScreen() {
       </Card>
       <div className="action-row">
         {data && canConfirmReturn(data.timeline) && <ConfirmReturnButton subOrderId={subOrderId} onDone={() => { resource.reload(); }} />}
+        <ButtonLink href={ROUTES.seller.order(subOrderId)} variant="secondary">
+          Xem chi tiết đơn bán
+        </ButtonLink>
         <ButtonLink href={ROUTES.seller.shipments} variant="secondary">
           Quay lại danh sách vận đơn
         </ButtonLink>

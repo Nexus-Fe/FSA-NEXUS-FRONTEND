@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { AdminPagination, Badge, Card, clickableRowProps, NoData, PageHeading } from "@/components/ui/Primitives";
+import { TableSkeleton } from "@/components/ui/Skeleton";
 import { ROUTES } from "@/constants/routes";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { describeLookupFailure } from "@/lib/api/lookup-failure";
@@ -26,14 +27,40 @@ export function LedgerTransactionsScreen() {
 function LedgerTransactionsContent() {
   const [page, setPage] = useState(1); const [walletId, setWalletId] = useState(""); const [type, setType] = useState(""); const [status, setStatus] = useState(""); const [fromDate, setFromDate] = useState(""); const [toDate, setToDate] = useState("");
   const data = useApiResource(`finance-ledger:${page}:${walletId}:${type}:${status}:${fromDate}:${toDate}`, (signal) => ledgerService.ledger({ page, pageSize: 20, walletId, type, status, fromDate, toDate }, signal));
-  return <div className="page-stack"><PageHeading title="Sổ giao dịch" description="Các khoản đã ghi nhận trong ví trên toàn hệ thống." /><Card className="card-pad"><div className="ops-filters"><label>Mã ví<input className="field" value={walletId} onChange={(e) => { setWalletId(e.target.value); setPage(1); }} /></label><label>Loại<select className="select-field" value={type} onChange={(e) => { setType(e.target.value); setPage(1); }}><option value="">Tất cả</option>{Object.entries(transactionTypes).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label><label>Trạng thái<select className="select-field" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }}><option value="">Tất cả</option>{Object.entries(txStatusLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label><label>Từ ngày<input className="field" type="date" value={fromDate} onChange={(e) => { setFromDate(e.target.value); setPage(1); }} /></label><label>Đến ngày<input className="field" type="date" value={toDate} onChange={(e) => { setToDate(e.target.value); setPage(1); }} /></label></div>{data.loading ? <p>Đang tải…</p> : data.error ? failure(data.error) : !data.data?.items.length ? <NoData title="Không có giao dịch phù hợp" /> : <div className="table-scroll"><table className="data-table"><thead><tr><th>Thời điểm</th><th>Ví</th><th>Loại</th><th>Số tiền</th><th>Trước → Sau</th><th>Trạng thái</th><th>Tham chiếu</th></tr></thead><tbody>{data.data.items.map((item) => <tr key={item.transactionId}><td>{date(item.createdAt)}</td><td className="mono">{item.walletId}</td><td>{transactionTypes[item.type] ?? item.type}</td><td className="tabular-nums">{formatMoney(item.amount)}</td><td className="tabular-nums">{formatMoney(item.balanceBefore)} → {formatMoney(item.balanceAfter)}</td><td><Badge tone={item.status === "Success" ? "green" : "slate"}>{txStatusLabels[item.status] ?? item.status}</Badge></td><td className="mono">{item.referenceId ?? "—"}</td></tr>)}</tbody></table></div>}{data.data && paging(page, data.data.pagination.totalCount, data.data.pagination.totalPages, setPage)}</Card></div>;
+  return <div className="page-stack">
+    <PageHeading title="Sổ giao dịch" description="Các khoản đã ghi nhận trong ví trên toàn hệ thống." />
+    <Card className="card-pad" style={{ marginBottom: 16 }}>
+      <div className="ops-filters" style={{ margin: 0 }}>
+        <label>Mã ví<input className="field" value={walletId} onChange={(e) => { setWalletId(e.target.value); setPage(1); }} /></label>
+        <label>Loại<select className="select-field" value={type} onChange={(e) => { setType(e.target.value); setPage(1); }}><option value="">Tất cả</option>{Object.entries(transactionTypes).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
+        <label>Trạng thái<select className="select-field" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }}><option value="">Tất cả</option>{Object.entries(txStatusLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
+        <label>Từ ngày<input className="field" type="date" value={fromDate} onChange={(e) => { setFromDate(e.target.value); setPage(1); }} /></label>
+        <label>Đến ngày<input className="field" type="date" value={toDate} onChange={(e) => { setToDate(e.target.value); setPage(1); }} /></label>
+      </div>
+    </Card>
+    <Card>
+      {data.loading && !data.data ? <TableSkeleton rows={5} cols={7} label="Đang tải sổ giao dịch…" /> : data.error ? failure(data.error) : !data.data?.items.length ? <NoData title="Không có giao dịch phù hợp" /> : <div className="table-scroll"><table className="data-table"><thead><tr><th>Thời điểm</th><th>Ví</th><th>Loại</th><th>Số tiền</th><th>Trước → Sau</th><th>Trạng thái</th><th>Tham chiếu</th></tr></thead><tbody>{data.data.items.map((item) => <tr key={item.transactionId}><td>{date(item.createdAt)}</td><td className="mono">{item.walletId}</td><td>{transactionTypes[item.type] ?? item.type}</td><td className="tabular-nums">{formatMoney(item.amount)}</td><td className="tabular-nums">{formatMoney(item.balanceBefore)} → {formatMoney(item.balanceAfter)}</td><td><Badge tone={item.status === "Success" ? "green" : "slate"}>{txStatusLabels[item.status] ?? item.status}</Badge></td><td className="mono">{item.referenceId ?? "—"}</td></tr>)}</tbody></table></div>}
+      {data.data && paging(page, data.data.pagination.totalCount, data.data.pagination.totalPages, setPage)}
+    </Card>
+  </div>;
 }
 
 export function LedgerBalancesScreen() { const enabled = useFeature("ledger"); return enabled ? <LedgerBalancesContent /> : <FeatureUnavailable />; }
 function LedgerBalancesContent() {
   const [page, setPage] = useState(1); const [walletId, setWalletId] = useState("");
   const data = useApiResource(`finance-balances:${page}:${walletId}`, (signal) => ledgerService.balances({ page, pageSize: 20, walletId }, signal));
-  return <div className="page-stack"><PageHeading title="Đối soát số dư ví" description="So số dư hiện tại với giao dịch thành công gần nhất." /><Card className="card-pad"><label>Mã ví<input className="field" value={walletId} onChange={(e) => { setWalletId(e.target.value); setPage(1); }} /></label>{data.loading ? <p>Đang tải…</p> : data.error ? failure(data.error) : !data.data?.items.length ? <NoData title="Không có ví phù hợp" /> : <div className="table-scroll"><table className="data-table"><thead><tr><th>Ví</th><th>Số dư hiện tại</th><th>Số dư theo giao dịch</th><th>Chênh lệch</th><th>Giao dịch</th><th>Kết quả</th></tr></thead><tbody>{data.data.items.map((item) => <tr key={item.walletId} className={balanceTone(item.difference) === "red" ? "finance-mismatch" : undefined}><td className="mono">{item.walletId}</td><td className="tabular-nums">{formatMoney(item.currentBalance)}</td><td className="tabular-nums">{item.latestSuccessfulBalance == null ? "Chưa có" : formatMoney(item.latestSuccessfulBalance)}</td><td className="tabular-nums">{item.difference == null ? "Chưa kiểm" : formatMoney(item.difference)}</td><td>{item.successfulTransactionCount}</td><td><Badge tone={balanceTone(item.difference)}>{item.difference == null ? "Chưa kiểm" : balanceTone(item.difference) === "green" ? "Khớp" : "Lệch"}</Badge></td></tr>)}</tbody></table></div>}{data.data && paging(page, data.data.pagination.totalCount, data.data.pagination.totalPages, setPage)}</Card></div>;
+  return <div className="page-stack">
+    <PageHeading title="Đối soát số dư ví" description="So số dư hiện tại với giao dịch thành công gần nhất." />
+    <Card className="card-pad" style={{ marginBottom: 16 }}>
+      <div className="ops-filters" style={{ margin: 0 }}>
+        <label>Mã ví<input className="field" value={walletId} onChange={(e) => { setWalletId(e.target.value); setPage(1); }} /></label>
+      </div>
+    </Card>
+    <Card>
+      {data.loading && !data.data ? <TableSkeleton rows={5} cols={6} label="Đang tải số dư ví…" /> : data.error ? failure(data.error) : !data.data?.items.length ? <NoData title="Không có ví phù hợp" /> : <div className="table-scroll"><table className="data-table"><thead><tr><th>Ví</th><th>Số dư hiện tại</th><th>Số dư theo giao dịch</th><th>Chênh lệch</th><th>Giao dịch</th><th>Kết quả</th></tr></thead><tbody>{data.data.items.map((item) => <tr key={item.walletId} className={balanceTone(item.difference) === "red" ? "finance-mismatch" : undefined}><td className="mono">{item.walletId}</td><td className="tabular-nums">{formatMoney(item.currentBalance)}</td><td className="tabular-nums">{item.latestSuccessfulBalance == null ? "Chưa có" : formatMoney(item.latestSuccessfulBalance)}</td><td className="tabular-nums">{item.difference == null ? "Chưa kiểm" : formatMoney(item.difference)}</td><td>{item.successfulTransactionCount}</td><td><Badge tone={balanceTone(item.difference)}>{item.difference == null ? "Chưa kiểm" : balanceTone(item.difference) === "green" ? "Khớp" : "Lệch"}</Badge></td></tr>)}</tbody></table></div>}
+      {data.data && paging(page, data.data.pagination.totalCount, data.data.pagination.totalPages, setPage)}
+    </Card>
+  </div>;
 }
 
 export function ReconciliationScreen() { const enabled = useFeature("reconciliation"); return enabled ? <ReconciliationContent /> : <FeatureUnavailable />; }

@@ -227,7 +227,7 @@
 
 .buyer-glass-shell .account-menu-panel {
   border-color: rgba(255, 255, 255, .72);
-  background: rgba(248, 251, 248, .84);
+  background: rgba(253, 250, 245, .92);
   box-shadow: 0 10px 24px rgba(var(--ink-rgb), .12), inset 0 1px 0 rgba(255, 255, 255, .75);
   -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
@@ -801,7 +801,27 @@
 
 .buyer-glass-shell .cart-select-all,
 .buyer-glass-shell .cart-seller-group,
-.buyer-glass-shell .order-status-banner { border-color: var(--line); background: var(--glass-surface); }
+.buyer-glass-shell .order-status-banner { border-color: var(--glass-border); background: var(--glass-surface); }
+.buyer-glass-shell .cart-select-all {
+  border-radius: 20px 20px 0 0;
+  background: rgba(247, 241, 232, .82);
+  -webkit-backdrop-filter: blur(10px) saturate(120%);
+  backdrop-filter: blur(10px) saturate(120%);
+}
+.buyer-glass-shell .cart-seller-group {
+  -webkit-backdrop-filter: blur(10px) saturate(120%);
+  backdrop-filter: blur(10px) saturate(120%);
+}
+.buyer-glass-shell .cart-seller-group:last-child { border-radius: 0 0 20px 20px; overflow: hidden; }
+.buyer-glass-shell .buyer-cart-summary,
+.buyer-glass-shell .cart-empty {
+  border-color: var(--glass-border);
+  border-radius: 20px;
+  background: var(--glass-surface);
+  box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: blur(10px) saturate(120%);
+  backdrop-filter: blur(10px) saturate(120%);
+}
 .buyer-glass-shell .cart-summary-line strong,
 .buyer-glass-shell .cart-summary-total strong,
 .buyer-glass-shell .cart-product-price strong { white-space: nowrap; font-variant-numeric: tabular-nums; }
@@ -831,8 +851,15 @@
 .buyer-glass-shell .checkout-address-review { border-color: var(--line); border-radius: 12px; background: rgba(255, 255, 255, .65); }
 .buyer-glass-shell .buyer-main .table-scroll {
   border-color: var(--glass-border);
-  border-radius: 16px;
+  border-radius: 20px;
   background: var(--glass-surface);
+}
+.buyer-glass-shell .buyer-main .card > .table-scroll {
+  border-radius: inherit;
+  background: transparent;
+}
+.buyer-glass-shell .buyer-main .card > .table-scroll:last-child .data-table tbody tr:last-child td {
+  border-bottom: 0;
 }
 .buyer-glass-shell .buyer-main .data-table th { background: rgba(247, 241, 232, .58); }
 .buyer-glass-shell .buyer-main .info-row strong,
@@ -962,7 +989,7 @@ body {
 .auth-footer,
 .portal-sidebar,
 .portal-account-menu {
-  background: rgba(244, 248, 241, .75);
+  background: rgba(253, 250, 245, .82);
   -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
 }
@@ -1076,18 +1103,23 @@ body {
   backdrop-filter: blur(10px) saturate(120%);
 }
 
-/* Staff and Admin panels share a slightly softer glass edge. */
+/* Staff, Seller, and Admin panels share the unified rounded glass card specification. */
 .portal-shell-operations .portal-main .card,
 .portal-shell-operations .portal-main .role-selector-bar {
   border-color: rgba(255, 255, 255, .88);
   border-radius: 20px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, .82), rgba(245, 252, 247, .7));
+  background: linear-gradient(135deg, rgba(255, 255, 255, .86), rgba(253, 250, 245, .74));
   box-shadow:
     0 16px 36px rgba(var(--ink-rgb), .12),
     inset 0 2px 2px rgba(255, 255, 255, .95),
     inset 0 -2px 5px rgba(var(--ink-rgb), .055);
   -webkit-backdrop-filter: blur(12px) saturate(125%);
   backdrop-filter: blur(12px) saturate(125%);
+}
+
+.portal-shell-operations .portal-main .card:not(:has(.u431)),
+.buyer-glass-shell .buyer-main .card:not(:has(.u431)) {
+  overflow: hidden;
 }
 
 .buyer-glass-shell .product-media,

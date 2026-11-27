@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { AdminPagination, Badge, PageHeading } from "@/components/ui/Primitives";
+import { AdminPagination, Badge, Card, PageHeading } from "@/components/ui/Primitives";
 import { FluidChoiceBar } from "@/components/ui/FluidChoiceBar";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Modal } from "@/components/ui/Modal";
@@ -62,38 +62,40 @@ export function SubsidyBudgetsScreen() {
         onChange={setStatusFilter}
       />
       {notice && <p className="form-success" role="status">{notice}</p>}
-      <DataState loading={budgets.loading} error={budgets.error} empty={!filteredBudgets.length} emptyTitle="Chưa có ngân sách nào" onRetry={budgets.reload}>
-        <div className="table-scroll">
-          <table className="data-table">
-            <thead><tr><th>Tên</th><th>Hạn mức (tổng · ngày · đơn)</th><th>Sử dụng</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
-            <tbody>
-              {filteredBudgets.map((budget) => {
-                const percent = budgetUsagePercent(budget.totalLimit, budget.reservedAmount, budget.usedAmount);
-                const mine = user?.id && budget.createdByAdminId.toLowerCase() === user.id.toLowerCase();
-                return (
-                  <tr key={budget.id}>
-                    <td><strong>{budget.name}</strong><br /><small className="mono">Chứng từ: {budget.evidenceRef}</small></td>
-                    <td className="tabular-nums">{formatMoney(budget.totalLimit)}<br /><small>{formatMoney(budget.dailyLimit)} / ngày · {formatMoney(budget.perOrderCap)} / đơn</small></td>
-                    <td className="tabular-nums">
-                      <progress value={percent} max={100} aria-label={`Đã dùng hoặc giữ ${percent}%`} />
-                      <br /><small>Đang giữ {formatMoney(budget.reservedAmount)} · đã dùng {formatMoney(budget.usedAmount)} · còn {formatMoney(budget.availableAmount)}</small>
-                    </td>
-                    <td><Badge tone={budget.status.toUpperCase() === "ACTIVE" ? "green" : budget.status.toUpperCase() === "CLOSED" ? "slate" : "amber"}>{statusLabel(SUBSIDY_BUDGET_STATUS, budget.status)}</Badge></td>
-                    <td>
-                      <div className="voucher-row-actions">
-                        {canApproveBudget(budget, user?.id) && <button type="button" className="button button-primary button-small" disabled={busy} onClick={() => { setFailure(null); setPending({ kind: "approve", budget }); }}>Duyệt</button>}
-                        {budget.status.toUpperCase() === "PENDINGAPPROVAL" && mine && <small>Do bạn tạo, cần admin khác duyệt</small>}
-                        {canCloseBudget(budget) && <button type="button" className="button button-secondary button-small" disabled={busy} onClick={() => { setFailure(null); setPending({ kind: "close", budget }); }}>Đóng</button>}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </DataState>
-      {budgets.data && budgets.data.pagination.totalPages > 1 && <AdminPagination page={page} pageSize={budgets.data.pagination.pageSize} totalItems={budgets.data.pagination.totalCount} totalPages={budgets.data.pagination.totalPages} onPageChange={setPage} itemLabel="ngân sách" />}
+      <Card>
+        <DataState loading={budgets.loading} error={budgets.error} empty={!filteredBudgets.length} emptyTitle="Chưa có ngân sách nào" onRetry={budgets.reload}>
+          <div className="table-scroll">
+            <table className="data-table">
+              <thead><tr><th>Tên</th><th>Hạn mức (tổng · ngày · đơn)</th><th>Sử dụng</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
+              <tbody>
+                {filteredBudgets.map((budget) => {
+                  const percent = budgetUsagePercent(budget.totalLimit, budget.reservedAmount, budget.usedAmount);
+                  const mine = user?.id && budget.createdByAdminId.toLowerCase() === user.id.toLowerCase();
+                  return (
+                    <tr key={budget.id}>
+                      <td><strong>{budget.name}</strong><br /><small className="mono">Chứng từ: {budget.evidenceRef}</small></td>
+                      <td className="tabular-nums">{formatMoney(budget.totalLimit)}<br /><small>{formatMoney(budget.dailyLimit)} / ngày · {formatMoney(budget.perOrderCap)} / đơn</small></td>
+                      <td className="tabular-nums">
+                        <progress value={percent} max={100} aria-label={`Đã dùng hoặc giữ ${percent}%`} />
+                        <br /><small>Đang giữ {formatMoney(budget.reservedAmount)} · đã dùng {formatMoney(budget.usedAmount)} · còn {formatMoney(budget.availableAmount)}</small>
+                      </td>
+                      <td><Badge tone={budget.status.toUpperCase() === "ACTIVE" ? "green" : budget.status.toUpperCase() === "CLOSED" ? "slate" : "amber"}>{statusLabel(SUBSIDY_BUDGET_STATUS, budget.status)}</Badge></td>
+                      <td>
+                        <div className="voucher-row-actions">
+                          {canApproveBudget(budget, user?.id) && <button type="button" className="button button-primary button-small" disabled={busy} onClick={() => { setFailure(null); setPending({ kind: "approve", budget }); }}>Duyệt</button>}
+                          {budget.status.toUpperCase() === "PENDINGAPPROVAL" && mine && <small>Do bạn tạo, cần admin khác duyệt</small>}
+                          {canCloseBudget(budget) && <button type="button" className="button button-secondary button-small" disabled={busy} onClick={() => { setFailure(null); setPending({ kind: "close", budget }); }}>Đóng</button>}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </DataState>
+        {budgets.data && budgets.data.pagination.totalPages > 1 && <AdminPagination page={page} pageSize={budgets.data.pagination.pageSize} totalItems={budgets.data.pagination.totalCount} totalPages={budgets.data.pagination.totalPages} onPageChange={setPage} itemLabel="ngân sách" />}
+      </Card>
       {creating && <BudgetDialog onClose={() => setCreating(false)} onSaved={() => { setCreating(false); setNotice("Đã tạo ngân sách. Ngân sách chờ một quản trị viên khác duyệt."); budgets.reload(); }} />}
       <ConfirmDialog
         open={pending !== null}

@@ -30,32 +30,86 @@ export const buyerNavigation: NavigationItem[] = [
 ];
 
 export const sellerNavigation: NavigationItem[] = [
-  { label: "Quản lý sản phẩm", href: ROUTES.seller.products, icon: "grid" },
-  { label: "Hồ sơ gian hàng", href: ROUTES.seller.shop, icon: "users" },
+  { label: "Quản lý sản phẩm", href: ROUTES.seller.products, icon: "package" },
+  { label: "Hồ sơ gian hàng", href: ROUTES.seller.shop, icon: "store" },
   { label: "Quản lý kho", href: ROUTES.seller.inventory, icon: "warehouse" },
   { label: "Đơn bán", href: ROUTES.seller.orders, icon: "orders" },
-  { label: "Vận chuyển", href: ROUTES.seller.shipments, icon: "warehouse" },
-  { label: "Hoàn tiền", href: ROUTES.seller.refunds, icon: "orders", feature: "refunds" },
+  { label: "Vận chuyển", href: ROUTES.seller.shipments, icon: "truck" },
+  { label: "Hoàn tiền", href: ROUTES.seller.refunds, icon: "rotateCcw", feature: "refunds" },
   { label: "Phiên đấu giá", href: ROUTES.seller.auctions, icon: "gavel" },
-  { label: "Đơn đấu giá", href: ROUTES.seller.auctionOrders, icon: "gavel" },
+  { label: "Đơn đấu giá", href: ROUTES.seller.auctionOrders, icon: "checkSquare" },
   { label: "Doanh thu & ví", href: ROUTES.seller.wallet, icon: "wallet" },
-  { label: "Mã giảm giá", href: ROUTES.seller.coupons, icon: "orders", feature: "vouchers" },
-  { label: "Đánh giá & uy tín", href: ROUTES.seller.reviews, icon: "users" },
+  { label: "Mã giảm giá", href: ROUTES.seller.coupons, icon: "ticket", feature: "vouchers" },
+  { label: "Đánh giá & uy tín", href: ROUTES.seller.reviews, icon: "star" },
 ];
 
-export const staffNavigation: NavigationItem[] = [
-  { label: "Giám sát đấu giá", href: ROUTES.staff.auctions, icon: "gavel" },
-  { label: "Vận hành đấu giá", href: ROUTES.staff.auctionOps, icon: "gavel" },
-  { label: "Duyệt người bán", href: ROUTES.staff.sellers, icon: "users" },
-  { label: "Duyệt sản phẩm", href: ROUTES.staff.productModeration, icon: "grid" },
-  { label: "Duyệt rút tiền", href: ROUTES.staff.withdrawals, icon: "wallet" },
-  { label: "Khiếu nại & Vi phạm", href: ROUTES.staff.reports, icon: "flag" },
-  { label: "Báo cáo sản phẩm", href: ROUTES.staff.productReports, icon: "flag" },
-  { label: "Kiểm duyệt đánh giá", href: ROUTES.staff.productReviews, icon: "flag" },
-  { label: "Hoàn tiền", href: ROUTES.staff.refunds, icon: "orders", feature: "refunds" },
-  { label: "Trung tâm thông báo", href: ROUTES.staff.notificationCenter, icon: "orders" },
-  { label: "Xử phạt vi phạm", href: ROUTES.staff.penalties, icon: "gavel" },
+export const staffNavigationSections: NavigationSection[] = [
+  {
+    kind: "group",
+    group: {
+      id: "staff-auctions",
+      label: "Đấu giá & Giám sát",
+      icon: "gavel",
+      items: [
+        { label: "Giám sát đấu giá", href: ROUTES.staff.auctions, icon: "gavel" },
+        { label: "Vận hành đấu giá", href: ROUTES.staff.auctionOps, icon: "activity" },
+      ],
+    },
+  },
+  {
+    kind: "group",
+    group: {
+      id: "staff-sellers-catalog",
+      label: "Gian hàng & Sản phẩm",
+      icon: "package",
+      items: [
+        { label: "Duyệt người bán", href: ROUTES.staff.sellers, icon: "store" },
+        { label: "Duyệt sản phẩm", href: ROUTES.staff.productModeration, icon: "packageCheck" },
+      ],
+    },
+  },
+  {
+    kind: "group",
+    group: {
+      id: "staff-moderation",
+      label: "Kiểm duyệt & Xử phạt",
+      icon: "shieldAlert",
+      items: [
+        { label: "Khiếu nại & Vi phạm", href: ROUTES.staff.reports, icon: "flag" },
+        { label: "Báo cáo sản phẩm", href: ROUTES.staff.productReports, icon: "alertOctagon" },
+        { label: "Kiểm duyệt đánh giá", href: ROUTES.staff.productReviews, icon: "star" },
+        { label: "Xử phạt vi phạm", href: ROUTES.staff.penalties, icon: "alertTriangle" },
+      ],
+    },
+  },
+  {
+    kind: "group",
+    group: {
+      id: "staff-finance",
+      label: "Tài chính & Hoàn tiền",
+      icon: "wallet",
+      items: [
+        { label: "Duyệt rút tiền", href: ROUTES.staff.withdrawals, icon: "arrowUp" },
+        { label: "Hoàn tiền", href: ROUTES.staff.refunds, icon: "rotateCcw", feature: "refunds" },
+      ],
+    },
+  },
+  {
+    kind: "group",
+    group: {
+      id: "staff-notifications",
+      label: "Thông báo hệ thống",
+      icon: "bell",
+      items: [
+        { label: "Trung tâm thông báo", href: ROUTES.staff.notificationCenter, icon: "mail" },
+      ],
+    },
+  },
 ];
+
+export const staffNavigation: NavigationItem[] = staffNavigationSections.flatMap((section) =>
+  section.kind === "item" ? [section.item] : section.group.items,
+);
 
 export const adminNavigationSections: NavigationSection[] = [
   {

@@ -38,32 +38,36 @@ function WalletsTab() {
   const [status, setStatus] = useState("");
   const wallets = useApiResource(`admin-wallets:${page}:${search}:${status}`, (signal) => walletToolsService.wallets({ page, search, status }, signal));
   return (
-    <Card className="card-pad">
-      <div className="voucher-filters">
-        <label>Tìm theo mã người dùng<input className="field" value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} /></label>
-        <label>Trạng thái<select className="select-field" value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}><option value="">Tất cả</option><option value="Active">Hoạt động</option><option value="Frozen">Đã đóng băng</option></select></label>
-      </div>
-      <DataState loading={wallets.loading} error={wallets.error} empty={!wallets.data?.items.length} emptyTitle="Không có ví phù hợp" onRetry={wallets.reload}>
-        <div className="table-scroll">
-          <table className="data-table">
-            <thead><tr><th>Người dùng</th><th>Số dư</th><th>Khả dụng</th><th>Đang khóa</th><th>Trạng thái</th><th>Cập nhật</th></tr></thead>
-            <tbody>
-              {wallets.data?.items.map((wallet) => (
-                <tr key={wallet.walletId}>
-                  <td className="mono">{wallet.userId}</td>
-                  <td className="tabular-nums">{formatMoney(wallet.balance)}</td>
-                  <td className="tabular-nums">{formatMoney(wallet.availableBalance)}</td>
-                  <td className="tabular-nums">{formatMoney(wallet.lockedBalance)}</td>
-                  <td><Badge tone={wallet.status.toUpperCase() === "ACTIVE" ? "green" : "amber"}>{wallet.status.toUpperCase() === "ACTIVE" ? "Hoạt động" : wallet.status}</Badge></td>
-                  <td>{transactionDate(wallet.updatedAt)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+    <>
+      <Card className="card-pad" style={{ marginBottom: 16 }}>
+        <div className="voucher-filters" style={{ margin: 0 }}>
+          <label>Tìm theo mã người dùng<input className="field" value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} /></label>
+          <label>Trạng thái<select className="select-field" value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}><option value="">Tất cả</option><option value="Active">Hoạt động</option><option value="Frozen">Đã đóng băng</option></select></label>
         </div>
-      </DataState>
-      {wallets.data && wallets.data.pagination.totalPages > 1 && <AdminPagination page={page} pageSize={wallets.data.pagination.pageSize} totalItems={wallets.data.pagination.totalCount} totalPages={wallets.data.pagination.totalPages} onPageChange={setPage} itemLabel="ví" />}
-    </Card>
+      </Card>
+      <Card>
+        <DataState loading={wallets.loading} error={wallets.error} empty={!wallets.data?.items.length} emptyTitle="Không có ví phù hợp" onRetry={wallets.reload}>
+          <div className="table-scroll">
+            <table className="data-table">
+              <thead><tr><th>Người dùng</th><th>Số dư</th><th>Khả dụng</th><th>Đang khóa</th><th>Trạng thái</th><th>Cập nhật</th></tr></thead>
+              <tbody>
+                {wallets.data?.items.map((wallet) => (
+                  <tr key={wallet.walletId}>
+                    <td className="mono">{wallet.userId}</td>
+                    <td className="tabular-nums">{formatMoney(wallet.balance)}</td>
+                    <td className="tabular-nums">{formatMoney(wallet.availableBalance)}</td>
+                    <td className="tabular-nums">{formatMoney(wallet.lockedBalance)}</td>
+                    <td><Badge tone={wallet.status.toUpperCase() === "ACTIVE" ? "green" : "amber"}>{wallet.status.toUpperCase() === "ACTIVE" ? "Hoạt động" : wallet.status}</Badge></td>
+                    <td>{transactionDate(wallet.updatedAt)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </DataState>
+        {wallets.data && wallets.data.pagination.totalPages > 1 && <AdminPagination page={page} pageSize={wallets.data.pagination.pageSize} totalItems={wallets.data.pagination.totalCount} totalPages={wallets.data.pagination.totalPages} onPageChange={setPage} itemLabel="ví" />}
+      </Card>
+    </>
   );
 }
 
@@ -73,32 +77,36 @@ function HoldsTab() {
   const [userId, setUserId] = useState("");
   const holds = useApiResource(`admin-holds:${page}:${status}:${userId}`, (signal) => walletToolsService.holds({ page, status, userId: userId.trim() || undefined }, signal));
   return (
-    <Card className="card-pad">
-      <div className="voucher-filters">
-        <label>Mã người dùng<input className="field" value={userId} onChange={(event) => { setUserId(event.target.value); setPage(1); }} placeholder="UUID" /></label>
-        <label>Trạng thái khoản giữ<input className="field" value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }} placeholder="Ví dụ: Authorized" /></label>
-      </div>
-      <DataState loading={holds.loading} error={holds.error} empty={!holds.data?.items.length} emptyTitle="Không có khoản giữ phù hợp" onRetry={holds.reload}>
-        <div className="table-scroll">
-          <table className="data-table">
-            <thead><tr><th>Chủ ví</th><th>Tham chiếu</th><th>Số tiền</th><th>Trạng thái</th><th>Tạo lúc</th><th>Giải quyết</th></tr></thead>
-            <tbody>
-              {holds.data?.items.map((hold) => (
-                <tr key={hold.holdId}>
-                  <td className="mono">{hold.ownerUserId}</td>
-                  <td>{hold.referenceType}<br /><small className="mono">{hold.auctionId ?? hold.referenceId}</small></td>
-                  <td className="tabular-nums">{formatMoney(hold.amount)}</td>
-                  <td><Badge tone={semanticStatusTone(hold.status)}>{({ HELD: "Đang giữ", RELEASED: "Đã giải tỏa", CAPTURED: "Đã thu", EXPIRED: "Hết hạn", CANCELLED: "Đã hủy" } as Record<string, string>)[hold.status.toUpperCase()] ?? hold.status}</Badge></td>
-                  <td>{transactionDate(hold.createdAt)}</td>
-                  <td>{hold.resolvedAt ? transactionDate(hold.resolvedAt) : "Chưa"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+    <>
+      <Card className="card-pad" style={{ marginBottom: 16 }}>
+        <div className="voucher-filters" style={{ margin: 0 }}>
+          <label>Mã người dùng<input className="field" value={userId} onChange={(event) => { setUserId(event.target.value); setPage(1); }} placeholder="UUID" /></label>
+          <label>Trạng thái khoản giữ<input className="field" value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }} placeholder="Ví dụ: Authorized" /></label>
         </div>
-      </DataState>
-      {holds.data && holds.data.pagination.totalPages > 1 && <AdminPagination page={page} pageSize={holds.data.pagination.pageSize} totalItems={holds.data.pagination.totalCount} totalPages={holds.data.pagination.totalPages} onPageChange={setPage} itemLabel="khoản giữ" />}
-    </Card>
+      </Card>
+      <Card>
+        <DataState loading={holds.loading} error={holds.error} empty={!holds.data?.items.length} emptyTitle="Không có khoản giữ phù hợp" onRetry={holds.reload}>
+          <div className="table-scroll">
+            <table className="data-table">
+              <thead><tr><th>Chủ ví</th><th>Tham chiếu</th><th>Số tiền</th><th>Trạng thái</th><th>Tạo lúc</th><th>Giải quyết</th></tr></thead>
+              <tbody>
+                {holds.data?.items.map((hold) => (
+                  <tr key={hold.holdId}>
+                    <td className="mono">{hold.ownerUserId}</td>
+                    <td>{hold.referenceType}<br /><small className="mono">{hold.auctionId ?? hold.referenceId}</small></td>
+                    <td className="tabular-nums">{formatMoney(hold.amount)}</td>
+                    <td><Badge tone={semanticStatusTone(hold.status)}>{({ HELD: "Đang giữ", RELEASED: "Đã giải tỏa", CAPTURED: "Đã thu", EXPIRED: "Hết hạn", CANCELLED: "Đã hủy" } as Record<string, string>)[hold.status.toUpperCase()] ?? hold.status}</Badge></td>
+                    <td>{transactionDate(hold.createdAt)}</td>
+                    <td>{hold.resolvedAt ? transactionDate(hold.resolvedAt) : "Chưa"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </DataState>
+        {holds.data && holds.data.pagination.totalPages > 1 && <AdminPagination page={page} pageSize={holds.data.pagination.pageSize} totalItems={holds.data.pagination.totalCount} totalPages={holds.data.pagination.totalPages} onPageChange={setPage} itemLabel="khoản giữ" />}
+      </Card>
+    </>
   );
 }
 

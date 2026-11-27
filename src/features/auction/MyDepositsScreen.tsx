@@ -46,17 +46,17 @@ export function MyDepositsScreen() {
           <td><small>Giữ: {when(item.authorizedAt)}<br />Hoàn: {when(item.releasedAt)}<br />Trừ: {when(item.capturedAt)}</small></td>
         </tr>)}
       </tbody></table></div>
+      {deposits.data.pagination.totalPages > 1 && (
+        <AdminPagination
+          page={deposits.data.pagination.pageIndex}
+          pageSize={deposits.data.pagination.pageSize}
+          totalItems={deposits.data.pagination.totalCount}
+          totalPages={deposits.data.pagination.totalPages}
+          loading={deposits.loading}
+          onPageChange={setPage}
+          itemLabel="khoản cọc"
+        />
+      )}
     </Card> : !deposits.error && <NoData title="Bạn chưa có khoản cọc nào." />}
-    {deposits.data && deposits.data.pagination.totalPages > 1 && (
-      <AdminPagination
-        page={deposits.data.pagination.pageIndex}
-        pageSize={deposits.data.pagination.pageSize}
-        totalItems={deposits.data.pagination.totalCount}
-        totalPages={deposits.data.pagination.totalPages}
-        loading={deposits.loading}
-        onPageChange={setPage}
-        itemLabel="khoản cọc"
-      />
-    )}
   </div>;
 }
