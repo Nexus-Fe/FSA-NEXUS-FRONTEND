@@ -5,6 +5,17 @@ import type { FeatureKey } from "@/lib/features/feature-flags";
 /** `feature`: the entry is shown only while that flag is on, so a menu never points at a screen that is not switched on. */
 export type NavigationItem = { label: string; href: string; icon: IconName; feature?: FeatureKey };
 
+export type NavigationGroup = {
+  id: string;
+  label: string;
+  icon: IconName;
+  items: NavigationItem[];
+};
+
+export type NavigationSection =
+  | { kind: "item"; item: NavigationItem }
+  | { kind: "group"; group: NavigationGroup };
+
 export const buyerNavigation: NavigationItem[] = [
   { label: "Trang chủ", href: ROUTES.home, icon: "home" },
   { label: "Sản phẩm", href: ROUTES.catalog.index, icon: "grid" },
@@ -46,35 +57,102 @@ export const staffNavigation: NavigationItem[] = [
   { label: "Xử phạt vi phạm", href: ROUTES.staff.penalties, icon: "gavel" },
 ];
 
-export const adminNavigation: NavigationItem[] = [
-  { label: "Tổng quan hệ thống", href: ROUTES.admin.overview, icon: "home" },
-  { label: "Tài khoản & Phân quyền", href: ROUTES.admin.users, icon: "users" },
-  { label: "Duyệt người bán", href: ROUTES.admin.sellers, icon: "users" },
-  { label: "Danh mục sản phẩm", href: ROUTES.admin.categories, icon: "grid" },
-  { label: "Duyệt sản phẩm", href: ROUTES.admin.productModeration, icon: "grid" },
-  { label: "Khiếu nại & Vi phạm", href: ROUTES.admin.reports, icon: "flag" },
-  { label: "Báo cáo sản phẩm", href: ROUTES.admin.productReports, icon: "flag" },
-  { label: "Kiểm duyệt đánh giá", href: ROUTES.admin.productReviews, icon: "flag" },
-  { label: "Xử phạt vi phạm", href: ROUTES.admin.penalties, icon: "gavel" },
-  { label: "Điều chỉnh số dư ví", href: ROUTES.admin.ledger, icon: "wallet" },
-  { label: "Duyệt rút tiền", href: ROUTES.admin.withdrawals, icon: "wallet" },
-  { label: "Sổ giao dịch", href: ROUTES.admin.ledgerTransactions, icon: "wallet", feature: "ledger" },
-  { label: "Đối soát số dư ví", href: ROUTES.admin.ledgerBalances, icon: "wallet", feature: "ledger" },
-  { label: "Đối soát tiền", href: ROUTES.admin.reconciliation, icon: "wallet", feature: "reconciliation" },
-  { label: "Sổ bóng", href: ROUTES.admin.ledgerJournal, icon: "wallet", feature: "ledger" },
-  { label: "Mã giảm giá", href: ROUTES.admin.coupons, icon: "orders", feature: "vouchers" },
-  { label: "Hoàn tiền", href: ROUTES.admin.refunds, icon: "orders", feature: "refunds" },
-  { label: "Công cụ ví", href: ROUTES.admin.walletTools, icon: "wallet" },
-  { label: "Phí nền tảng", href: ROUTES.admin.platformFee, icon: "wallet" },
-  { label: "Ngân sách trợ giá", href: ROUTES.admin.subsidyBudgets, icon: "wallet" },
-  { label: "Vận hành đấu giá", href: ROUTES.admin.auctionOps, icon: "gavel" },
-  { label: "Cài đặt đấu giá", href: ROUTES.admin.auctionConfigs, icon: "gavel" },
-  { label: "Quyết toán đấu giá", href: ROUTES.admin.auctionSettlements, icon: "orders" },
-  { label: "Vận đơn & Giả lập GHN", href: ROUTES.admin.shipments, icon: "orders" },
-  { label: "Cài đặt hệ thống", href: ROUTES.admin.configs, icon: "shield" },
-  { label: "Nhật ký kiểm toán", href: ROUTES.admin.auditLogs, icon: "orders", feature: "audit" },
-  { label: "Cảnh báo bảo mật", href: ROUTES.admin.securityAlerts, icon: "shield", feature: "security-alerts" },
-  { label: "Sức khỏe hệ thống", href: ROUTES.admin.systemHealth, icon: "shield", feature: "system-health" },
-  { label: "Nhật ký & Thông báo", href: ROUTES.admin.notifications, icon: "orders" },
-  { label: "Trung tâm thông báo", href: ROUTES.admin.notificationCenter, icon: "orders" },
+export const adminNavigationSections: NavigationSection[] = [
+  {
+    kind: "item",
+    item: { label: "Tổng quan hệ thống", href: ROUTES.admin.overview, icon: "home" },
+  },
+  {
+    kind: "group",
+    group: {
+      id: "users-sellers",
+      label: "Người dùng & Gian hàng",
+      icon: "users",
+      items: [
+        { label: "Tài khoản & Phân quyền", href: ROUTES.admin.users, icon: "userCog" },
+        { label: "Duyệt người bán", href: ROUTES.admin.sellers, icon: "store" },
+        { label: "Xử phạt vi phạm", href: ROUTES.admin.penalties, icon: "alertTriangle" },
+      ],
+    },
+  },
+  {
+    kind: "group",
+    group: {
+      id: "catalog-moderation",
+      label: "Sản phẩm & Kiểm duyệt",
+      icon: "package",
+      items: [
+        { label: "Danh mục sản phẩm", href: ROUTES.admin.categories, icon: "layers" },
+        { label: "Duyệt sản phẩm", href: ROUTES.admin.productModeration, icon: "packageCheck" },
+        { label: "Khiếu nại & Vi phạm", href: ROUTES.admin.reports, icon: "flag" },
+        { label: "Báo cáo sản phẩm", href: ROUTES.admin.productReports, icon: "alertOctagon" },
+        { label: "Kiểm duyệt đánh giá", href: ROUTES.admin.productReviews, icon: "star" },
+      ],
+    },
+  },
+  {
+    kind: "group",
+    group: {
+      id: "finance-wallet",
+      label: "Tài chính & Ví",
+      icon: "wallet",
+      items: [
+        { label: "Điều chỉnh số dư ví", href: ROUTES.admin.ledger, icon: "sliders" },
+        { label: "Duyệt rút tiền", href: ROUTES.admin.withdrawals, icon: "arrowUp" },
+        { label: "Sổ giao dịch", href: ROUTES.admin.ledgerTransactions, icon: "receipt", feature: "ledger" },
+        { label: "Đối soát số dư ví", href: ROUTES.admin.ledgerBalances, icon: "scale", feature: "ledger" },
+        { label: "Đối soát tiền", href: ROUTES.admin.reconciliation, icon: "refreshCw", feature: "reconciliation" },
+        { label: "Sổ bóng", href: ROUTES.admin.ledgerJournal, icon: "bookOpen", feature: "ledger" },
+        { label: "Công cụ ví", href: ROUTES.admin.walletTools, icon: "wrench" },
+        { label: "Phí nền tảng", href: ROUTES.admin.platformFee, icon: "percent" },
+        { label: "Ngân sách trợ giá", href: ROUTES.admin.subsidyBudgets, icon: "coins" },
+      ],
+    },
+  },
+  {
+    kind: "group",
+    group: {
+      id: "auctions-promotions",
+      label: "Đấu giá & Khuyến mãi",
+      icon: "gavel",
+      items: [
+        { label: "Vận hành đấu giá", href: ROUTES.admin.auctionOps, icon: "activity" },
+        { label: "Cài đặt đấu giá", href: ROUTES.admin.auctionConfigs, icon: "slidersHorizontal" },
+        { label: "Quyết toán đấu giá", href: ROUTES.admin.auctionSettlements, icon: "checkSquare" },
+        { label: "Mã giảm giá", href: ROUTES.admin.coupons, icon: "ticket", feature: "vouchers" },
+      ],
+    },
+  },
+  {
+    kind: "group",
+    group: {
+      id: "orders-fulfillment",
+      label: "Đơn hàng & Vận chuyển",
+      icon: "bag",
+      items: [
+        { label: "Hoàn tiền", href: ROUTES.admin.refunds, icon: "rotateCcw", feature: "refunds" },
+        { label: "Vận đơn & Giả lập GHN", href: ROUTES.admin.shipments, icon: "truck" },
+      ],
+    },
+  },
+  {
+    kind: "group",
+    group: {
+      id: "system-notifications",
+      label: "Hệ thống & Thông báo",
+      icon: "shield",
+      items: [
+        { label: "Cài đặt hệ thống", href: ROUTES.admin.configs, icon: "settings" },
+        { label: "Nhật ký & Thông báo", href: ROUTES.admin.notifications, icon: "bell" },
+        { label: "Trung tâm thông báo", href: ROUTES.admin.notificationCenter, icon: "mail" },
+        { label: "Nhật ký kiểm toán", href: ROUTES.admin.auditLogs, icon: "fileClock", feature: "audit" },
+        { label: "Cảnh báo bảo mật", href: ROUTES.admin.securityAlerts, icon: "shieldAlert", feature: "security-alerts" },
+        { label: "Sức khỏe hệ thống", href: ROUTES.admin.systemHealth, icon: "heartPulse", feature: "system-health" },
+      ],
+    },
+  },
 ];
+
+export const adminNavigation: NavigationItem[] = adminNavigationSections.flatMap((section) =>
+  section.kind === "item" ? [section.item] : section.group.items,
+);
