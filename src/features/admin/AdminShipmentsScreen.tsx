@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { AdminPagination, Badge, Card, NoData, PageHeading } from "@/components/ui/Primitives";
+import { AdminPagination, Badge, Card, NoData, PageHeading, TruncatedText } from "@/components/ui/Primitives";
 import { Icon } from "@/components/ui/Icon";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatError, describeError } from "@/lib/errors/error-messages";
@@ -630,7 +630,7 @@ export function AdminShipmentsScreen() {
                   <tbody>
                     {activeShipment.items.map((item, idx) => (
                       <tr key={`${item.skuId}-${idx}`}>
-                        <td><strong>{item.name}</strong></td>
+                        <td><strong><TruncatedText text={item.name} label="Tên sản phẩm" maxWidth={240} /></strong></td>
                         <td><span className="mono" style={{ fontSize: 12 }}>{item.skuId}</span></td>
                         <td className="tabular-nums">{item.quantity}</td>
                         <td className="tabular-nums">{formatMoney(item.price)}</td>

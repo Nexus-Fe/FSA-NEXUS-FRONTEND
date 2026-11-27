@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { AdminPagination, Badge, Card, NoData, PageHeading } from "@/components/ui/Primitives";
+import { AdminPagination, Badge, Card, NoData, PageHeading, TruncatedText } from "@/components/ui/Primitives";
 import { FluidChoiceBar } from "@/components/ui/FluidChoiceBar";
 import { TableSkeleton } from "@/components/ui/Skeleton";
 import { ErrorState } from "@/components/ui/States";
@@ -81,7 +81,7 @@ function Deliveries({ canWrite }: { canWrite: boolean }) {
       {list.loading && !list.data ? <TableSkeleton rows={5} cols={7} label="Đang tải lượt gửi…" /> : list.data?.items.length ? <div className="table-scroll"><table className="data-table">
         <thead><tr><th>Kênh</th><th>Trạng thái</th><th>Lần thử</th><th>Mã lỗi</th><th>Gửi tới</th><th>Cập nhật</th><th></th></tr></thead>
         <tbody>{list.data.items.map((row) => <tr key={row.id}>
-          <td>{row.channel}</td><td><Badge tone={semanticStatusTone(row.status)}>{deliveryStatusLabel(row.status)}</Badge></td><td>{row.attemptCount}</td><td>{row.errorCode ?? "—"}</td><td>{row.destinationHint}</td><td>{when(row.updatedAt)}</td>
+          <td>{row.channel}</td><td><Badge tone={semanticStatusTone(row.status)}>{deliveryStatusLabel(row.status)}</Badge></td><td>{row.attemptCount}</td><td>{row.errorCode ?? "—"}</td><td><TruncatedText text={row.destinationHint} label="Đích nhận" maxWidth={200} /></td><td>{when(row.updatedAt)}</td>
           <td><div className="action-row" style={{ marginTop: 0 }}>
             <button type="button" className="button button-secondary button-small" onClick={() => setLogsFor(logsFor === row.id ? null : row.id)}>Nhật ký</button>
             {canWrite && canRetryDelivery(row.status) && <button type="button" className="button button-primary button-small" onClick={() => openRetry(row)}>Gửi lại</button>}

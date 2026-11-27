@@ -9,6 +9,7 @@ import {
   Card,
   NoData,
   PageHeading,
+  TruncatedText,
 } from "@/components/ui/Primitives";
 import { TableSkeleton } from "@/components/ui/Skeleton";
 import { ThumbnailBox } from "@/components/ui/BackendImage";
@@ -269,10 +270,10 @@ export function StaffProductModerationScreen() {
                       )}
                     </td>
                     <td style={{ padding: "12px 10px", wordBreak: "break-word", overflowWrap: "anywhere", lineHeight: 1.45 }}>
-                      <strong style={{ display: "block" }}>{p.name}</strong>
+                      <strong style={{ display: "block" }}><TruncatedText text={p.name} label="Tên sản phẩm" maxWidth={240} /></strong>
                       {p.brand && <div style={{ fontSize: 12, color: "var(--muted)" }}>{p.brand}</div>}
                     </td>
-                    <td style={{ padding: "12px 10px", wordBreak: "break-word" }}>{p.categoryName || "—"}</td>
+                    <td style={{ padding: "12px 10px" }}><TruncatedText text={p.categoryName || "—"} label="Danh mục" maxWidth={180} /></td>
                     <td style={{ padding: "12px 10px" }}>
                       <Badge tone="slate">{p.saleType}</Badge>
                     </td>

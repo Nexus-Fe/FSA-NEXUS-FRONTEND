@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { AdminPagination, Badge, Card, clickableRowProps, NoData, PageHeading } from "@/components/ui/Primitives";
+import { AdminPagination, Badge, Card, clickableRowProps, NoData, PageHeading, TruncatedText } from "@/components/ui/Primitives";
 import { ThumbnailBox } from "@/components/ui/BackendImage";
 import { ROUTES } from "@/constants/routes";
 import { useApiResource } from "@/lib/api/use-api-resource";
@@ -113,7 +113,7 @@ export function BuyerAuctionOrders() {
                       <td>
                         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                           <ThumbnailBox src={resolveImageUrl(order.imageUrl ?? null)} alt={order.productName} size={42} />
-                          <span>{order.productName}</span>
+                          <TruncatedText text={order.productName} label="Tên sản phẩm" maxWidth={240} />
                         </div>
                       </td>
                       <td>{formatMoney(order.winningAmount)}</td>

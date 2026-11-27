@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
-import { Badge, Card, NoData, PageHeading, SectionHeading } from "@/components/ui/Primitives";
+import { Badge, Card, NoData, PageHeading, SectionHeading, TruncatedText } from "@/components/ui/Primitives";
 import { BackendImage } from "@/components/ui/BackendImage";
 import { useSession } from "@/components/auth/SessionProvider";
 import { ROUTES } from "@/constants/routes";
@@ -578,7 +578,7 @@ export function SellerProductDetailScreen() {
                               onChange={(e) => setEditVariantName(e.target.value)}
                             />
                           ) : (
-                            variant.name
+                            <TruncatedText text={variant.name} label="Tên biến thể" maxWidth={200} />
                           )}
                         </td>
                         <td className="seller-product-attributes-cell">

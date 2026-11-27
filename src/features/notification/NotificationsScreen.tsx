@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "@/components/auth/SessionProvider";
-import { AdminPagination, Card, PageHeading } from "@/components/ui/Primitives";
+import { AdminPagination, Card, PageHeading, TruncatedText } from "@/components/ui/Primitives";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { usePathname } from "next/navigation";
 import { NotificationAction } from "./NotificationAction";
@@ -85,7 +85,7 @@ export function NotificationsScreen() {
       {resource.data?.items.length ? <ul className="notification-list">
         {resource.data.items.map((item) => <li key={item.id} className={item.isRead ? "" : "notification-unread"}>
           <div className="notification-list-heading">
-            <strong>{item.title || "Thông báo Nexus"}</strong>
+            <strong><TruncatedText text={item.title || "Thông báo Nexus"} label="Tiêu đề thông báo" block /></strong>
             <time dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleString("vi-VN")}</time>
           </div>
           <p>{item.body || "Bạn có thông báo mới."}</p>

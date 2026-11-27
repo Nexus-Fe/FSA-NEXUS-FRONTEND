@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { AdminPagination, Badge, Card, PageHeading } from "@/components/ui/Primitives";
+import { AdminPagination, Badge, Card, PageHeading, TruncatedText } from "@/components/ui/Primitives";
 import { ThumbnailBox } from "@/components/ui/BackendImage";
 import { FluidChoiceBar } from "@/components/ui/FluidChoiceBar";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -44,7 +44,7 @@ function AttentionTab({ role }: { role: "admin" | "staff" }) {
                       alt={item.productName ?? "Sản phẩm đấu giá"}
                     />
                   </td>
-                  <td><strong>{item.productName ?? "Sản phẩm chưa có tên"}</strong><br /><small className="mono">{item.auctionId}</small></td>
+                  <td><strong><TruncatedText text={item.productName ?? "Sản phẩm chưa có tên"} label="Sản phẩm đấu giá" maxWidth={240} /></strong><br /><small className="mono">{item.auctionId}</small></td>
                   <td><Badge tone={auctionStatusTone(item.status)}>{statusLabel(item.status)}</Badge></td>
                   <td className="tabular-nums">{formatMoney(item.currentPriceAmount ?? item.startPriceAmount)}</td>
                   <td>{attentionReasons(item).map((reason) => <Badge key={reason} tone="amber">{reason}</Badge>)}</td>
@@ -107,9 +107,9 @@ function ReportsTab() {
               <tbody>
                 {list.data?.items.map((report) => (
                   <tr key={report.reportId}>
-                    <td>{report.auctionTitle ?? report.auctionId}</td>
+                    <td><TruncatedText text={report.auctionTitle ?? report.auctionId} label="Phiên đấu giá" maxWidth={220} /></td>
                     <td>{report.reason}</td>
-                    <td>{report.description}</td>
+                    <td><TruncatedText text={report.description} label="Mô tả báo cáo" maxWidth={240} /></td>
                     <td><Badge tone={report.status === "Pending" ? "amber" : "slate"}>{report.status}</Badge>{report.adminNote && <><br /><small>{report.adminNote}</small></>}</td>
                     <td>{new Date(report.createdAt).toLocaleString("vi-VN")}</td>
                     <td>{report.status === "Pending" && <button type="button" className="button button-secondary button-small" onClick={() => { setFailure(null); setProblem(""); setNote(""); setTarget(report); }}>Bác báo cáo</button>}</td>

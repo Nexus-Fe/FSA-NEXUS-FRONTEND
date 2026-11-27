@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { AdminPagination, Card, NoData, PageHeading, SectionHeading } from "@/components/ui/Primitives";
+import { AdminPagination, Card, NoData, PageHeading, SectionHeading, TruncatedText } from "@/components/ui/Primitives";
 import { ApiError } from "@/lib/api/client";
 import { adminConfigsService } from "./services/admin-configs.service";
 import { useApiResource } from "@/lib/api/use-api-resource";
@@ -285,7 +285,7 @@ export function AdminConfigsScreen() {
                     <td>
                       <strong>{item.value}</strong>
                     </td>
-                    <td>{formatConfigDescription(item.key, item.description)}</td>
+                    <td><TruncatedText text={formatConfigDescription(item.key, item.description)} label="Mô tả cấu hình" maxWidth={300} /></td>
                     <td>
                       {(() => {
                         const dt = formatDateTimeSplit(item.updatedAt);

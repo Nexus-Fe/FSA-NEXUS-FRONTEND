@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { SwipeCarousel } from "@/components/ui/SwipeCarousel";
+import { TruncatedText } from "@/components/ui/TruncatedText";
 import { previewVouchers, savePreviewVoucher, useSavedPreviewVouchers } from "@/features/coupons/preview-vouchers";
 
 export function CatalogPromoBanner() {
@@ -22,7 +23,7 @@ export function CatalogPromoBanner() {
       <article key={`${promotion.id}-${index}`} className={`catalog-promo-slide catalog-promo-${promotion.tone}`} aria-hidden={isClone || undefined}>
         <div className="catalog-promo-copy">
           <span className="catalog-promo-eyebrow">Ưu đãi xem trước</span>
-          <h2><strong>{promotion.amount}</strong> {promotion.title}</h2>
+          <h2><TruncatedText text={`${promotion.amount} ${promotion.title}`} label="Ưu đãi" block /></h2>
           <p>{promotion.detail} · Chưa áp dụng thanh toán</p>
         </div>
         <div className="catalog-promo-action">

@@ -463,7 +463,7 @@ export function StaffReportsScreen() {
               <span style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600 }}>
                 Nội dung mô tả từ người tố cáo:
               </span>
-              <p style={{ margin: "6px 0 0", padding: "10px", background: "var(--bg-subtle, #f8fafc)", borderRadius: "6px", fontSize: "14px", lineHeight: "1.5" }}>
+              <p style={{ margin: "6px 0 0", padding: "12px 14px", background: "var(--bg-subtle, #f8fafc)", borderRadius: "14px", fontSize: "14px", lineHeight: "1.5" }}>
                 {selectedReport.description}
               </p>
             </div>
@@ -478,7 +478,7 @@ export function StaffReportsScreen() {
             )}
 
             {selectedReport.resolutionNote && (
-              <div style={{ marginBottom: "16px", padding: "12px", background: "#f0fdf4", borderRadius: "6px", border: "1px solid #bbf7d0" }}>
+              <div className="form-success" style={{ marginBottom: "16px" }}>
                 <strong style={{ display: "block", color: "#166534", marginBottom: "4px" }}>
                   Biên bản xử lý trước đó:
                 </strong>

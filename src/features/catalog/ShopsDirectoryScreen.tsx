@@ -6,7 +6,7 @@ import { useState, type FormEvent } from "react";
 import { BackendImage } from "@/components/ui/BackendImage";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Icon } from "@/components/ui/Icon";
-import { AdminPagination, Card, PageHeading } from "@/components/ui/Primitives";
+import { AdminPagination, Card, PageHeading, TruncatedText } from "@/components/ui/Primitives";
 import { CardGridSkeleton } from "@/components/ui/Skeleton";
 import { ErrorState } from "@/components/ui/States";
 import { ROUTES } from "@/constants/routes";
@@ -35,7 +35,7 @@ function ShopDirectoryCard({ shop }: { shop: PublicSellerSummary }) {
         </div>
         <div className="shop-directory-identity">
           <h2>
-            <Link href={ROUTES.catalog.shop(shop.sellerId)}>{shopName}</Link>
+            <Link href={ROUTES.catalog.shop(shop.sellerId)}><TruncatedText text={shopName} label="Tên gian hàng" block /></Link>
           </h2>
           <div className="product-detail-seller-facts">
             {typeof shop.ratingAvg === "number" && shop.ratingAvg > 0 && (

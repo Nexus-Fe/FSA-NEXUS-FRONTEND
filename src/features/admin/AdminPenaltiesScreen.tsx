@@ -8,6 +8,7 @@ import {
   Card,
   NoData,
   PageHeading,
+  TruncatedText,
 } from "@/components/ui/Primitives";
 import { CopyableId } from "@/components/ui/CopyableId";
 import { EvidenceThumbnailGrid } from "@/components/ui/ImageLightbox";
@@ -284,8 +285,8 @@ export function AdminPenaltiesScreen() {
                     <td style={{ padding: "10px 8px", fontSize: "13px", wordBreak: "break-word" }}>
                       {penaltyViolationTypeLabel(item.violationType)}
                     </td>
-                    <td style={{ padding: "10px 8px", fontSize: "13px", wordBreak: "break-word", overflowWrap: "anywhere" }} title={item.reason}>
-                      {item.reason || "—"}
+                    <td style={{ padding: "10px 8px", fontSize: "13px" }}>
+                      <TruncatedText text={item.reason || "—"} label="Lý do xử phạt" maxWidth={240} />
                     </td>
                     <td style={{ padding: "10px 8px" }}>
                       <Badge tone={penaltyStatusTone(item.status)}>

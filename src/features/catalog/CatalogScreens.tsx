@@ -9,7 +9,7 @@ import { ErrorState } from "@/components/ui/States";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SkeletonCards } from "@/components/ui/Skeletons";
 import { describeError } from "@/lib/errors/error-messages";
-import { AdminPagination, ButtonLink, Card, PageHeading, SectionHeading } from "@/components/ui/Primitives";
+import { AdminPagination, ButtonLink, Card, PageHeading, SectionHeading, TruncatedText } from "@/components/ui/Primitives";
 import { BackendImage } from "@/components/ui/BackendImage";
 import { SwipeCarousel } from "@/components/ui/SwipeCarousel";
 import { CardGridSkeleton } from "@/components/ui/Skeleton";
@@ -56,7 +56,8 @@ function productStatusLabel(status?: string | null): string {
 
 function ProductCard({ product }: { product: Product }) {
   const hasPriceRange = typeof product.maxPrice === "number" && product.maxPrice > product.price;
-  return <article className="product-card"><Link href={ROUTES.catalog.product(product.id)} className="product-media"><BackendImage src={resolveImageUrl(product.imageUrl ?? null)} alt={product.name} compact /></Link><div className="product-body"><p className="product-category">{product.brand ?? product.categoryName ?? ""}</p><h3><Link href={ROUTES.catalog.product(product.id)}>{product.name}</Link></h3><p className="product-seller">{productStatusLabel(product.status)}</p><div className="product-bottom"><div className="product-card-price"><span>{hasPriceRange ? "Giá từ" : "Giá bán"}</span><strong>{formatMoney(product.price)}</strong></div><Link aria-label={`Xem ${product.name}`} href={ROUTES.catalog.product(product.id)} className="round-link"><Icon name="arrow" size={18} /></Link></div></div></article>;
+  const metaText = product.brand ?? product.categoryName ?? "";
+  return <article className="product-card"><Link href={ROUTES.catalog.product(product.id)} className="product-media"><BackendImage src={resolveImageUrl(product.imageUrl ?? null)} alt={product.name} compact /></Link><div className="product-body"><p className="product-category">{metaText ? <TruncatedText text={metaText} label="Thương hiệu / Danh mục" block /> : ""}</p><h3><Link href={ROUTES.catalog.product(product.id)}><TruncatedText text={product.name} label="Tên sản phẩm" block /></Link></h3><p className="product-seller">{productStatusLabel(product.status)}</p><div className="product-bottom"><div className="product-card-price"><span>{hasPriceRange ? "Giá từ" : "Giá bán"}</span><strong>{formatMoney(product.price)}</strong></div><Link aria-label={`Xem ${product.name}`} href={ROUTES.catalog.product(product.id)} className="round-link"><Icon name="arrow" size={18} /></Link></div></div></article>;
 }
 
 function HomeProductBanner({ products }: { products: Product[] }) {
@@ -139,7 +140,7 @@ function MatchingShopCard({ shop }: { shop: PublicSellerSummary }) {
       <div className="matching-shop-info">
         <span className="matching-shop-badge">Gian hàng trên Nexus</span>
         <h3>
-          <Link href={ROUTES.catalog.shop(shop.sellerId)}>{shopName}</Link>
+          <Link href={ROUTES.catalog.shop(shop.sellerId)}><TruncatedText text={shopName} label="Tên gian hàng" block /></Link>
         </h3>
         <div className="matching-shop-meta">
           {typeof shop.ratingAvg === "number" && shop.ratingAvg > 0 && (

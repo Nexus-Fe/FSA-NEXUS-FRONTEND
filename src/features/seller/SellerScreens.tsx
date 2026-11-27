@@ -8,7 +8,7 @@ import { ROUTES } from "@/constants/routes";
 import { useSession } from "@/components/auth/SessionProvider";
 import { Icon } from "@/components/ui/Icon";
 import { FluidChoiceBar } from "@/components/ui/FluidChoiceBar";
-import { AdminPagination, Badge, ButtonLink, Card, clickableRowProps, NoData, PageHeading, SectionHeading } from "@/components/ui/Primitives";
+import { AdminPagination, Badge, ButtonLink, Card, clickableRowProps, NoData, PageHeading, SectionHeading, TruncatedText } from "@/components/ui/Primitives";
 import { PaginationBar } from "@/components/ui/PaginationBar";
 import { RowActionsMenu } from "@/components/ui/RowActionsMenu";
 import { TableSkeleton } from "@/components/ui/Skeleton";
@@ -384,9 +384,9 @@ export function SellerProductsScreen() {
                             }
                           }}
                         >
-                          <strong>{p.name}</strong>
+                          <strong><TruncatedText text={p.name} label="Tên sản phẩm" maxWidth={260} /></strong>
                         </Link>
-                        {p.brand && <div style={{ fontSize: 12, color: "var(--muted)" }}>{p.brand}</div>}
+                        {p.brand && <div style={{ fontSize: 12, color: "var(--muted)" }}><TruncatedText text={p.brand} label="Thương hiệu" maxWidth={220} /></div>}
                       </td>
                       <td>{p.categoryName || "—"}</td>
                       <td className="seller-product-price">
@@ -1890,7 +1890,7 @@ export function SellerInventoryScreen() {
                       style={isSelected ? { background: "var(--primary-soft)" } : undefined}
                     >
                       <td>
-                        <strong>{product.name}</strong>
+                        <strong><TruncatedText text={product.name} label="Tên sản phẩm" maxWidth={240} /></strong>
                         <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>
                           Trạng thái SP: {product.status}
                         </div>
@@ -1899,10 +1899,10 @@ export function SellerInventoryScreen() {
                         <strong>{variant.skuCode}</strong>
                       </td>
                       <td>
-                        <div>{variant.name}</div>
+                        <div><TruncatedText text={variant.name} label="Tên biến thể" maxWidth={200} /></div>
                         {attrSummary && (
                           <small style={{ color: "var(--muted)", display: "block", marginTop: 2 }}>
-                            {attrSummary}
+                            <TruncatedText text={attrSummary} label="Thuộc tính" maxWidth={200} />
                           </small>
                         )}
                       </td>
@@ -2570,8 +2570,12 @@ export function SellerOrdersScreen() {
                       <td>
                         <strong>{sub.itemCount} mặt hàng</strong>
                         {sub.items && sub.items.length > 0 && (
-                          <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2, maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {sub.items.map((item) => `${item.productName} ×${item.quantity}`).join(", ")}
+                          <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>
+                            <TruncatedText
+                              text={sub.items.map((item) => `${item.productName} ×${item.quantity}`).join(", ")}
+                              label="Sản phẩm trong đơn"
+                              maxWidth={220}
+                            />
                           </div>
                         )}
                       </td>

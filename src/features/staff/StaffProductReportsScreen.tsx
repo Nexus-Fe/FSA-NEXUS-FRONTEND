@@ -4,7 +4,7 @@ import { useMemo, useState, type FormEvent } from "react";
 import { ThumbnailBox } from "@/components/ui/BackendImage";
 import { FluidChoiceBar } from "@/components/ui/FluidChoiceBar";
 import { EvidenceThumbnailGrid } from "@/components/ui/ImageLightbox";
-import { AdminPagination, Badge, Card, NoData, PageHeading } from "@/components/ui/Primitives";
+import { AdminPagination, Badge, Card, NoData, PageHeading, TruncatedText } from "@/components/ui/Primitives";
 import { TableSkeleton } from "@/components/ui/Skeleton";
 import { ApiError } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
@@ -240,7 +240,7 @@ export function StaffProductReportsScreen() {
                         <ThumbnailBox src={thumb} alt={report.productName} />
                       </td>
                       <td style={{ minWidth: 180, maxWidth: 260 }}>
-                        <strong style={{ display: "block", lineHeight: 1.35 }}>{report.productName}</strong>
+                        <strong style={{ display: "block", lineHeight: 1.35 }}><TruncatedText text={report.productName} label="Tên sản phẩm" maxWidth={220} /></strong>
                         <small className="mono" style={{ color: "var(--muted)" }}>
                           {report.productId.slice(0, 8)}…
                         </small>
@@ -260,7 +260,7 @@ export function StaffProductReportsScreen() {
                             overflow: "hidden",
                           }}
                         >
-                          {report.description}
+                          <TruncatedText text={report.description} label="Mô tả báo cáo" maxWidth={240} />
                         </p>
                       </td>
                       <td onClick={(e) => e.stopPropagation()}>

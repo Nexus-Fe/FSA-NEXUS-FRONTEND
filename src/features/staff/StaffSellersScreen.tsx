@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
-import { AdminPagination, Badge, Card, NoData, PageHeading } from "@/components/ui/Primitives";
+import { AdminPagination, Badge, Card, NoData, PageHeading, TruncatedText } from "@/components/ui/Primitives";
 import { FluidChoiceBar } from "@/components/ui/FluidChoiceBar";
 import { TableSkeleton } from "@/components/ui/Skeleton";
 import { ROUTES } from "@/constants/routes";
@@ -250,10 +250,10 @@ export function StaffSellersScreen() {
                       </Link>
                     </td>
                     <td style={{ padding: "12px 10px", wordBreak: "break-word" }}>
-                      <strong>{registration.shopName}</strong>
+                      <strong><TruncatedText text={registration.shopName} label="Tên gian hàng" maxWidth={220} /></strong>
                     </td>
                     <td style={{ padding: "12px 10px", wordBreak: "break-word", overflowWrap: "anywhere" }}>
-                      {registration.businessEmail ?? "—"}
+                      <TruncatedText text={registration.businessEmail ?? "—"} label="Email doanh nghiệp" maxWidth={220} />
                     </td>
                     <td style={{ padding: "12px 10px" }}>
                       <Badge tone={statusTone(registration.status)}>

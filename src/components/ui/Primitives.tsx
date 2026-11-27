@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { CSSProperties, KeyboardEvent, MouseEvent, ReactNode } from "react";
+import { TruncatedText } from "./TruncatedText";
 
 export function ButtonLink({
   href,
@@ -43,11 +44,11 @@ export function Badge({ children, tone = "sky" }: { children: ReactNode; tone?: 
 }
 
 export function PageHeading({ title, description, action, overline }: { title: string; description?: string; action?: ReactNode; overline?: string }) {
-  return <div className="page-heading"><div>{overline && <p className="overline">{overline}</p>}<h1>{title}</h1>{description && <p className="page-description">{description}</p>}</div>{action && <div className="page-action">{action}</div>}</div>;
+  return <div className="page-heading"><div className="page-heading-copy">{overline && <p className="overline">{overline}</p>}<h1><TruncatedText text={title} label="Tiêu đề trang" block /></h1>{description && <p className="page-description">{description}</p>}</div>{action && <div className="page-action">{action}</div>}</div>;
 }
 
 export function SectionHeading({ title, hint, action, id }: { title: string; hint?: string; action?: ReactNode; id?: string }) {
-  return <div className="section-heading"><div><h2 id={id}>{title}</h2>{hint && <p>{hint}</p>}</div>{action}</div>;
+  return <div className="section-heading"><div className="section-heading-copy"><h2 id={id}><TruncatedText text={title} label="Tiêu đề mục" block /></h2>{hint && <p>{hint}</p>}</div>{action}</div>;
 }
 
 export function NoData({ className = "", title = "Chưa có dữ liệu" }: { className?: string; title?: string }) {
@@ -80,3 +81,5 @@ export function clickableRowProps(onActivate: () => void, title?: string) {
 
 export { AdminPagination } from "./AdminPagination";
 export type { AdminPaginationProps } from "./AdminPagination";
+export { TruncatedText } from "./TruncatedText";
+export type { TruncatedTextProps } from "./TruncatedText";

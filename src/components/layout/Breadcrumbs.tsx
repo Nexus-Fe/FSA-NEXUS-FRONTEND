@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ROUTES } from "@/constants/routes";
+import { TruncatedText } from "@/components/ui/TruncatedText";
 
 const labels: Record<string, string> = {
   "/catalog": "Sản phẩm", "/shops": "Gian hàng", "/auctions": "Đấu giá trực tiếp",
@@ -55,7 +56,7 @@ export function Breadcrumbs({ portal = false }: { portal?: boolean }) {
   return <nav className="site-breadcrumb" aria-label="Đường dẫn">
     <ol>{crumbs.map((crumb, index) => <li key={`${index}-${crumb.href}`}>
       {index > 0 && <span className="site-breadcrumb-separator" aria-hidden="true">›</span>}
-      {index === crumbs.length - 1 ? <span aria-current="page">{crumb.label}</span> : <Link href={crumb.href}>{crumb.label}</Link>}
+      {index === crumbs.length - 1 ? <span aria-current="page"><TruncatedText text={crumb.label} label="Đường dẫn hiện tại" /></span> : <Link href={crumb.href}>{crumb.label}</Link>}
     </li>)}</ol>
   </nav>;
 }

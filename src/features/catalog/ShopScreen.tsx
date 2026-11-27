@@ -4,7 +4,7 @@ import Link from "next/link";
 import { SellerAuctionStats } from "@/features/auction/SellerAuctionStats";
 import { useParams } from "next/navigation";
 import { BackendImage } from "@/components/ui/BackendImage";
-import { Card } from "@/components/ui/Primitives";
+import { Card, TruncatedText } from "@/components/ui/Primitives";
 import { ROUTES } from "@/constants/routes";
 import { api, unwrap, type ApiResponse } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
@@ -33,7 +33,7 @@ export function ShopScreen() {
     <nav className="public-shop-breadcrumb" aria-label="Đường dẫn">
       <Link href={ROUTES.home}>Trang chủ</Link><span aria-hidden="true">/</span>
       <Link href={ROUTES.catalog.index}>Sản phẩm</Link><span aria-hidden="true">/</span>
-      <span aria-current="page">{shopName || "Gian hàng"}</span>
+      <span aria-current="page"><TruncatedText text={shopName || "Gian hàng"} label="Gian hàng" /></span>
     </nav>
 
     <Card className="card-pad public-shop-profile">
@@ -45,7 +45,7 @@ export function ShopScreen() {
         </div>
         <div className="public-shop-identity">
           <p className="overline">Gian hàng trên Nexus</p>
-          <h1>{shopName}</h1>
+          <h1><TruncatedText text={shopName} label="Tên gian hàng" block /></h1>
           <p>Khám phá các sản phẩm đang được bán tại gian hàng này.</p>
           <div className="product-detail-seller-facts">
             {typeof profile.data?.ratingAvg === "number" && profile.data.ratingAvg > 0 && <span>★ {profile.data.ratingAvg.toFixed(1)}/5</span>}

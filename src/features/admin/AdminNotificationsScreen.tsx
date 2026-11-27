@@ -8,6 +8,7 @@ import {
   Card,
   NoData,
   PageHeading,
+  TruncatedText,
 } from "@/components/ui/Primitives";
 import { ApiError } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
@@ -235,9 +236,9 @@ export function AdminNotificationsScreen() {
                         <Badge tone="indigo">{item.notificationType || "Chung"}</Badge>
                       </td>
                       <td>
-                        <strong>{item.title || "—"}</strong>
-                        <p style={{ margin: "2px 0 0", fontSize: "13px", color: "var(--muted)", maxWidth: 360, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {item.body || "—"}
+                        <strong><TruncatedText text={item.title || "—"} label="Tiêu đề thông báo" maxWidth={240} /></strong>
+                        <p style={{ margin: "2px 0 0", fontSize: "13px", color: "var(--muted)" }}>
+                          <TruncatedText text={item.body || "—"} label="Nội dung thông báo" maxWidth={340} />
                         </p>
                       </td>
                       <td>

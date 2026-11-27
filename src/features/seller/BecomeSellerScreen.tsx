@@ -564,7 +564,7 @@ export function BecomeSellerScreen() {
       {classifiedError && (
         <div style={{ marginBottom: 22 }}>
           <Card className="card-pad">
-            <div role="alert" style={{ padding: "14px 16px", borderRadius: 10, border: "1px solid #f1c8c6", background: "#fff1f0" }}>
+            <div role="alert" className="form-error">
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 8 }}>
                 <strong style={{ color: "#9f2f2c", fontSize: 15 }}>{classifiedError.title}</strong>
                 <Badge tone="red">

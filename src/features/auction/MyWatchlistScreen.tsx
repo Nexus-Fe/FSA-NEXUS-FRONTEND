@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { BackendImage } from "@/components/ui/BackendImage";
-import { AdminPagination, Badge, Card, NoData, PageHeading } from "@/components/ui/Primitives";
+import { AdminPagination, Badge, Card, NoData, PageHeading, TruncatedText } from "@/components/ui/Primitives";
 import { ROUTES } from "@/constants/routes";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { describeError, formatError } from "@/lib/errors/error-messages";
@@ -34,7 +34,7 @@ export function MyWatchlistScreen() {
     {list.loading && !list.data ? <LoadingState label="Đang tải danh sách theo dõi…" /> : list.data?.items.length ? <div className="auction-list-grid">
       {list.data.items.map((item) => <Card className="card-pad" key={item.auctionId}>
         <div className="auction-detail-image"><BackendImage src={resolveImageUrl(item.primaryImageUrl)} alt={item.productName ?? "Sản phẩm đấu giá"} /></div>
-        <h2><Link href={ROUTES.auction.room(item.auctionId)}>{item.productName ?? "Sản phẩm chưa có tên"}</Link></h2>
+        <h2><Link href={ROUTES.auction.room(item.auctionId)}><TruncatedText text={item.productName ?? "Sản phẩm chưa có tên"} label="Phiên đấu giá" block /></Link></h2>
         <Badge tone={auctionStatusTone(item.status)}>{statusLabel(item.status)}</Badge>
         <div className="info-row"><span>Giá hiện tại</span><strong>{formatMoney(item.currentPriceAmount ?? item.startPriceAmount)}</strong></div>
         <label style={{ display: "flex", gap: 8, alignItems: "center" }}>

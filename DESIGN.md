@@ -125,7 +125,7 @@ All interfaces use `Plus Jakarta Sans` loaded via `next/font/google` and bound t
 
 ## Shapes
 
-- Unified rounded corner hierarchy: `20px` on all glass `<Card>` containers across Buyer, Seller, Staff, and Admin; `26px` on dark hero headers; `16px` on modals; `11px` on form inputs/selects; `8px` on standard buttons; `999px` on `FluidChoiceBar`, badges, and navigation pills.
+- Unified rounded corner hierarchy: `20px` on all glass `<Card>` containers, `.route-state`, and `.access-state` across Buyer, Seller, Staff, and Admin; `26px` on dark hero headers; `16px` on modals, `.notice`, `.form-error`, `.notice[role="alert"]`, `.form-success`, and `.state-error` (with `16px` margin when placed directly inside `<Card>`); `11px` on form inputs/selects; `8px` on standard buttons; `999px` on `FluidChoiceBar`, badges, and navigation pills.
 - Strict inner-corner clipping invariant: any `<Card>` wrapping a `.table-scroll`, `.data-table`, `.cart-select-all`, `.cart-seller-group`, or `.admin-pagination-bar` must clip inner children (`overflow: hidden` on `.card`, `border-radius: inherit` on flush `.table-scroll` wrappers, and removal of the final row `border-bottom`) so rectangular table header backgrounds and row borders never protrude past rounded card corners.
 
 ## Components
@@ -139,9 +139,10 @@ All interfaces use `Plus Jakarta Sans` loaded via `next/font/google` and bound t
   - Multi-field search/date/select filters use `.ops-filters` inside `<Card className="card-pad">` with consistent field height (`42px`) and aligned action buttons.
 - **Portal Sidebar Grouping & Icons:**
   - Seller, Staff, and Admin sidebars use `NavigationSection[]` (`item` + collapsible `group` sections) rendered by `NavLinks` with `chevron` rotation, active-group auto-expansion, and a distinct semantic `IconName` from `src/components/ui/Icon.tsx` for every menu item.
-- **Form Controls & Modals:**
+- **Form Controls, Modals & Text Overflow (`TruncatedText`):**
   - Inputs (`field`), selects (`select-field` / `SelectBox`), textareas (`textarea-field`), and `DatePicker` share uniform border, radius, focus ring, and `aria-invalid` error styling.
   - Confirmation and detail popups use shared `Modal` / `ConfirmDialog` components with accessible focus trapping and Escape handling.
+  - Long single-line titles, breadcrumbs, shop names, emails, and table cell descriptions use `TruncatedText` (`src/components/ui/TruncatedText.tsx`), which clips overflowing text to one line (`text-overflow: ellipsis`) and reveals a compact `"..."` pill trigger via `ResizeObserver` to open a portaled full-text popover (`z-index: 1300`) without triggering parent links or clickable rows.
 
 ## Do's and Don'ts
 

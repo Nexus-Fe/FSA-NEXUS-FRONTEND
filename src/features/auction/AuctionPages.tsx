@@ -7,7 +7,7 @@ import { useSession } from "@/components/auth/SessionProvider";
 import { BackendImage } from "@/components/ui/BackendImage";
 import { FluidChoiceBar } from "@/components/ui/FluidChoiceBar";
 
-import { AdminPagination, Badge, ButtonLink, Card, NoData, PageHeading, SectionHeading } from "@/components/ui/Primitives";
+import { AdminPagination, Badge, ButtonLink, Card, NoData, PageHeading, SectionHeading, TruncatedText } from "@/components/ui/Primitives";
 import { LoadingState } from "@/components/ui/States";
 import { SkeletonCards, SkeletonPage } from "@/components/ui/Skeletons";
 import { describeError, formatError } from "@/lib/errors/error-messages";
@@ -67,7 +67,7 @@ export function StatusFilter({ status, setStatus, options = auctionStatuses }: {
 }
 
 export function AuctionTile({ auction, href }: { auction: AuctionSummary; href: string }) {
-  return <Link href={href} className="auction-tile"><div className="auction-tile-image"><BackendImage src={resolveImageUrl(auction.primaryImageUrl)} alt={auction.productName ?? "Sản phẩm đấu giá"} compact /><Badge tone={auctionStatusTone(auction.status)}>{statusLabel(auction.status)}</Badge></div><div className="auction-tile-body"><h3>{auction.productName ?? "Sản phẩm chưa có tên"}</h3><p>{normalizeAuctionStatus(auction.status) === "RUNNING" ? <>Còn lại: <Countdown end={auction.scheduledEndAt} /></> : `Kết thúc ${dateText(auction.scheduledEndAt)}`}</p><div><span>Giá hiện tại<strong>{formatMoney(auction.currentPriceAmount ?? auction.startPriceAmount)}</strong></span><span>{auction.bidCount} lượt đặt giá</span></div></div></Link>;
+  return <Link href={href} className="auction-tile"><div className="auction-tile-image"><BackendImage src={resolveImageUrl(auction.primaryImageUrl)} alt={auction.productName ?? "Sản phẩm đấu giá"} compact /><Badge tone={auctionStatusTone(auction.status)}>{statusLabel(auction.status)}</Badge></div><div className="auction-tile-body"><h3><TruncatedText text={auction.productName ?? "Sản phẩm chưa có tên"} label="Sản phẩm đấu giá" block /></h3><p>{normalizeAuctionStatus(auction.status) === "RUNNING" ? <>Còn lại: <Countdown end={auction.scheduledEndAt} /></> : `Kết thúc ${dateText(auction.scheduledEndAt)}`}</p><div><span>Giá hiện tại<strong>{formatMoney(auction.currentPriceAmount ?? auction.startPriceAmount)}</strong></span><span>{auction.bidCount} lượt đặt giá</span></div></div></Link>;
 }
 
 export function AuctionListScreen() {
@@ -174,7 +174,7 @@ export function AuctionRoomScreen() {
           <Card className="card-pad">
             <div className="auction-detail-image"><BackendImage src={resolveImageUrl(images[selectedImage] ?? auction.primaryImageUrl)} alt={auction.productName ?? "Sản phẩm đấu giá"} /></div>
             {images.length > 1 && <div className="auction-gallery" aria-label="Ảnh sản phẩm">{images.map((image, index) => <button type="button" key={`${image}-${index}`} className={selectedImage === index ? "auction-gallery-item active" : "auction-gallery-item"} aria-pressed={selectedImage === index} aria-label={`Xem ảnh ${index + 1}`} onClick={() => setSelectedImage(index)}><BackendImage src={resolveImageUrl(image)} alt="" compact /></button>)}</div>}
-            <div className="auction-product-heading"><div><h2>{auction.productName ?? "Sản phẩm chưa có tên"}</h2><p>Mã sản phẩm: {auction.productId}</p></div><Badge tone={auctionTone(auction.status)}>{statusLabel(auction.status)}</Badge></div>
+            <div className="auction-product-heading"><div style={{ minWidth: 0 }}><h2><TruncatedText text={auction.productName ?? "Sản phẩm chưa có tên"} label="Sản phẩm đấu giá" block /></h2><p>Mã sản phẩm: {auction.productId}</p></div><Badge tone={auctionTone(auction.status)}>{statusLabel(auction.status)}</Badge></div>
             {auction.description && <p className="auction-description">{auction.description}</p>}
             {specificationRows(auction.specifications).length > 0 && <><SectionHeading title="Thông tin sản phẩm" /><dl className="auction-specifications">{specificationRows(auction.specifications).slice(0, 8).map((row) => <div key={row.name}><dt>{row.name}</dt><dd>{row.value}</dd></div>)}</dl></>}
             {auction.sellerId && <p className="auction-seller-reference">Mã người bán: {auction.sellerId}</p>}
@@ -264,7 +264,7 @@ export function MyAuctionsScreen() {
     <BuyerAuctionOffers />
     {resource.error && <div className="notice" role="alert">{message(resource.error)} <button type="button" className="button button-secondary button-small" onClick={resource.reload}>Tải lại</button></div>}
     {resource.loading && !resource.data ? <LoadingState rows={3} label="Đang tải lượt đặt giá…" /> : resource.data?.items.length ? <div className="auction-list-grid">{resource.data.items.map((item) => <Card className="card-pad auction-my-bid" key={item.bidId}>
-      <h2>{item.auctionTitle}</h2>
+      <h2><TruncatedText text={item.auctionTitle} label="Phiên đấu giá" block /></h2>
       <Badge tone={item.isInvalidated ? "red" : item.isWinning ? "green" : "slate"}>{item.isInvalidated ? "Lượt không hợp lệ" : item.isWinning ? ["ENDED", "SETTLED"].includes(normalizeAuctionStatus(item.status ?? "")) ? "Lượt thắng phiên" : "Lượt đang dẫn đầu" : item.isOutbid ? "Lượt đã bị vượt giá" : statusLabel(item.status)}</Badge>
       <div className="info-row"><span>Giá đã đặt</span><strong>{formatMoney(item.amount)}</strong></div>
       <div className="info-row"><span>Thời điểm</span><strong>{dateText(item.placedAt)}</strong></div>

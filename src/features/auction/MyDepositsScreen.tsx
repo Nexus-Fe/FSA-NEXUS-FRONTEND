@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { AdminPagination, Badge, Card, NoData, PageHeading } from "@/components/ui/Primitives";
+import { AdminPagination, Badge, Card, NoData, PageHeading, TruncatedText } from "@/components/ui/Primitives";
 import { TableSkeleton } from "@/components/ui/Skeleton";
 import { FluidChoiceBar } from "@/components/ui/FluidChoiceBar";
 import { ROUTES } from "@/constants/routes";
@@ -38,7 +38,7 @@ export function MyDepositsScreen() {
     {deposits.loading && !deposits.data ? <TableSkeleton rows={5} cols={4} label="Đang tải danh sách cọc…" /> : deposits.data?.items.length ? <Card>
       <div className="table-scroll"><table className="data-table"><thead><tr><th>Phiên</th><th>Số tiền</th><th>Tỷ lệ</th><th>Trạng thái</th><th>Mục đích trừ cọc</th><th>Mốc thời gian</th></tr></thead><tbody>
         {deposits.data.items.map((item) => <tr key={item.depositId}>
-          <td><Link href={ROUTES.auction.room(item.auctionId)}>{item.auctionTitle || item.auctionId}</Link></td>
+          <td><Link href={ROUTES.auction.room(item.auctionId)}><TruncatedText text={item.auctionTitle || item.auctionId} label="Phiên đấu giá" maxWidth={260} /></Link></td>
           <td>{formatMoney(item.amount)}</td>
           <td>{item.ratePercent}%</td>
           <td><Badge tone={semanticStatusTone(item.status)}>{depositStatusLabel(item.status)}</Badge></td>

@@ -8,7 +8,7 @@ import { auctionService } from "@/features/auction/services/auction.service";
 import type { MyAuctionReportItem } from "@/features/auction/types";
 import { describeError, formatError } from "@/lib/errors/error-messages";
 import { evidenceRequired, parseReportPrefill } from "./order-report";
-import { Badge, Card, PageHeading } from "@/components/ui/Primitives";
+import { Badge, Card, PageHeading, TruncatedText } from "@/components/ui/Primitives";
 import { FileDropZone, IMAGE_UPLOAD_PRESET } from "@/components/ui/FileDropZone";
 import { api, type ApiResponse } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
@@ -103,7 +103,7 @@ export function BuyerReportsScreen() {
             {productReports.error&&<ErrorState cause={productReports.error} onRetry={productReports.reload} />}
             {filteredProductReports.length?filteredProductReports.map((report)=><div className="buyer-report-item" key={report.id}>
               <div className="buyer-report-item-content">
-                <strong>{report.productName || "Sản phẩm"}{report.reason?` · ${report.reason}`:""}</strong>
+                <strong><TruncatedText text={`${report.productName || "Sản phẩm"}${report.reason ? ` · ${report.reason}` : ""}`} label="Báo cáo sản phẩm" block /></strong>
                 {report.description&&<p className="buyer-report-item-text">{report.description}</p>}
                 {report.createdAt&&<time dateTime={report.createdAt}>{new Date(report.createdAt).toLocaleString("vi-VN")}</time>}
                 {report.resolutionNote&&<p>Phản hồi: {report.resolutionNote}</p>}

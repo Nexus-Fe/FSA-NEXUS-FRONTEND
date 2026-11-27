@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useSession } from "@/components/auth/SessionProvider";
 import { BackendImage } from "@/components/ui/BackendImage";
-import { Badge, Card, PageHeading, SectionHeading } from "@/components/ui/Primitives";
+import { Badge, Card, PageHeading, SectionHeading, TruncatedText } from "@/components/ui/Primitives";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/States";
 import { SkeletonPage } from "@/components/ui/Skeletons";
@@ -268,7 +268,7 @@ export function ProductDetailScreen() {
     <div className="product-detail-hero">
       <div className="product-detail-heading">
         {product.category?.name && <Badge>{product.category.name}</Badge>}
-        <h1>{product.name}</h1>
+        <h1><TruncatedText text={product.name} label="Tên sản phẩm" block /></h1>
         {product.brand && <p className="product-detail-brand">Thương hiệu: {product.brand}</p>}
         <p className="product-detail-rating">
           {reviewCount > 0
@@ -408,7 +408,7 @@ export function ProductDetailScreen() {
         <Card className="card-pad product-detail-seller">
           {sellerResource.data ? <>
             {sellerResource.data.logoUrl && <div className="product-detail-seller-logo"><BackendImage src={resolveImageUrl(sellerResource.data.logoUrl)} alt={`Logo ${sellerResource.data.shopName}`} compact /></div>}
-            <div><h3><Link href={ROUTES.catalog.shop(product.sellerId)}>{sellerResource.data.shopName}</Link></h3>
+            <div style={{ minWidth: 0 }}><h3><Link href={ROUTES.catalog.shop(product.sellerId)}><TruncatedText text={sellerResource.data.shopName} label="Tên gian hàng" block /></Link></h3>
               <div className="product-detail-seller-facts">
                 {typeof sellerResource.data.ratingAvg === "number" && sellerResource.data.ratingAvg > 0 && <span>★ {sellerResource.data.ratingAvg.toFixed(1)}/5</span>}
                 {typeof sellerResource.data.totalProducts === "number" && sellerResource.data.totalProducts > 0 && <span>{sellerResource.data.totalProducts} sản phẩm</span>}
@@ -429,7 +429,7 @@ export function ProductDetailScreen() {
         {relatedProducts.length > 0 ? <div className="product-detail-related">
           {relatedProducts.map((item) => <Link className="product-detail-related-item" href={ROUTES.catalog.product(item.productId)} key={item.productId}>
             <div className="product-detail-related-image"><BackendImage src={resolveImageUrl(item.primaryImageUrl)} alt="" compact /></div>
-            <span>{item.name}</span><strong>{formatMoney(item.minPrice)}</strong>
+            <span><TruncatedText text={item.name} label="Sản phẩm liên quan" block /></span><strong>{formatMoney(item.minPrice)}</strong>
           </Link>)}
         </div> : !relatedResource.error && <p className="product-detail-muted">{relatedResource.loading ? "Đang tìm sản phẩm cùng danh mục…" : "Chưa có sản phẩm cùng danh mục."}</p>}
       </section>}

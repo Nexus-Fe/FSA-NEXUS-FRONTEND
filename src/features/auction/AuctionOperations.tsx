@@ -7,7 +7,7 @@ import { SellerReserveApprovalPanel } from "./SellerReserveApprovalPanel";
 import { mayAnswerBelowReserve } from "./reserve-approval";
 import { useParams, useRouter } from "next/navigation";
 import { useMemo, useState, useSyncExternalStore, type FormEvent } from "react";
-import { Badge, ButtonLink, Card, NoData, PageHeading } from "@/components/ui/Primitives";
+import { Badge, ButtonLink, Card, NoData, PageHeading, TruncatedText } from "@/components/ui/Primitives";
 import { BackendImage, ThumbnailBox } from "@/components/ui/BackendImage";
 import { EvidenceThumbnailGrid } from "@/components/ui/ImageLightbox";
 import { ROUTES } from "@/constants/routes";
@@ -130,7 +130,7 @@ export function OperationsListScreen({ role }: { role: Role }) {
                       </td>
                       <td style={{ wordBreak: "break-word", whiteSpace: "normal", lineHeight: 1.45 }}>
                         <strong style={{ display: "block", color: "var(--text)" }}>
-                          {auction.productName ?? "Sản phẩm chưa có tên"}
+                          <TruncatedText text={auction.productName ?? "Sản phẩm chưa có tên"} label="Sản phẩm đấu giá" maxWidth={240} />
                         </strong>
                       </td>
                       <td>

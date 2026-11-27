@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { AdminPagination, Badge, Card, PageHeading } from "@/components/ui/Primitives";
+import { AdminPagination, Badge, Card, PageHeading, TruncatedText } from "@/components/ui/Primitives";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Modal } from "@/components/ui/Modal";
 import { RowActionsMenu } from "@/components/ui/RowActionsMenu";
@@ -82,7 +82,7 @@ function VoucherManagerContent({ scope }: { scope: "admin" | "seller" }) {
                   const left = item.maxUsesTotal != null ? Math.max(0, item.maxUsesTotal - item.usedCount - item.reservedCount) : null;
                   return (
                     <tr key={item.id}>
-                      <td><strong>{item.code}</strong><br /><span className="text-muted">{item.name}</span></td>
+                      <td><strong>{item.code}</strong><br /><span className="text-muted"><TruncatedText text={item.name} label="Tên mã giảm giá" maxWidth={240} /></span></td>
                       <td>{scopeName[item.scopeType] ?? item.scopeType}</td>
                       <td className="tabular-nums">{item.discountType === "Percentage" ? `${item.discountValue}%` : formatMoney(item.discountValue)}</td>
                       <td className="tabular-nums">{item.usedCount} dùng · {item.reservedCount} giữ{left !== null ? ` · ${left} còn` : ""}</td>

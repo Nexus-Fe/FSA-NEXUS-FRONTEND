@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
-import { AdminPagination, Badge, Card, NoData, PageHeading } from "@/components/ui/Primitives";
+import { AdminPagination, Badge, Card, NoData, PageHeading, TruncatedText } from "@/components/ui/Primitives";
 import { EvidenceThumbnailGrid } from "@/components/ui/ImageLightbox";
 import { StarDisplay } from "@/components/ui/StarRatingInput";
 import { ROUTES } from "@/constants/routes";
@@ -276,7 +276,7 @@ export function StaffProductReviewsScreen() {
                       </td>
                       <td style={{ maxWidth: 360 }}>
                         <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>
-                          {review.comment || "—"}
+                          <TruncatedText text={review.comment || "—"} label="Nội dung đánh giá" maxWidth={260} />
                         </p>
                         {review.reviewImages && review.reviewImages.length > 0 && (
                           <div style={{ marginTop: 6 }}>

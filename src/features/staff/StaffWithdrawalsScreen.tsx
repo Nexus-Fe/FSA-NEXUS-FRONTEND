@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useState, type FormEvent } from "react";
-import { AdminPagination, Badge, Card, NoData, PageHeading } from "@/components/ui/Primitives";
+import { AdminPagination, Badge, Card, NoData, PageHeading, TruncatedText } from "@/components/ui/Primitives";
 import { FluidChoiceBar } from "@/components/ui/FluidChoiceBar";
 import { RowActionsMenu } from "@/components/ui/RowActionsMenu";
 import { TableSkeleton } from "@/components/ui/Skeleton";
@@ -62,8 +62,8 @@ export function StaffWithdrawalsScreen() {
             <tr>
               <td>{transactionDate(item.requestedAt)}<br /><CopyableId id={item.withdrawalId} /></td>
               <td><strong>{formatMoney(item.amount)}</strong></td>
-              <td>{item.bankName}<br /><CopyableId id={item.bankAccountNumber} length={20} showFull /><br /><small>{item.accountHolderName}</small></td>
-              <td><Badge tone={state.tone}>{state.label}</Badge>{item.statusReason && <><br /><small>Lý do: {item.statusReason}</small></>}{item.transferReference && <><br /><small>Mã CK: {item.transferReference}</small></>}</td>
+              <td><TruncatedText text={item.bankName} label="Ngân hàng" maxWidth={200} /><br /><CopyableId id={item.bankAccountNumber} length={20} showFull /><br /><small><TruncatedText text={item.accountHolderName} label="Chủ tài khoản" maxWidth={200} /></small></td>
+              <td><Badge tone={state.tone}>{state.label}</Badge>{item.statusReason && <><br /><small><TruncatedText text={`Lý do: ${item.statusReason}`} label="Lý do trạng thái" maxWidth={200} /></small></>}{item.transferReference && <><br /><small>Mã CK: {item.transferReference}</small></>}</td>
               <td>
                 <RowActionsMenu
                   ariaLabel={`Thao tác rút tiền ${item.withdrawalId}`}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { AdminPagination, Badge, Card, NoData, PageHeading, SectionHeading } from "@/components/ui/Primitives";
+import { AdminPagination, Badge, Card, NoData, PageHeading, SectionHeading, TruncatedText } from "@/components/ui/Primitives";
 import { CopyableId } from "@/components/ui/CopyableId";
 import { FluidChoiceBar } from "@/components/ui/FluidChoiceBar";
 import { EmailInput } from "@/components/ui/EmailInput";
@@ -527,14 +527,14 @@ export function AdminUsersScreen() {
                           select(userId(user));
                         }}
                       >
-                        <strong>{userName(user)}</strong>
-                        {user.username && <small>@{user.username}</small>}
+                        <strong><TruncatedText text={userName(user)} label="Tên người dùng" maxWidth={200} /></strong>
+                        {user.username && <small><TruncatedText text={`@${user.username}`} label="Tên đăng nhập" maxWidth={180} /></small>}
                       </button>
                       <div style={{ marginTop: "4px" }} onClick={(e) => e.stopPropagation()}>
                         <CopyableId id={userId(user)} />
                       </div>
                     </td>
-                    <td>{user.email}</td>
+                    <td><TruncatedText text={user.email} label="Email" maxWidth={220} /></td>
                     <td>
                       <Badge tone={roleTone(getPrimaryRole(user))}>
                         {getPrimaryRole(user)}
@@ -1210,7 +1210,7 @@ export function AdminUsersScreen() {
                     onSubmit={(event) => void submitAction(event)}
                     style={{ marginTop: "14px" }}
                   >
-                    <div style={{ padding: "10px 12px", background: "#fef3c7", borderRadius: "8px", border: "1px solid #fde68a", fontSize: "13px", color: "#92400e" }}>
+                    <div style={{ padding: "12px 16px", background: "#fef3c7", borderRadius: "16px", border: "1px solid #fde68a", fontSize: "13px", color: "#92400e" }}>
                       Đình chỉ Shop sẽ đóng quyền bán hàng (ShopStatus = Suspended), nhưng vẫn bảo toàn quyền mua sắm cá nhân của người dùng.
                     </div>
                     <label className="field-wrap">
@@ -1310,7 +1310,7 @@ export function AdminUsersScreen() {
                     onSubmit={(event) => void submitAction(event)}
                     style={{ marginTop: "14px" }}
                   >
-                    <div style={{ padding: "10px 12px", background: "#f0fdf4", borderRadius: "8px", border: "1px solid #bbf7d0", fontSize: "13px", color: "#166534" }}>
+                    <div className="form-success" style={{ fontSize: "13px" }}>
                       Mở lại gian hàng sẽ khôi phục trạng thái hoạt động của Shop (ShopStatus = Active) và thu hồi các án phạt hạn chế bán hàng.
                     </div>
                     <label className="field-wrap">

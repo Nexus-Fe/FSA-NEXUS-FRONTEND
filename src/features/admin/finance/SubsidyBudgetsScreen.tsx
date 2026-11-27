@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { AdminPagination, Badge, Card, PageHeading } from "@/components/ui/Primitives";
+import { AdminPagination, Badge, Card, PageHeading, TruncatedText } from "@/components/ui/Primitives";
 import { FluidChoiceBar } from "@/components/ui/FluidChoiceBar";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Modal } from "@/components/ui/Modal";
@@ -73,7 +73,7 @@ export function SubsidyBudgetsScreen() {
                   const mine = user?.id && budget.createdByAdminId.toLowerCase() === user.id.toLowerCase();
                   return (
                     <tr key={budget.id}>
-                      <td><strong>{budget.name}</strong><br /><small className="mono">Chứng từ: {budget.evidenceRef}</small></td>
+                      <td><strong><TruncatedText text={budget.name} label="Tên ngân sách" maxWidth={240} /></strong><br /><small className="mono">Chứng từ: {budget.evidenceRef}</small></td>
                       <td className="tabular-nums">{formatMoney(budget.totalLimit)}<br /><small>{formatMoney(budget.dailyLimit)} / ngày · {formatMoney(budget.perOrderCap)} / đơn</small></td>
                       <td className="tabular-nums">
                         <progress value={percent} max={100} aria-label={`Đã dùng hoặc giữ ${percent}%`} />

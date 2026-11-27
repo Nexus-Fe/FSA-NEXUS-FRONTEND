@@ -5,7 +5,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useSession } from "@/components/auth/SessionProvider";
 import { BackendImage } from "@/components/ui/BackendImage";
-import { AdminPagination, Badge, Card, PageHeading } from "@/components/ui/Primitives";
+import { AdminPagination, Badge, Card, PageHeading, TruncatedText } from "@/components/ui/Primitives";
 import { ErrorState, LoadingState } from "@/components/ui/States";
 import { useToast } from "@/components/ui/Toast";
 import { EmailInput } from "@/components/ui/EmailInput";
@@ -417,7 +417,7 @@ export function CartScreen() {
                 <input className="cart-product-check" type="checkbox" checked={selectedIds === null || selectedIds.has(item.id)} onChange={() => toggleItem(item.id)} aria-label={`Chọn ${item.productName}`} />
                 <Link className="cart-product-image" href={ROUTES.catalog.product(item.productId)} aria-label={`Xem ${item.productName}`}><BackendImage src={resolveImageUrl(image)} alt="" compact /></Link>
                 <div className="cart-product-info">
-                  <Link className="cart-product-title" href={ROUTES.catalog.product(item.productId)}>{item.productName}</Link>
+                  <Link className="cart-product-title" href={ROUTES.catalog.product(item.productId)}><TruncatedText text={item.productName} label="Tên sản phẩm" block /></Link>
                   {(detail?.variants?.length ?? 0) > 1
                     ? <label className="field-wrap">Phiên bản<select className="field" value={item.skuId} disabled={busyId !== null} onChange={(event) => void changeVariant(item, event.target.value)}>{detail?.variants?.map((entry) => <option key={entry.variantId} value={entry.variantId}>{entry.name ?? entry.skuCode ?? entry.variantId}</option>)}</select></label>
                     : variant?.name && <p>Phiên bản: {variant.name}</p>}
@@ -801,7 +801,7 @@ export function CheckoutScreen() {
       const detail = checkoutProducts.data?.[item.productId];
       const variant = detail?.variants?.find((entry) => entry.variantId === item.skuId);
       const image = variant?.primaryImageUrl ?? variant?.images?.find((entry) => entry.isActive !== false)?.url ?? detail?.images?.find((entry) => entry.isActive !== false)?.url ?? null;
-      return <div className="checkout-item" key={item.id}><span className="checkout-item-image"><BackendImage src={resolveImageUrl(image)} alt="" compact /><span className="checkout-item-count">{item.quantity}</span></span><div><strong>{item.productName}</strong><span>{variant?.name ?? `Số lượng: ${item.quantity}`}</span></div><strong>{formatMoney(item.unitPriceSnapshot * item.quantity)}</strong></div>;
+      return <div className="checkout-item" key={item.id}><span className="checkout-item-image"><BackendImage src={resolveImageUrl(image)} alt="" compact /><span className="checkout-item-count">{item.quantity}</span></span><div style={{ minWidth: 0 }}><strong><TruncatedText text={item.productName} label="Tên sản phẩm" block /></strong><span>{variant?.name ?? `Số lượng: ${item.quantity}`}</span></div><strong>{formatMoney(item.unitPriceSnapshot * item.quantity)}</strong></div>;
     })}</div> : cart.loading ? <LoadingState rows={2} label="Đang tải giỏ hàng…" /> : <EmptyState compact title="Chưa có sản phẩm được chọn" actionLabel="Về giỏ hàng" actionHref={ROUTES.buyer.cart} />}
       <div className="checkout-summary-line"><span>Tiền hàng</span><strong>{items.length ? formatMoney(activeQuote ? quotedItemsAmount : subtotal) : "—"}</strong></div>
       <div className="checkout-summary-line"><span>Phí giao hàng</span><strong>{activeQuote ? formatMoney(quotedShippingFee) : items.length ? "Theo báo giá" : "—"}</strong></div>
@@ -1114,7 +1114,7 @@ export function OrderDetailScreen() {
               </>
             )}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 12 }}>
-              <h2 style={{ margin: 0 }}>Đơn gian hàng {sub.subOrderNo} · {sub.shopName}</h2>
+              <h2 style={{ margin: 0, minWidth: 0 }}><TruncatedText text={`Đơn gian hàng ${sub.subOrderNo} · ${sub.shopName}`} label="Đơn gian hàng" block /></h2>
               <Badge>{describeOrderStatus(sub.status, sub.paymentMethod)}</Badge>
             </div>
             {canChangeAddress(sub) && <div className="action-row" style={{ marginBottom: 12 }}><ChangeAddressButton subOrderId={sub.subOrderId} onDone={afterAction} /></div>}
@@ -1151,7 +1151,7 @@ export function OrderDetailScreen() {
                 <tbody>
                   {sub.items.map((item, idx) => (
                     <tr key={item.orderItemId ?? item.itemId ?? `${item.skuId}-${idx}`}>
-                      <td><strong>{item.productName}</strong></td>
+                      <td><strong><TruncatedText text={item.productName} label="Tên sản phẩm" maxWidth={280} /></strong></td>
                       <td>{item.quantity}</td>
                       <td>{formatMoney(item.unitPrice)}</td>
                       <td><strong>{formatMoney(item.lineTotal)}</strong></td>
