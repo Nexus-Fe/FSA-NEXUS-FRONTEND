@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { memo, Suspense, useEffect, useState, type ReactNode } from "react";
 import { AccountMenu, type AccountMenuItem } from "./AccountMenu";
-import type { NavigationItem } from "@/constants/navigation";
+import type { NavigationItem, NavigationSection } from "@/constants/navigation";
 import { buyerNavigation } from "@/constants/navigation";
 import { ROUTES } from "@/constants/routes";
 import { Icon } from "@/components/ui/Icon";
@@ -466,12 +466,14 @@ export function PortalShell({
   children,
   role,
   subtitle,
-  items,
+  items = [],
+  sections,
 }: {
   children: ReactNode;
   role: string;
   subtitle: string;
-  items: NavigationItem[];
+  items?: NavigationItem[];
+  sections?: NavigationSection[];
 }) {
   const { user } = useSession();
   const roleInfo = resolveUserRole(user, role);
@@ -494,7 +496,7 @@ export function PortalShell({
         </div>
         <p className="sidebar-label">{subtitle}</p>
         <Suspense fallback={null}>
-          <NavLinks items={items} />
+          <NavLinks items={items} sections={sections} />
         </Suspense>
         <PortalAccountMenu role={role} />
       </aside>
@@ -507,7 +509,7 @@ export function PortalShell({
           </summary>
           <div className="mobile-menu-panel">
             <Suspense fallback={null}>
-              <NavLinks items={items} />
+              <NavLinks items={items} sections={sections} />
             </Suspense>
             <PortalAccountMenu role={role} />
           </div>

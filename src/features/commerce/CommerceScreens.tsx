@@ -1,7 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
+import { ROUTES } from "@/constants/routes";
+import { auctionService } from "@/features/auction/services/auction.service";
+import type { MyAuctionReportItem } from "@/features/auction/types";
 import { describeError, formatError } from "@/lib/errors/error-messages";
 import { evidenceRequired, parseReportPrefill } from "./order-report";
 import { Badge, Card, PageHeading } from "@/components/ui/Primitives";
@@ -17,15 +21,23 @@ const unwrap = <T,>(value: ApiResponse<T> | T): T => value && typeof value === "
 type UserReport = { reportId?: string; reportedUserId?: string; targetRole?: string; referenceType?: string | null; referenceId?: string | null; violationType?: string; description?: string; status?: string; resolutionNote?: string | null; refundStatus?: string; refundAmount?: number | null; createdAt?: string };
 type BuyerProductReport = { id: string; productId?: string; productName?: string; reason?: string; description?: string; status?: string; resolutionNote?: string | null; createdAt?: string };
 const VIOLATION_LABEL: Record<string, string> = { Fraud: "Gian lận", Harassment: "Quấy rối", Counterfeit: "Hàng giả", Spam: "Spam", Other: "Khác" };
+const AUCTION_REPORT_REASON_LABEL: Record<string, string> = {
+  SuspectedShillBidding: "Nghi vấn kích giá ảo",
+  CounterfeitOrFake: "Nghi vấn hàng giả / nhái",
+  MisleadingInfo: "Thông tin mô tả sai lệch",
+  ExternalContact: "Lôi kéo giao dịch ngoài sàn",
+  Other: "Lý do khác",
+};
 
 
 export function BuyerReportsScreen() {
   const prefill=parseReportPrefill(useSearchParams());
   const [targetId,setTargetId]=useState(prefill.reportedUserId);const [violationType,setType]=useState("Fraud");const [description,setDescription]=useState("");const [evidence,setEvidence]=useState<File[]>([]);const [error,setError]=useState("");const [success,setSuccess]=useState("");const [busy,setBusy]=useState(false);
-  const [historyTab, setHistoryTab] = useState<"orders" | "products">("orders");
+  const [historyTab, setHistoryTab] = useState<"orders" | "products" | "auctions">("orders");
   const [statusFilter, setStatusFilter] = useState("");
   const reports=useApiResource("/api/v1/me/reports?page=1&pageSize=20",async()=>{const result=unwrap(await api.get<ApiResponse<{items:UserReport[]}>>('/api/v1/me/reports?page=1&pageSize=20'));return result.items??[];});
   const productReports=useApiResource("/api/v1/products/reports/mine",async()=>{const result=unwrap(await api.get<ApiResponse<BuyerProductReport[]>|BuyerProductReport[]>('/api/v1/products/reports/mine'));return Array.isArray(result)?result:[];});
+  const auctionReports=useApiResource("/api/v1/me/auction-reports?page=1&pageSize=20",async(signal):Promise<MyAuctionReportItem[]>=>{const result=await auctionService.myReports(1,20,signal);return result.items??[];});
   async function submit(event:React.FormEvent<HTMLFormElement>){event.preventDefault();if(busy)return;setBusy(true);setError("");setSuccess("");try{
     if(evidenceRequired(prefill.referenceType,violationType,evidence.length)){setError("Báo cáo gian lận hoặc hàng giả về một đơn cần ít nhất một ảnh bằng chứng.");setBusy(false);return;}
     let evidenceUrls:string[]=[];
@@ -34,6 +46,7 @@ export function BuyerReportsScreen() {
   const matchesFilter = (value?: string) => !statusFilter || (value ?? "").toUpperCase() === statusFilter.toUpperCase();
   const filteredUserReports = (reports.data ?? []).filter((r) => matchesFilter(r.status));
   const filteredProductReports = (productReports.data ?? []).filter((r) => matchesFilter(r.status));
+  const filteredAuctionReports = (auctionReports.data ?? []).filter((r) => matchesFilter(r.status));
   return <div className="buyer-reports-page">
     <PageHeading title="Báo cáo & Khiếu nại" />
     <div className="split buyer-reports-layout">
@@ -55,6 +68,7 @@ export function BuyerReportsScreen() {
           <div className="action-row" style={{ margin: 0 }}>
             <button type="button" className={`button button-small ${historyTab === "orders" ? "button-primary" : "button-secondary"}`} onClick={() => setHistoryTab("orders")}>Đơn hàng / Người dùng</button>
             <button type="button" className={`button button-small ${historyTab === "products" ? "button-primary" : "button-secondary"}`} onClick={() => setHistoryTab("products")}>Sản phẩm</button>
+            <button type="button" className={`button button-small ${historyTab === "auctions" ? "button-primary" : "button-secondary"}`} onClick={() => setHistoryTab("auctions")}>Đấu giá</button>
           </div>
         </div>
         <div style={{ padding: "0 18px 12px" }}>
@@ -64,6 +78,7 @@ export function BuyerReportsScreen() {
             <option value="UnderReview">Đang xem xét</option>
             <option value="Investigating">Đang điều tra</option>
             <option value="Resolved">Đã xử lý</option>
+            <option value="ActionTaken">Đã xử lý vi phạm</option>
             <option value="Rejected">Đã từ chối</option>
             <option value="Dismissed">Đã bác</option>
           </select>
@@ -83,7 +98,7 @@ export function BuyerReportsScreen() {
               <Badge>{statusLabel(REPORT_STATUS, report.status)}</Badge>
             </div>):reports.loading?<LoadingState rows={3} label="Đang tải báo cáo…"/>:reports.error?null:<EmptyState title="Chưa gửi báo cáo nào" description="Báo cáo bạn gửi sẽ hiện ở đây cùng trạng thái xử lý."/>}
           </>
-        ) : (
+        ) : historyTab === "products" ? (
           <>
             {productReports.error&&<ErrorState cause={productReports.error} onRetry={productReports.reload} />}
             {filteredProductReports.length?filteredProductReports.map((report)=><div className="buyer-report-item" key={report.id}>
@@ -95,6 +110,22 @@ export function BuyerReportsScreen() {
               </div>
               <Badge>{statusLabel(REPORT_STATUS, report.status)}</Badge>
             </div>):productReports.loading?<LoadingState rows={3} label="Đang tải báo cáo sản phẩm…"/>:productReports.error?null:<EmptyState title="Chưa có báo cáo sản phẩm nào" description="Các báo cáo sản phẩm bạn gửi sẽ hiện ở đây cùng trạng thái xử lý."/>}
+          </>
+        ) : (
+          <>
+            {auctionReports.error&&<ErrorState cause={auctionReports.error} onRetry={auctionReports.reload} />}
+            {filteredAuctionReports.length?filteredAuctionReports.map((report)=><div className="buyer-report-item" key={report.reportId}>
+              <div className="buyer-report-item-content">
+                <strong>
+                  <Link href={ROUTES.auction.room(report.auctionId)}>{report.auctionTitle || `Phiên ${report.auctionId.slice(0, 8)}`}</Link>
+                  {` · ${AUCTION_REPORT_REASON_LABEL[report.reason] ?? report.reason}`}
+                </strong>
+                {report.description&&<p className="buyer-report-item-text">{report.description}</p>}
+                {report.createdAt&&<time dateTime={report.createdAt}>{new Date(report.createdAt).toLocaleString("vi-VN")}</time>}
+                {report.adminNote&&<p>Phản hồi: {report.adminNote}</p>}
+              </div>
+              <Badge>{statusLabel(REPORT_STATUS, report.status)}</Badge>
+            </div>):auctionReports.loading?<LoadingState rows={3} label="Đang tải báo cáo đấu giá…"/>:auctionReports.error?null:<EmptyState title="Chưa có báo cáo đấu giá nào" description="Báo cáo vi phạm phiên đấu giá bạn gửi tại phòng đấu giá sẽ hiện ở đây."/>}
           </>
         )}
       </Card>

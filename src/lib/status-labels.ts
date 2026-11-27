@@ -147,6 +147,7 @@ export const REPORT_STATUS: StatusTable = build({
   UnderReview: "Đang xem xét",
   Investigating: "Đang xem xét",
   Resolved: "Đã xử lý",
+  ActionTaken: "Đã xử lý vi phạm",
   Rejected: "Đã từ chối",
   Dismissed: "Đã từ chối",
 });

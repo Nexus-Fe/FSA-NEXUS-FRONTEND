@@ -14,6 +14,7 @@ export const ROUTES = {
   buyer: {
     becomeSeller: "/buyer/become-seller",
     auctions: "/buyer/auctions",
+    auctionOrders: "/buyer/auction-orders",
     auctionResult: (id: string) => "/buyer/auctions/" + encodeURIComponent(id) + "/result",
     auctionPayment: (id: string) => "/buyer/auctions/" + encodeURIComponent(id) + "/payment",
     cart: "/buyer/cart",
@@ -65,6 +66,7 @@ export const ROUTES = {
   staff: {
     withdrawals: "/staff/withdrawals",
     productModeration: "/staff/product-moderation",
+    productReviews: "/staff/product-reviews",
     productReports: "/staff/product-reports",
     discrepancies: "/staff/transactions/discrepancies",
     auctions: "/staff/auctions",
@@ -92,6 +94,7 @@ export const ROUTES = {
     sellers: "/admin/sellers",
     seller: (id: string) => "/admin/sellers/" + encodeURIComponent(id),
     productModeration: "/admin/product-moderation",
+    productReviews: "/admin/product-reviews",
     auditLogs: "/admin/audit-logs",
     notificationCenter: "/admin/notification-center",
     securityAlerts: "/admin/security-alerts",

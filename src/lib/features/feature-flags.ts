@@ -30,3 +30,28 @@ export function parseFeatureList(value?: string | null): FeatureKey[] {
 export function filterByFeature<T extends { feature?: FeatureKey }>(items: readonly T[], enabled: ReadonlySet<FeatureKey>): T[] {
   return items.filter((item) => !item.feature || enabled.has(item.feature));
 }
+
+export type FeatureSection<TItem extends { feature?: FeatureKey }> =
+  | { kind: "item"; item: TItem }
+  | { kind: "group"; group: { id: string; items: readonly TItem[] } & Record<string, unknown> };
+
+/** Filters grouped navigation sections by feature flags and drops groups whose items all became hidden. */
+export function filterSectionsByFeature<TSection extends { kind: "item"; item: { feature?: FeatureKey } } | { kind: "group"; group: { items: readonly { feature?: FeatureKey }[] } }>(
+  sections: readonly TSection[],
+  enabled: ReadonlySet<FeatureKey>,
+): TSection[] {
+  const result: TSection[] = [];
+  for (const section of sections) {
+    if (section.kind === "item") {
+      if (!section.item.feature || enabled.has(section.item.feature)) {
+        result.push(section);
+      }
+      continue;
+    }
+    const visibleItems = filterByFeature(section.group.items, enabled);
+    if (visibleItems.length > 0) {
+      result.push({ ...section, group: { ...section.group, items: visibleItems } });
+    }
+  }
+  return result;
+}
