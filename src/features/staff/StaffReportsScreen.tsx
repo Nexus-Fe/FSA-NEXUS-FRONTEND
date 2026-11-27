@@ -257,7 +257,7 @@ export function StaffReportsScreen() {
         description="Tiếp nhận, kiểm tra chứng cứ và ban hành quyết định xử lý báo cáo vi phạm từ người dùng sàn."
       />
 
-      <Card className="card-pad" style={{ marginBottom: 16 }}>
+      <Card className="card-pad">
         <div className="ops-filters" style={{ margin: 0 }}>
           <label className="field-wrap">
             Trạng thái xử lý

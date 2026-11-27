@@ -140,7 +140,7 @@ export function StaffProductReportsScreen() {
         description="Kiểm tra bằng chứng vi phạm, ảnh sản phẩm và đưa ra quyết định xử lý."
       />
 
-      <Card className="card-pad" style={{ marginBottom: "16px", display: "grid", gap: "12px" }}>
+      <Card className="card-pad" style={{ display: "grid", gap: "12px" }}>
         <FluidChoiceBar
           mode="filter"
           ariaLabel="Lọc theo trạng thái báo cáo"
@@ -376,8 +376,8 @@ export function StaffProductReportsScreen() {
                   style={{
                     margin: "6px 0 0",
                     padding: "10px 12px",
-                    background: "var(--surface-2, #f8fafc)",
-                    border: "1px solid var(--border)",
+                    background: "var(--canvas)",
+                    border: "1px solid var(--line)",
                     borderRadius: "8px",
                     fontSize: "14px",
                     lineHeight: 1.5,

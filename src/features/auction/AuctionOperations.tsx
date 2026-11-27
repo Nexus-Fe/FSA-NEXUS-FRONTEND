@@ -59,7 +59,7 @@ export function OperationsListScreen({ role }: { role: Role }) {
         action={role === "seller" ? <div className="action-row"><ButtonLink href={ROUTES.seller.newAuctionProduct} variant="secondary">Tạo sản phẩm đấu giá</ButtonLink><ButtonLink href={ROUTES.seller.newAuction}>+ Tạo phiên đấu giá</ButtonLink></div> : undefined}
       />
       {role === "seller" && user?.id && (
-        <Card className="card-pad" style={{ marginBottom: 16 }}>
+        <Card className="card-pad">
           <h3 style={{ margin: "0 0 8px", fontSize: 14, fontWeight: 700, color: "var(--ink)" }}>Hiệu suất đấu giá của bạn</h3>
           <SellerAuctionStats sellerId={user.id} />
         </Card>
@@ -254,7 +254,7 @@ export function OperationsDetailScreen({ role }: { role: Role }) {
             {/* Dải chỉ số phiên */}
             <Card style={{ padding: "18px 20px" }}>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: "16px", textAlign: "center" }}>
-                <div style={{ borderRight: "1px solid var(--border)", paddingRight: "12px" }}>
+                <div style={{ borderRight: "1px solid var(--line)", paddingRight: "12px" }}>
                   <span style={{ fontSize: "12px", color: "var(--muted)", textTransform: "uppercase", fontWeight: 600 }}>
                     Trạng thái
                   </span>
@@ -262,7 +262,7 @@ export function OperationsDetailScreen({ role }: { role: Role }) {
                     <Badge tone={auctionStatusTone(auction.status)}>{statusLabel(auction.status)}</Badge>
                   </div>
                 </div>
-                <div style={{ borderRight: "1px solid var(--border)", paddingRight: "12px" }}>
+                <div style={{ borderRight: "1px solid var(--line)", paddingRight: "12px" }}>
                   <span style={{ fontSize: "12px", color: "var(--muted)", textTransform: "uppercase", fontWeight: 600 }}>
                     Giá hiện tại
                   </span>
@@ -370,13 +370,13 @@ export function OperationsDetailScreen({ role }: { role: Role }) {
                   <strong>{auction.extensionCount}/{auction.maxExtensionCount} ({auction.antiSnipingExtensionMinutes} phút/lần)</strong>
                 </div>
                 {auction.leadingBidderDisplayName && (
-                  <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px dashed var(--border)", paddingTop: "8px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px dashed var(--line)", paddingTop: "8px" }}>
                     <span style={{ color: "var(--muted)" }}>Người dẫn đầu:</span>
                     <strong>{auction.leadingBidderDisplayName}</strong>
                   </div>
                 )}
                 {role === "admin" && saga.data && (
-                  <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px dashed var(--border)", paddingTop: "8px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px dashed var(--line)", paddingTop: "8px" }}>
                     <span style={{ color: "var(--muted)" }}>Tiến trình đơn:</span>
                     <strong>{saga.data.currentState}</strong>
                   </div>

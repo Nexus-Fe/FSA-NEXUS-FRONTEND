@@ -114,7 +114,7 @@ export function StaffProductReviewsScreen() {
         description="Xem danh sách đánh giá sản phẩm từ người mua và ẩn hoặc hiển thị lại các đánh giá vi phạm tiêu chuẩn cộng đồng."
       />
 
-      <Card className="card-pad" style={{ marginBottom: 16 }}>
+      <Card className="card-pad">
         <form
           onSubmit={handleSearch}
           style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}
@@ -201,7 +201,7 @@ export function StaffProductReviewsScreen() {
       )}
 
       {selectedReview && (
-        <Card className="card-pad" style={{ marginBottom: 16 }}>
+        <Card className="card-pad">
           <h3>
             {moderateAction === "HIDE" ? "Ẩn đánh giá" : "Hiển thị lại đánh giá"}{" "}
             <code>{selectedReview.id.slice(0, 8)}</code>

@@ -1,7 +1,7 @@
 ---
 version: alpha
 name: Nexus Marketplace & Operations Design System
-description: Canonical Deep Burgundy, Alabaster, and Frosted Cream Glass UI system across Public/Buyer, Seller, Staff, and Admin portals, anchored to /admin/withdrawals and src/styles/theme.css.
+description: Deep Burgundy, Alabaster, and Frosted Cream Glass UI system across Public/Buyer, Seller, Staff, and Admin portals, anchored to /admin/withdrawals and src/styles/theme.css.
 colors:
   primary: "#6e1e2b"
   primary-hover: "#541520"
@@ -65,6 +65,7 @@ spacing:
   portal-padding-x: "36px"
   portal-padding-y: "32px"
   card-padding: "24px"
+  stack-gap: "20px"
   table-cell-x: "18px"
   table-cell-y: "15px"
   grid-gap: "18px"
@@ -84,71 +85,98 @@ components:
 
 ## Overview
 
-Nexus is a multi-role commerce and auction web application with four user experiences sharing one Deep Burgundy, Alabaster, and Frosted Cream Glass visual language. Public and Buyer pages run inside a top-navigation marketplace shell, while Seller, Staff, and Admin portals run inside a unified left-sidebar operations shell anchored to the `/admin/withdrawals` reference layout.
+Nexus is a multi-role marketplace and auction web application with four portals that share one visual system. Public and Buyer routes use a top-navigation marketplace shell. Seller, Staff, and Admin routes use a left-sidebar operations shell modeled on `/admin/withdrawals`.
 
 ## Colors
 
-Brand and surface colors are governed centrally by CSS custom properties in `src/styles/theme.css`. Components consume semantic tokens rather than inline hex literals.
+CSS custom properties in `src/styles/theme.css` define all brand and surface colors. Components read these tokens directly so theme updates stay in one place.
 
-- Primary brand actions, active navigation states, and key highlights use `primary`, `primary-hover`, `primary-active`, `primary-soft`, and `primary-border`.
-- Page backdrop layers use `page-bg` with subtle crimson grid lines, warm corner radial glows, and paper grain rendered behind all shells.
-- Frosted content panels use `surface` or the translucent glass gradient bounded by `glass-border` and `line`.
-- Semantic status feedback (`green`, `amber`, `red`, `indigo`) is reserved strictly for operational states, balances, warnings, and destructive confirmations.
+| Role | Tokens | Where they apply |
+| :--- | :--- | :--- |
+| Brand | `primary`, `primary-hover`, `primary-active`, `primary-soft`, `primary-border` | Primary buttons, active navigation states, focus highlights, and soft badges |
+| Surfaces | `page-bg`, `canvas`, `surface`, `glass-surface`, `glass-border`, `line` | Page backdrop, cards, frosted containers, table dividers, and image box frames |
+| Text | `ink`, `muted` | Primary copy, secondary labels, and placeholders |
+| Status | `green`, `amber`, `red`, `indigo` | Operational statuses, wallet balances, warnings, and destructive confirmations |
+
+`src/styles/theme.css` also exposes `--border` (`var(--line)`) and `--surface-muted` (`var(--canvas)`) as compatibility aliases so image frames and inline dividers never lose their border.
 
 ## Typography
 
-All interfaces use `Plus Jakarta Sans` loaded via `next/font/google` and bound to `--font-ui`.
+All portals load `Plus Jakarta Sans` through `next/font/google` and bind it to `--font-ui`.
 
-- Numeric quantities, prices, balances, countdowns, and pagination counters use `font-variant-numeric: tabular-nums` so columns align vertically.
-- Portal `PageHeading` displays a clean single title line inside `.portal-main` (overlines and redundant lead descriptions are suppressed in dashboard views to preserve above-the-fold table space).
-- Marketplace `PageHeading` renders inside the dark gradient hero banner with crisp white display type and muted cream subcopy.
+- Numeric columns, prices, balances, countdowns, and pagination counters set `font-variant-numeric: tabular-nums` so numbers align vertically.
+- Inside `.portal-main`, `PageHeading` renders a single title line and hides overlines and lead descriptions to leave more vertical space for tables.
+- On marketplace pages, `PageHeading` renders inside the dark gradient hero header with white display text and light cream subtext.
 
 ## Layout
 
-### Marketplace Shell (Public & Buyer)
+### Marketplace shell (Public and Buyer)
 
-- Sticky top header (`buyer-header`) combining brand mark, capsule pill global product/shop search bar (`border-radius: 999px`), privileged role portal shortcuts, frosted `36px` pill holders for Orders & Cart (`.header-action-pill`), compact `36px` `NotificationBell`, and `AccountMenu`.
-- Floating glass pill top navigation (`buyer-nav-wrap`) with responsive wrapping (`flex-wrap: wrap`, `border-radius: 28px`), sliding dark capsule indicator (`fluid-nav-indicator`), and hover/focus category mega-menu.
-- Main content container capped at `1800px` max width (`buyer-main`) with consistent `Breadcrumbs` and compact `SiteFooter`.
+- The sticky header (`buyer-header`) holds the brand mark, global search pill (`border-radius: 999px`), portal links, `36px` action pills for Orders and Cart (`.header-action-pill`), `NotificationBell`, and `AccountMenu`.
+- The floating glass navigation bar (`buyer-nav-wrap`) wraps items onto multiple lines when needed (`border-radius: 28px`), animates the dark active pill (`fluid-nav-indicator`), and opens the category mega-menu on hover or focus.
+- Content sits inside `.buyer-main` (`max-width: 1800px`) with `Breadcrumbs` above and `SiteFooter` below.
 
-### Operations Portal Shell (Seller, Staff & Admin)
+### Operations portal shell (Seller, Staff, and Admin)
 
-- Sticky `260px` left sidebar (`portal-sidebar`) with `Brand`, role subtitle, collapsible grouped navigation (`NavLinks` consuming `NavigationSection[]`), and pinned bottom `PortalAccountMenu`.
-- Responsive mobile header drawer (`mobile-menu`) below `780px` that exposes the identical grouped navigation and account menu.
-- Fluid main column (`portal-main`) capped at `1600px` with `Breadcrumbs` and standardized vertical spacing between `PageHeading`, filter bars, and data cards.
+- The sticky `260px` left sidebar (`portal-sidebar`) contains `Brand`, the role pill, collapsible navigation groups (`NavLinks` using `NavigationSection[]`), and the bottom `PortalAccountMenu`.
+- Below `780px`, `.mobile-menu` replaces the fixed sidebar with a collapsible header drawer holding the same grouped links and account menu.
+- The fluid content column (`.portal-main`, `max-width: 1600px`) uses `.page-stack` (`gap: 20px`) and direct-child block spacing (`20px` between cards, `.split` grids, action bars, and alert banners inside `.portal-main` and `.auction-surface`).
 
-## Elevation & Depth
+## Elevation and depth
 
-- Ambient background depth is provided once at `body::before` and `body::after` in `src/styles/theme.css`; inner containers remain transparent or frosted rather than painting opaque slate backgrounds (`#f1f5f9`, `#eff4ff`).
-- Operations cards (`.portal-shell-operations .portal-main .card` and Buyer glass cards) use soft glass elevation with `1px` bright top/outer bevel highlights and subtle drop shadows.
-- Floating menus (`RowActionsMenu`, `AccountMenu`, `NotificationBell` popover, `SelectBox` popover) and `Modal` dialogs layer cleanly above sticky headers and table columns using explicit z-index tiers and backdrop blur.
+`body::before` and `body::after` in `src/styles/theme.css` draw the shared alabaster grid, radial corner glows, and grain texture once behind every page. Inner containers stay transparent or frosted, without opaque slate fills (`#f1f5f9`, `#eff4ff`).
 
-## Shapes
+Operations cards (`.portal-shell-operations .portal-main .card`) and Buyer glass cards use frosted backgrounds with `1px` top/outer highlights and soft shadows. Popovers (`RowActionsMenu`, `AccountMenu`, `NotificationBell`, `SelectBox`) and `Modal` dialogs stack above sticky headers and sticky table columns via explicit z-index layers.
 
-- Unified rounded corner hierarchy: `20px` on all glass `<Card>` containers, `.route-state`, and `.access-state` across Buyer, Seller, Staff, and Admin; `26px` on dark hero headers; `16px` on modals, `.notice`, `.form-error`, `.notice[role="alert"]`, `.form-success`, and `.state-error` (with `16px` margin when placed directly inside `<Card>`); `11px` on form inputs/selects; `8px` on standard buttons; `999px` on `FluidChoiceBar`, badges, and navigation pills.
-- Strict inner-corner clipping invariant: any `<Card>` wrapping a `.table-scroll`, `.data-table`, `.cart-select-all`, `.cart-seller-group`, or `.admin-pagination-bar` must clip inner children (`overflow: hidden` on `.card`, `border-radius: inherit` on flush `.table-scroll` wrappers, and removal of the final row `border-bottom`) so rectangular table header backgrounds and row borders never protrude past rounded card corners.
+## Shapes and clipping
+
+| Element | Radius | Notes |
+| :--- | :--- | :--- |
+| Glass cards, `.route-state`, `.access-state` | `20px` | Standard container radius across all four portals |
+| Hero banners | `26px` | Marketplace `PageHeading` headers |
+| Modals and feedback banners | `16px` | `.modal-panel`, `.admin-modal`, `.notice`, `.form-error`, `.form-success`, `.state-error` (with `16px` outer margin inside `<Card>`) |
+| Inputs and selects | `11px` | `.field`, `.select-field`, `.textarea-field` |
+| Standard buttons | `8px` | `.button` |
+| Pills, badges, choice bars | `999px` | `FluidChoiceBar`, `.badge`, `.header-action-pill`, search bar |
+
+Any `<Card>` wrapping `.table-scroll`, `.data-table`, `.cart-select-all`, `.cart-seller-group`, or `.admin-pagination-bar` clips inner corners (`overflow: hidden` on `.card`, `border-radius: inherit` on flush `.table-scroll` wrappers, and no bottom border on the final table row) so table headers and row lines stay inside the rounded card frame.
 
 ## Components
 
-- **Card & Data Table Pattern (`/admin/withdrawals` reference):**
-  - Top-level list tables sit directly inside `<Card>` (without `.card-pad` wrapping the table itself) followed by `<AdminPagination>` as the bottom card footer or clean bottom border.
-  - Inline action forms or filter toolbars inside a card sit in `.card-pad` or `.toolbar` above `.table-scroll`.
-  - Row actions use `RowActionsMenu` (primary CTA + overflow menu) rather than wrapping stacks of buttons inside table cells.
-- **Filter & Tab Bars:**
-  - Single-axis status filters and content tabs use `FluidChoiceBar` (`mode="filter"` or `mode="tabs"`).
-  - Multi-field search/date/select filters use `.ops-filters` inside `<Card className="card-pad">` with consistent field height (`42px`) and aligned action buttons.
-- **Portal Sidebar Grouping & Icons:**
-  - Seller, Staff, and Admin sidebars use `NavigationSection[]` (`item` + collapsible `group` sections) rendered by `NavLinks` with `chevron` rotation, active-group auto-expansion, and a distinct semantic `IconName` from `src/components/ui/Icon.tsx` for every menu item.
-- **Form Controls, Modals & Text Overflow (`TruncatedText`):**
-  - Inputs (`field`), selects (`select-field` / `SelectBox`), textareas (`textarea-field`), and `DatePicker` share uniform border, radius, focus ring, and `aria-invalid` error styling.
-  - Confirmation and detail popups use shared `Modal` / `ConfirmDialog` components with accessible focus trapping and Escape handling.
-  - Long single-line titles, breadcrumbs, shop names, emails, and table cell descriptions use `TruncatedText` (`src/components/ui/TruncatedText.tsx`), which clips overflowing text to one line (`text-overflow: ellipsis`) and reveals a compact `"..."` pill trigger via `ResizeObserver` to open a portaled full-text popover (`z-index: 1300`) without triggering parent links or clickable rows.
+### Cards and data tables
 
-## Do's and Don'ts
+Top-level list tables sit directly inside `<Card>` (without `.card-pad` around the table) followed by `<AdminPagination>` as the card footer. Filter forms or inline action panels above a table sit inside a separate `<Card className="card-pad">` spaced `20px` above the table card, or inside `.toolbar` at the top of the table card. Row actions use `RowActionsMenu` (one primary action button plus an overflow menu) so buttons do not wrap inside table cells.
 
-- **Do** use tokens from `src/styles/theme.css` (`--primary`, `--primary-soft`, `--surface`, `--glass-surface`, `--glass-border`, `--line`, `--ink`, `--muted`) in all CSS rules and TSX inline styles.
-- **Do** clip `.table-scroll` and `.data-table` corners inside `<Card>` and omit `border-bottom` on the last table row when flush with a card edge.
-- **Do** apply `.portal-shell-operations` styling to Seller, Staff, and Admin portals uniformly so all three share one card, table, pagination, and sidebar specification.
-- **Don't** leave legacy sky-blue, lime, or green-tint hex literals (`#eff4ff`, `#7dd3fc`, `#0284c7`, `#e0f2fe`, `#c8e71f`, `#f8fdff`, `#f8fbff`, `rgba(245, 252, 247, .7)`) in stylesheets or feature screens.
-- **Don't** render bare `.table-scroll` data tables outside `<Card>`, or mix `12px` card/cart radii with `20px` glass cards on the same surface.
-- **Don't** duplicate generic sidebar icons across distinct operational pages when specific icons exist in `src/components/ui/Icon.tsx`.
+### Filter and tab bars
+
+Single-axis status filters and content tabs use `FluidChoiceBar` (`mode="filter"` or `mode="tabs"`). Multi-field search, date, and select filters use `.ops-filters` inside `<Card className="card-pad">` with `42px` control heights.
+
+### Portal sidebar navigation
+
+Seller, Staff, and Admin sidebars share `NavigationSection[]` (`item` and collapsible `group` entries) rendered by `NavLinks`. Active groups expand automatically, chevrons rotate on open, and each link uses a matching `IconName` from `src/components/ui/Icon.tsx`.
+
+### Image thumbnails and evidence grids
+
+Product thumbnails and evidence galleries in operational tables and detail modals use `ThumbnailBox` (`src/components/ui/BackendImage.tsx`), `EvidenceThumbnailGrid` (`src/components/ui/ImageLightbox.tsx`), and `.auction-ops-detail-image`. Each frame uses a `1px solid var(--line)` border and `var(--canvas)` background so thumbnails separate clearly from the card surface.
+
+### Form controls, modals, and text overflow
+
+`field`, `select-field`, `textarea-field`, `SelectBox`, and `DatePicker` share unified borders, radii, focus outlines, and `aria-invalid` error states. Confirmations and detail dialogs use `Modal` and `ConfirmDialog` with focus trapping and Escape handling.
+
+Long single-line titles, breadcrumbs, shop names, emails, and table cell values use `TruncatedText` (`src/components/ui/TruncatedText.tsx`). It truncates overflowing text with an ellipsis and uses `ResizeObserver` to show a `"..."` trigger pill that opens a portaled popover (`z-index: 1300`) without activating parent links or clickable rows.
+
+## Guidelines
+
+### Preferred patterns
+
+- Read color and surface tokens from `src/styles/theme.css` (`--primary`, `--primary-soft`, `--surface`, `--glass-surface`, `--glass-border`, `--line`, `--ink`, `--muted`) in CSS rules and TSX styles.
+- Keep `.table-scroll` and `.data-table` corners clipped inside `<Card>` and omit the final row's bottom border when flush against the card edge.
+- Apply `.portal-shell-operations` and `.page-stack` consistently across Seller, Staff, and Admin routes so cards, spacing, tables, pagination, and sidebars match.
+- Use `ThumbnailBox` or `EvidenceThumbnailGrid` for operational image previews so borders and fallbacks stay consistent.
+
+### Avoid
+
+- Legacy sky-blue, lime, or green-tint hex literals (`#eff4ff`, `#7dd3fc`, `#0284c7`, `#e0f2fe`, `#c8e71f`, `#f8fdff`, `#f8fbff`, `rgba(245, 252, 247, .7)`) in stylesheets or feature components.
+- Rendering `.table-scroll` tables outside `<Card>`, or mixing `12px` card radii with `20px` glass cards on the same screen.
+- Stacking cards inside `.portal-main` or `.page-stack` with ad-hoc `marginBottom: 16` overrides that conflict with the `20px` stack spacing.
+- Reusing generic sidebar icons across distinct operational pages when specific icons exist in `src/components/ui/Icon.tsx`.

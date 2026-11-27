@@ -6,6 +6,7 @@ import {
 } from "../src/features/commerce/checkout-outcome.ts";
 import { describeRejectedVoucher, ineligibleText, validateVoucherForm } from "../src/features/coupons/voucher-outcome.ts";
 import { canSelectVoucher } from "../src/features/coupons/voucher-rules.ts";
+import { estimateCheckoutDiscounts } from "../src/features/coupons/voucher-calculator.ts";
 
 const api = (status, errorCode) => ({ status, errorCode });
 
@@ -99,4 +100,82 @@ test("the create form is checked before it is sent", () => {
   assert.ok(validateVoucherForm({ ...ok, maxUsesPerUser: 0 }));
   assert.ok(validateVoucherForm({ ...ok, startsAt: "2026-02-01", endsAt: "2026-01-01" }));
   assert.ok(validateVoucherForm({ ...ok, code: " " }));
+});
+
+test("voucher calculation applies Product first, then Shop, then System on remaining base", () => {
+  const items = [
+    { sellerId: "shop-a", quantity: 1, unitPriceSnapshot: 200_000 },
+    { sellerId: "shop-b", quantity: 1, unitPriceSnapshot: 100_000 },
+  ];
+  const result = estimateCheckoutDiscounts(items, [
+    {
+      code: "PROD_A",
+      scopeType: "Product",
+      ownerSellerId: "shop-a",
+      discountType: "FixedAmount",
+      discountValue: 50_000,
+      minOrderAmount: 0,
+      estimatedDiscountAmount: 50_000,
+    },
+    {
+      code: "SHOP_B",
+      scopeType: "Shop",
+      ownerSellerId: "shop-b",
+      discountType: "Percentage",
+      discountValue: 20,
+      minOrderAmount: 50_000,
+      estimatedDiscountAmount: 20_000,
+    },
+    {
+      code: "SYS10",
+      scopeType: "System",
+      discountType: "Percentage",
+      discountValue: 10,
+      minOrderAmount: 100_000,
+      maxDiscountAmount: 50_000,
+      estimatedDiscountAmount: 30_000,
+    },
+  ]);
+
+  assert.equal(result.itemsAmount, 300_000);
+  assert.equal(result.productDiscount, 50_000);
+  assert.equal(result.shopDiscount, 20_000);
+  // Remaining after Product (50k) + Shop (20k) = 230k -> 10% = 23k (not 30k on 300k!)
+  assert.equal(result.systemDiscount, 23_000);
+  assert.equal(result.totalDiscount, 93_000);
+  assert.equal(result.finalItemsAmount, 207_000);
+});
+
+test("system voucher reports warning when remaining base drops below minOrderAmount after product/shop deductions", () => {
+  const items = [{ sellerId: "shop-a", quantity: 1, unitPriceSnapshot: 200_000 }];
+  const result = estimateCheckoutDiscounts(items, [
+    {
+      code: "PROD50",
+      scopeType: "Product",
+      ownerSellerId: "shop-a",
+      estimatedDiscountAmount: 50_000,
+    },
+    {
+      code: "SYS_HIGH",
+      scopeType: "System",
+      discountType: "FixedAmount",
+      discountValue: 20_000,
+      minOrderAmount: 180_000,
+      estimatedDiscountAmount: 20_000,
+    },
+  ]);
+
+  assert.equal(result.productDiscount, 50_000);
+  assert.equal(result.systemDiscount, 0);
+  assert.equal(result.finalItemsAmount, 150_000);
+  assert.equal(result.warnings.length, 1);
+});
+
+test("manual voucher without ownerSellerId blocks conflicting non-system vouchers", () => {
+  const manualProd = { code: "MANUAL_P", scopeType: "Product" };
+  const shopA = { code: "SHOP_A", scopeType: "Shop", ownerSellerId: "shop-a" };
+  const sys = { code: "SYS1", scopeType: "System" };
+  assert.notEqual(canSelectVoucher([manualProd], shopA), null);
+  assert.notEqual(canSelectVoucher([shopA], manualProd), null);
+  assert.equal(canSelectVoucher([manualProd], sys), null);
 });

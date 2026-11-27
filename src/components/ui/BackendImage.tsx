@@ -30,12 +30,12 @@ export function ThumbnailBox({
         height: size,
         borderRadius: 8,
         overflow: "hidden",
-        border: "1px solid var(--border)",
-        background: "var(--surface-muted, #f1f5f9)",
+        border: "1px solid var(--line)",
+        background: "var(--canvas)",
         display: "grid",
         placeItems: "center",
         flexShrink: 0,
-        color: "var(--muted, #94a3b8)",
+        color: "var(--muted)",
       }}
     >
       {showImage ? (

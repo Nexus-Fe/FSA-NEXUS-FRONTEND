@@ -56,6 +56,8 @@
   --sky-dark: var(--primary-hover);
   --sky-soft: var(--primary-soft);
   --sky-border: var(--primary-border);
+  --border: var(--line);
+  --surface-muted: var(--canvas);
 
   /* =======================================================================
    * 4. MÀU NỀN CREAM & MÀU CHỮ CHARCOAL CƠ BẢN

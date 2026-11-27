@@ -175,14 +175,14 @@ export function ImageLightbox({
                 onClick={() => setIndex(idx)}
                 style={{
                   padding: 0,
-                  border: idx === index ? "2px solid var(--primary, #0f172a)" : "1px solid var(--border)",
+                  border: idx === index ? "2px solid var(--primary)" : "1px solid var(--line)",
                   borderRadius: "6px",
                   overflow: "hidden",
                   width: "52px",
                   height: "52px",
                   flexShrink: 0,
                   cursor: "pointer",
-                  background: "#f8fafc",
+                  background: "var(--canvas)",
                 }}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -236,13 +236,13 @@ export function EvidenceThumbnailGrid({
               title="Nhấn để phóng to ảnh"
               style={{
                 padding: 0,
-                border: "1px solid var(--border)",
+                border: "1px solid var(--line)",
                 borderRadius: "8px",
                 overflow: "hidden",
                 width: size,
                 height: size,
                 cursor: "pointer",
-                background: "var(--surface-muted, #f1f5f9)",
+                background: "var(--canvas)",
                 flexShrink: 0,
               }}
             >

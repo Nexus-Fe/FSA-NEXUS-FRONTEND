@@ -2,7 +2,6 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import {
   AdminPagination,
   Badge,
@@ -151,7 +150,7 @@ export function StaffProductModerationScreen() {
       />
 
       {/* Filter bar */}
-      <Card className="card-pad" style={{ marginBottom: "16px" }}>
+      <Card className="card-pad">
         <form
           onSubmit={handleSearch}
           className="ops-filters"
@@ -237,37 +236,11 @@ export function StaffProductModerationScreen() {
                     title="Nhấn để xem chi tiết & kiểm duyệt sản phẩm"
                   >
                     <td style={{ padding: "12px 8px" }}>
-                      {p.primaryImageUrl ? (
-                        <Image
-                          src={p.primaryImageUrl}
-                          alt={p.name}
-                          width={48}
-                          height={48}
-                          style={{
-                            width: 48,
-                            height: 48,
-                            objectFit: "cover",
-                            borderRadius: 4,
-                            border: "1px solid var(--border)",
-                          }}
-                          unoptimized
-                        />
-                      ) : (
-                        <div
-                          style={{
-                            width: 48,
-                            height: 48,
-                            background: "var(--surface-muted, #f1f5f9)",
-                            borderRadius: 4,
-                            display: "grid",
-                            placeItems: "center",
-                            fontSize: 10,
-                            color: "var(--muted)",
-                          }}
-                        >
-                          Chưa có ảnh
-                        </div>
-                      )}
+                      <ThumbnailBox
+                        src={resolveImageUrl(p.primaryImageUrl ?? null)}
+                        alt={p.name}
+                        size={48}
+                      />
                     </td>
                     <td style={{ padding: "12px 10px", wordBreak: "break-word", overflowWrap: "anywhere", lineHeight: 1.45 }}>
                       <strong style={{ display: "block" }}><TruncatedText text={p.name} label="Tên sản phẩm" maxWidth={240} /></strong>

@@ -30,7 +30,7 @@ function LedgerTransactionsContent() {
   const data = useApiResource(`finance-ledger:${page}:${walletId}:${type}:${status}:${fromDate}:${toDate}`, (signal) => ledgerService.ledger({ page, pageSize: 20, walletId, type, status, fromDate, toDate }, signal));
   return <div className="page-stack">
     <PageHeading title="Sổ giao dịch" description="Các khoản đã ghi nhận trong ví trên toàn hệ thống." />
-    <Card className="card-pad" style={{ marginBottom: 16 }}>
+    <Card className="card-pad">
       <div className="ops-filters" style={{ margin: 0 }}>
         <label>Mã ví<input className="field" value={walletId} onChange={(e) => { setWalletId(e.target.value); setPage(1); }} /></label>
         <label>Loại<select className="select-field" value={type} onChange={(e) => { setType(e.target.value); setPage(1); }}><option value="">Tất cả</option>{Object.entries(transactionTypes).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
@@ -52,7 +52,7 @@ function LedgerBalancesContent() {
   const data = useApiResource(`finance-balances:${page}:${walletId}`, (signal) => ledgerService.balances({ page, pageSize: 20, walletId }, signal));
   return <div className="page-stack">
     <PageHeading title="Đối soát số dư ví" description="So số dư hiện tại với giao dịch thành công gần nhất." />
-    <Card className="card-pad" style={{ marginBottom: 16 }}>
+    <Card className="card-pad">
       <div className="ops-filters" style={{ margin: 0 }}>
         <label>Mã ví<input className="field" value={walletId} onChange={(e) => { setWalletId(e.target.value); setPage(1); }} /></label>
       </div>

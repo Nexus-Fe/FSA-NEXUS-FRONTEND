@@ -139,7 +139,7 @@ export function AdminPenaltiesScreen() {
         }
       />
 
-      <Card className="card-pad" style={{ marginBottom: "16px" }}>
+      <Card className="card-pad">
         <form
           onSubmit={handleSearch}
           className="ops-filters"

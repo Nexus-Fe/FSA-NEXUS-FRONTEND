@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useSession } from "@/components/auth/SessionProvider";
 import { BackendImage } from "@/components/ui/BackendImage";
 import { AdminPagination, Badge, Card, PageHeading, TruncatedText } from "@/components/ui/Primitives";
@@ -19,9 +19,23 @@ import { Icon } from "@/components/ui/Icon";
 import "@/features/fulfillment/components/shipping-tracking.css";
 import { walletService } from "@/features/wallet";
 import { CheckoutVoucherPanel } from "@/features/coupons/CheckoutVoucherPanel";
+import { estimateCheckoutDiscounts, type VoucherCalcInput } from "@/features/coupons/voucher-calculator";
 import { describeRejectedVoucher } from "@/features/coupons/voucher-outcome";
 import { Modal } from "@/components/ui/Modal";
 import { cartService } from "@/features/commerce/services/cart.service";
+import {
+  areCartSelectionRecordsEqual,
+  clearCartSelection,
+  getBrowserCartStorage,
+  getCartSelectionStorageKey,
+  readCartSelection,
+  reconcileCartSelection,
+  toggleAllCartSelection,
+  toggleCartItemSelection,
+  toggleCartShopSelection,
+  writeCartSelection,
+  type CartSelectionRecord,
+} from "@/features/commerce/cart-selection";
 import { canContinueToCheckout, describeCartIssue, type CartValidation } from "@/features/commerce/cart-rules";
 import { ChangeAddressButton, CompleteOrderButton, RepayButton } from "@/features/commerce/OrderActions";
 import { canReportSubOrder, orderReportHref } from "@/features/commerce/order-report";
@@ -37,7 +51,8 @@ import { notifyNotificationsChanged } from "@/features/notification";
 
 type CartItem = { id: string; productId: string; skuId: string; sellerId: string; productName: string; quantity: number; unitPriceSnapshot: number };
 type Cart = { id: string; buyerId: string; status: string; itemCount: number; subtotalAmount: number; items: CartItem[] };
-type SubOrderItem = { orderItemId?: string; itemId?: string; productId: string; skuId: string; productName: string; skuCode?: string | null; quantity: number; unitPrice: number; lineTotal: number };
+type AppliedVoucherDetail = { code: string; scopeType: string; ownerSellerId?: string | null; discountAmount: number };
+type SubOrderItem = { orderItemId?: string; itemId?: string; productId: string; skuId: string; productName: string; skuCode?: string | null; quantity: number; unitPrice: number; lineTotal: number; unitPriceAfterDiscount?: number | null };
 type ShippingAddressSnapshot = { receiverName: string; receiverPhone: string; street: string; ward: string; district?: string | null; province: string; fullAddress?: string | null };
 type SubOrderDetail = {
   subOrderId: string;
@@ -51,10 +66,15 @@ type SubOrderDetail = {
   shippingAddress: ShippingAddressSnapshot;
   contactPhone: string;
   itemsAmount: number;
+  productDiscountAmount?: number;
+  shopDiscountAmount?: number;
+  systemDiscountAmount?: number;
+  discountAmount?: number;
   shippingFeeAmount: number;
   totalAmount: number;
   createdAt: string;
   items: SubOrderItem[];
+  appliedVouchers?: AppliedVoucherDetail[] | null;
 };
 type Order = {
   id?: string;
@@ -66,16 +86,27 @@ type Order = {
   paymentDeadlineAt: string;
   createdAt?: string;
   subOrders?: SubOrderDetail[];
+  appliedVouchers?: AppliedVoucherDetail[] | null;
 };
 type CheckoutQuoteResponse = {
   quoteId: string;
   grandTotal: number;
   walletBalance: number;
-  shops: Array<{ sellerId: string; shopName: string; itemsAmount: number; discountAmount: number; shippingFeeAmount: number; totalAmount: number }>;
+  shops: Array<{
+    sellerId: string;
+    shopName: string;
+    itemsAmount: number;
+    productDiscountAmount?: number;
+    shopDiscountAmount?: number;
+    systemDiscountAmount?: number;
+    discountAmount: number;
+    shippingFeeAmount: number;
+    totalAmount: number;
+  }>;
   expiredAt: string;
   /** Vouchers the back end really applied, with what each took off. A code asked for but not listed here was left out. */
   appliedVouchers?: string[] | null;
-  appliedVoucherDetails?: Array<{ code: string; scopeType: string; ownerSellerId?: string | null; discountAmount: number }> | null;
+  appliedVoucherDetails?: AppliedVoucherDetail[] | null;
   rejectedVouchers?: Array<{ code: string; reasonCode: string }> | null;
 };
 type CreateOrderResponse = {
@@ -177,6 +208,8 @@ function validateShipping(form: ShippingForm, ghn: GhnSelection): ShippingErrors
   return errors;
 }
 
+const CART_UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export function CartScreen() {
   const router = useRouter();
   const cart = useCart();
@@ -208,7 +241,7 @@ export function CartScreen() {
       return totals;
     }, {});
   });
-  const [selectedIds, setSelectedIds] = useState<ReadonlySet<string> | null>(null);
+  const [selectionState, setSelectionState] = useState<{ key: string; record: CartSelectionRecord } | null>(null);
   const [draftQuantities, setDraftQuantities] = useState<Record<string, string>>({});
   const [quantityErrors, setQuantityErrors] = useState<Record<string, string>>({});
   const [actionError, setActionError] = useState("");
@@ -219,9 +252,27 @@ export function CartScreen() {
   const [clearOpen, setClearOpen] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
   const itemIds = items.map((item) => item.id);
-  const activeSelectedIds = selectedIds ?? new Set(itemIds);
+  const storageKey = cart.data ? getCartSelectionStorageKey(cart.data.buyerId, cart.data.id) : null;
+  const storedSelection =
+    storageKey === null
+      ? null
+      : selectionState?.key === storageKey
+        ? selectionState.record
+        : readCartSelection(getBrowserCartStorage(), storageKey);
+  const reconciledSelection = storageKey !== null ? reconcileCartSelection(storedSelection, itemIds) : null;
+  const activeSelectedIds = new Set(reconciledSelection?.selectedIds ?? []);
+
+  useEffect(() => {
+    if (!storageKey || !reconciledSelection) return;
+    const diskRecord = readCartSelection(getBrowserCartStorage(), storageKey);
+    if (!areCartSelectionRecordsEqual(diskRecord, reconciledSelection)) {
+      writeCartSelection(getBrowserCartStorage(), storageKey, reconciledSelection);
+    }
+  }, [storageKey, reconciledSelection]);
+
   const selectedItems = items.filter((item) => activeSelectedIds.has(item.id));
   const allSelected = items.length > 0 && selectedItems.length === items.length;
+  const someSelected = selectedItems.length > 0 && !allSelected;
   const selectedTotal = selectedItems.reduce((sum, item) => sum + item.unitPriceSnapshot * item.quantity, 0);
   const sellerGroups = items.reduce<Record<string, CartItem[]>>((groups, item) => {
     const key = item.sellerId || "Gian hàng";
@@ -235,14 +286,21 @@ export function CartScreen() {
     return Boolean(quantityErrors[item.id]) || !Number.isInteger(desired) || desired < 1 || (stock.data !== null && (available === undefined || desired > available));
   });
 
+  function commitSelection(nextRecord: CartSelectionRecord) {
+    if (storageKey) {
+      writeCartSelection(getBrowserCartStorage(), storageKey, nextRecord);
+      setSelectionState({ key: storageKey, record: nextRecord });
+    }
+  }
+
   function toggleAll() {
-    setSelectedIds(allSelected ? new Set() : new Set(itemIds));
+    commitSelection(toggleAllCartSelection(reconciledSelection?.selectedIds ?? [], itemIds));
+  }
+  function toggleShop(shopItemIds: string[]) {
+    commitSelection(toggleCartShopSelection(reconciledSelection?.selectedIds ?? [], itemIds, shopItemIds));
   }
   function toggleItem(itemId: string) {
-    const next = new Set(activeSelectedIds);
-    if (next.has(itemId)) next.delete(itemId);
-    else next.add(itemId);
-    setSelectedIds(next);
+    commitSelection(toggleCartItemSelection(reconciledSelection?.selectedIds ?? [], itemIds, itemId));
   }
   function validateQuantity(item: CartItem, raw: string): number | null {
     const trimmed = raw.trim();
@@ -291,11 +349,11 @@ export function CartScreen() {
     setBusyId(item.id);
     try {
       await api.delete(`/api/v1/carts/me/items/${encodeURIComponent(item.id)}`);
-      setSelectedIds((current) => {
-        if (!current) return null;
-        const next = new Set(current);
-        next.delete(item.id);
-        return next;
+      const remainingIds = itemIds.filter((id) => id !== item.id);
+      const currentSelected = reconciledSelection?.selectedIds ?? [];
+      commitSelection({
+        selectedIds: currentSelected.filter((id) => id !== item.id),
+        knownIds: remainingIds,
       });
       cart.reload();
     } catch (reason) {
@@ -348,8 +406,11 @@ export function CartScreen() {
     setBulkBusy(true);
     setActionError("");
     try {
-      await cartService.bulkRemove(selectedItems.map((item) => item.id));
-      setSelectedIds(null);
+      const removedIds = selectedItems.map((item) => item.id);
+      const removedSet = new Set(removedIds);
+      await cartService.bulkRemove(removedIds);
+      const remainingIds = itemIds.filter((id) => !removedSet.has(id));
+      commitSelection({ selectedIds: [], knownIds: remainingIds });
       setValidation(null);
       cart.reload();
     } catch (reason) {
@@ -364,7 +425,10 @@ export function CartScreen() {
     setActionError("");
     try {
       await cartService.clear();
-      setSelectedIds(null);
+      if (storageKey) {
+        clearCartSelection(getBrowserCartStorage(), storageKey);
+      }
+      setSelectionState(null);
       setValidation(null);
       setClearOpen(false);
       cart.reload();
@@ -397,14 +461,53 @@ export function CartScreen() {
     <div className="buyer-cart-layout">
       <div className="buyer-cart-items">
         {items.length ? <>
-          <label className="cart-select-all"><input type="checkbox" checked={allSelected} onChange={toggleAll} /><span>Chọn tất cả ({selectedItems.length}/{items.length})</span></label>
-          <div className="action-row">
-            <button type="button" className="button button-secondary button-small" disabled={!selectedItems.length || bulkBusy} onClick={() => void removeSelected()}>{bulkBusy ? "Đang xóa…" : `Xóa mục đã chọn (${selectedItems.length})`}</button>
-            <button type="button" className="button button-secondary button-small" disabled={bulkBusy} onClick={() => setClearOpen(true)}>Xóa cả giỏ hàng</button>
+          {validation && !validation.isValid && <div className="notice" role="alert" style={{ marginBottom: 14 }}><strong>Giỏ hàng cần chỉnh trước khi đặt hàng:</strong><ul>{validation.issues.map((issue) => <li key={`${issue.cartItemId}-${issue.issueType}`}>{describeCartIssue(issue, items.find((item) => item.id === issue.cartItemId)?.productName ?? "Sản phẩm")}</li>)}</ul></div>}
+          <div className="cart-select-all">
+            <label className="cart-select-all-toggle">
+              <input
+                type="checkbox"
+                checked={allSelected}
+                ref={(el) => {
+                  if (el) el.indeterminate = someSelected;
+                }}
+                onChange={toggleAll}
+              />
+              <span>Chọn tất cả ({selectedItems.length}/{items.length})</span>
+            </label>
+            <div className="cart-bulk-actions">
+              <button type="button" className="button button-secondary button-small" disabled={!selectedItems.length || bulkBusy} onClick={() => void removeSelected()}>{bulkBusy ? "Đang xóa…" : `Xóa mục đã chọn (${selectedItems.length})`}</button>
+              <button type="button" className="button button-secondary button-small" disabled={bulkBusy} onClick={() => setClearOpen(true)}>Xóa cả giỏ hàng</button>
+            </div>
           </div>
-          {validation && !validation.isValid && <div className="notice" role="alert"><strong>Giỏ hàng cần chỉnh trước khi đặt hàng:</strong><ul>{validation.issues.map((issue) => <li key={`${issue.cartItemId}-${issue.issueType}`}>{describeCartIssue(issue, items.find((item) => item.id === issue.cartItemId)?.productName ?? "Sản phẩm")}</li>)}</ul></div>}
-          {Object.entries(sellerGroups).map(([sellerId, group], groupIndex) => <section className="cart-seller-group" key={sellerId} aria-label={`Gian hàng ${groupIndex + 1}`}>
-            <h2>{shops.data?.[sellerId] ?? `Gian hàng #${sellerId.slice(0, 8)}`}</h2>
+          {Object.entries(sellerGroups).map(([sellerId, group], groupIndex) => {
+            const shopTitle = shops.data?.[sellerId] ?? `Gian hàng #${sellerId.slice(0, 8)}`;
+            const shopItemIds = group.map((item) => item.id);
+            const shopSelectedCount = shopItemIds.filter((id) => activeSelectedIds.has(id)).length;
+            const shopAllSelected = shopItemIds.length > 0 && shopSelectedCount === shopItemIds.length;
+            const shopPartial = shopSelectedCount > 0 && !shopAllSelected;
+            return <section className="cart-seller-group" key={sellerId} aria-label={`Gian hàng ${groupIndex + 1}`}>
+            <div className="cart-shop-header">
+              <label className="cart-shop-select">
+                <input
+                  type="checkbox"
+                  className="cart-shop-check"
+                  checked={shopAllSelected}
+                  ref={(el) => {
+                    if (el) el.indeterminate = shopPartial;
+                  }}
+                  onChange={() => toggleShop(shopItemIds)}
+                  aria-label={`Chọn tất cả sản phẩm của ${shopTitle}`}
+                />
+                <Icon name="store" size={16} />
+                <span className="cart-shop-name">{shopTitle}</span>
+                <span className="cart-shop-count tabular-nums">({shopSelectedCount}/{group.length})</span>
+              </label>
+              {CART_UUID_REGEX.test(sellerId) && (
+                <Link className="cart-shop-link" href={ROUTES.catalog.shop(sellerId)}>
+                  Xem shop
+                </Link>
+              )}
+            </div>
             {group.map((item) => {
               const draft = draftQuantities[item.id] ?? String(item.quantity);
               const available = stock.data?.[item.skuId];
@@ -414,7 +517,7 @@ export function CartScreen() {
               const variant = detail?.variants?.find((entry) => entry.variantId === item.skuId);
               const image = variant?.primaryImageUrl ?? variant?.images?.find((entry) => entry.isActive !== false)?.url ?? detail?.images?.find((entry) => entry.isActive !== false)?.url ?? null;
               return <article className="cart-product" key={item.id}>
-                <input className="cart-product-check" type="checkbox" checked={selectedIds === null || selectedIds.has(item.id)} onChange={() => toggleItem(item.id)} aria-label={`Chọn ${item.productName}`} />
+                <input className="cart-product-check" type="checkbox" checked={activeSelectedIds.has(item.id)} onChange={() => toggleItem(item.id)} aria-label={`Chọn ${item.productName}`} />
                 <Link className="cart-product-image" href={ROUTES.catalog.product(item.productId)} aria-label={`Xem ${item.productName}`}><BackendImage src={resolveImageUrl(image)} alt="" compact /></Link>
                 <div className="cart-product-info">
                   <Link className="cart-product-title" href={ROUTES.catalog.product(item.productId)}><TruncatedText text={item.productName} label="Tên sản phẩm" block /></Link>
@@ -438,7 +541,8 @@ export function CartScreen() {
                 <div className="cart-product-price"><strong>{formatMoney(item.unitPriceSnapshot * item.quantity)}</strong><span>{formatMoney(item.unitPriceSnapshot)} / sản phẩm</span></div>
               </article>;
             })}
-          </section>)}
+          </section>;
+          })}
         </> : <div className="cart-empty">{cart.loading ? <LoadingState rows={4} label="Đang tải giỏ hàng…" /> : cart.error ? null : <EmptyState title="Giỏ hàng đang trống" description="Thêm sản phẩm để bắt đầu đặt hàng." actionLabel="Khám phá sản phẩm" actionHref={ROUTES.catalog.index} />}</div>}
       </div>
       <aside className="buyer-cart-summary"><h2>Tóm tắt đơn hàng</h2><div className="cart-summary-line"><span>Sản phẩm đã chọn ({selectedItems.length})</span><strong>{formatMoney(selectedTotal)}</strong></div><div className="cart-summary-line"><span>Phí vận chuyển</span><strong>{selectedItems.length ? "Tính khi báo giá" : "—"}</strong></div><div className="cart-summary-total"><span>Tạm tính tiền hàng</span><strong>{formatMoney(selectedTotal)}</strong></div><button className="button button-primary" type="button" disabled={!selectedItems.length || hasQuantityError || stock.loading || Boolean(stock.error) || busyId !== null || validating} onClick={() => void continueToCheckout()}>{validating ? "Đang kiểm tra giỏ hàng…" : "Tiếp tục đặt hàng"}</button><p>{stock.error ? "Chưa kiểm tra được tồn kho. Vui lòng tải lại trang." : hasQuantityError ? "Điều chỉnh số lượng theo tồn kho trước khi tiếp tục." : selectedItems.length ? "Bước tiếp theo nhập địa chỉ nhận hàng và thanh toán bằng Ví Nexus." : "Chọn ít nhất một sản phẩm để tiếp tục."}</p></aside>
@@ -473,6 +577,7 @@ export function CheckoutScreen() {
   const [submitError, setSubmitError] = useState("");
   const [quoteError, setQuoteError] = useState("");
   const [voucherCodes, setVoucherCodes] = useState<string[]>([]);
+  const [selectedVoucherDetails, setSelectedVoucherDetails] = useState<VoucherCalcInput[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<"Wallet" | "Cod">("Wallet");
   // The result of the last order attempt is unknown: ordering stays locked (kept per browser tab) until the buyer has checked.
   const [unknownOutcome, setUnknownOutcome] = useState(() =>
@@ -505,17 +610,59 @@ export function CheckoutScreen() {
     province: ghn.provinceId, district: ghn.districtId, ward: ghn.wardCode, vouchers: [...voucherCodes].sort(), paymentMethod,
   });
   const activeQuote = quoteState?.key === quoteKey ? quoteState.data : null;
+  const displayQuote = activeQuote ?? (quoting ? quoteState?.data ?? null : null);
   const quoteExpired = Boolean(activeQuote && now >= Date.parse(activeQuote.expiredAt));
   const quoteReady = Boolean(activeQuote && !quoteExpired);
-  const quotedShippingFee = activeQuote?.shops.reduce((sum, shop) => sum + shop.shippingFeeAmount, 0) ?? 0;
-  const quotedDiscount = activeQuote?.shops.reduce((sum, shop) => sum + shop.discountAmount, 0) ?? 0;
-  const quotedItemsAmount = activeQuote?.shops.reduce((sum, shop) => sum + shop.itemsAmount, 0) ?? 0;
+  const quotedShippingFee = displayQuote?.shops.reduce((sum, shop) => sum + shop.shippingFeeAmount, 0) ?? 0;
+  const quotedDiscount = displayQuote?.shops.reduce((sum, shop) => sum + shop.discountAmount, 0) ?? 0;
+  const quotedItemsAmount = displayQuote?.shops.reduce((sum, shop) => sum + shop.itemsAmount, 0) ?? 0;
+  const quotedProductDiscounts = displayQuote?.appliedVoucherDetails?.filter((v) => v.scopeType === "Product") ?? [];
+  const quotedShopDiscounts = displayQuote?.appliedVoucherDetails?.filter((v) => v.scopeType === "Shop") ?? [];
+  const quotedSystemDiscounts = displayQuote?.appliedVoucherDetails?.filter((v) => v.scopeType === "System") ?? [];
+  const quotedProductTotal = quotedProductDiscounts.reduce((sum, v) => sum + v.discountAmount, 0) || (displayQuote?.shops.reduce((sum, s) => sum + (s.productDiscountAmount ?? 0), 0) ?? 0);
+  const quotedShopTotal = quotedShopDiscounts.reduce((sum, v) => sum + v.discountAmount, 0) || (displayQuote?.shops.reduce((sum, s) => sum + (s.shopDiscountAmount ?? 0), 0) ?? 0);
+  const quotedSystemTotal = quotedSystemDiscounts.reduce((sum, v) => sum + v.discountAmount, 0) || (displayQuote?.shops.reduce((sum, s) => sum + (s.systemDiscountAmount ?? 0), 0) ?? 0);
+  const quotedOriginalTotal = displayQuote ? quotedItemsAmount + quotedShippingFee : subtotal;
+  const voucherEstimate = useMemo(
+    () => estimateCheckoutDiscounts(items, selectedVoucherDetails),
+    [items, selectedVoucherDetails],
+  );
+  const shippingForEstimate = displayQuote ? quotedShippingFee : 0;
+  const effectiveProductDiscount = activeQuote ? quotedProductTotal : voucherEstimate.productDiscount;
+  const effectiveShopDiscount = activeQuote ? quotedShopTotal : voucherEstimate.shopDiscount;
+  const effectiveSystemDiscount = activeQuote ? quotedSystemTotal : voucherEstimate.systemDiscount;
+  const effectiveTotalDiscount = activeQuote ? quotedDiscount : voucherEstimate.totalDiscount;
+  const effectiveProductCodes = activeQuote
+    ? quotedProductDiscounts.map((v) => v.code)
+    : voucherEstimate.productCodes;
+  const effectiveShopCodes = activeQuote
+    ? quotedShopDiscounts.map((v) => v.code)
+    : voucherEstimate.shopCodes;
+  const effectiveSystemCodes = activeQuote
+    ? quotedSystemDiscounts.map((v) => v.code)
+    : voucherEstimate.systemCodes;
+  const effectiveOriginalTotal = activeQuote
+    ? quotedOriginalTotal
+    : subtotal + shippingForEstimate;
+  const effectiveGrandTotal = activeQuote
+    ? activeQuote.grandTotal
+    : Math.max(0, subtotal - effectiveTotalDiscount) + shippingForEstimate;
 
   useEffect(() => {
     if (!quoteState) return;
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, [quoteState]);
+
+  const lastAutoQuotedRef = useRef<string>("");
+  useEffect(() => {
+    if (!quoteState || quoteReady || quoting || quoteLock.current) return;
+    if (!items.length || !isShippingComplete || ghnWriteBlock(ghnCheck)) return;
+    if (lastAutoQuotedRef.current === quoteKey) return;
+    lastAutoQuotedRef.current = quoteKey;
+    void fetchQuote(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quoteKey, quoteReady, isShippingComplete, ghnCheck.state, items.length]);
 
   const checkoutProductIds = [...new Set(items.map((item) => item.productId).filter(Boolean))];
   const checkoutProducts = useApiResource(checkoutProductIds.length ? `checkout-products:${checkoutProductIds.join(",")}` : null, async (signal) => {
@@ -542,35 +689,17 @@ export function CheckoutScreen() {
       setErrors((current) => ({ ...current, [field]: nextErrors[field] }));
     }
   }
-  async function handleCheckoutSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (quoteLock.current || (quoteReady && !editingShipping)) return;
+  async function fetchQuote(clearBefore: boolean) {
+    if (quoteLock.current) return;
     setQuoteError("");
     setSubmitError("");
-    const found = validateShipping(form, ghn);
-    setErrors(found);
-    // A quote is a write: it needs the current codes confirmed by a trusted GHN list ("valid"), not only present.
-    const locationBlock = Object.keys(found).length === 0 ? ghnWriteBlock(ghnCheck) : undefined;
-    if (locationBlock) {
-      setQuoteError(locationBlock);
-      return;
-    }
-    if (Object.keys(found).length) {
-      const order: Array<keyof ShippingErrors> = ["receiverName", "phone", "address", "province", "district", "ward"];
-      const firstKey = order.find((key) => Boolean(found[key]));
-      if (firstKey) {
-        event.currentTarget.querySelector<HTMLElement>(`[name="${firstKey}"]`)?.focus();
-      }
-      return;
-    }
-
     if (!items.length) {
       setQuoteError("Không có sản phẩm nào trong giỏ hàng để báo giá.");
       return;
     }
 
     const previous = quoteState && quoteState.baseKey === baseKey && Date.now() < Date.parse(quoteState.data.expiredAt) ? quoteState.data : null;
-    setQuoteState(null);
+    if (clearBefore) setQuoteState(null);
 
     quoteLock.current = true;
     setQuoting(true);
@@ -611,6 +740,7 @@ export function CheckoutScreen() {
       if (!quote.quoteId || !Number.isFinite(quote.grandTotal) || quote.grandTotal <= 0 || !Number.isFinite(quote.walletBalance) || !Array.isArray(quote.shops) || !quote.shops.every((shop) => [shop.itemsAmount, shop.discountAmount, shop.shippingFeeAmount].every(Number.isFinite)) || !Number.isFinite(Date.parse(quote.expiredAt))) {
         throw new Error("Backend chưa trả tổng tiền báo giá hợp lệ.");
       }
+      lastAutoQuotedRef.current = quoteKey;
       setQuoteState({ key: quoteKey, baseKey, data: quote });
       setEditingShipping(false);
     } catch (reason) {
@@ -619,6 +749,31 @@ export function CheckoutScreen() {
       quoteLock.current = false;
       setQuoting(false);
     }
+  }
+
+  async function handleCheckoutSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (quoteLock.current || (quoteReady && !editingShipping)) return;
+    setQuoteError("");
+    setSubmitError("");
+    const found = validateShipping(form, ghn);
+    setErrors(found);
+    // A quote is a write: it needs the current codes confirmed by a trusted GHN list ("valid"), not only present.
+    const locationBlock = Object.keys(found).length === 0 ? ghnWriteBlock(ghnCheck) : undefined;
+    if (locationBlock) {
+      setQuoteError(locationBlock);
+      return;
+    }
+    if (Object.keys(found).length) {
+      const order: Array<keyof ShippingErrors> = ["receiverName", "phone", "address", "province", "district", "ward"];
+      const firstKey = order.find((key) => Boolean(found[key]));
+      if (firstKey) {
+        event.currentTarget.querySelector<HTMLElement>(`[name="${firstKey}"]`)?.focus();
+      }
+      return;
+    }
+
+    await fetchQuote(true);
   }
 
   async function handlePlaceOrder() {
@@ -803,13 +958,60 @@ export function CheckoutScreen() {
       const image = variant?.primaryImageUrl ?? variant?.images?.find((entry) => entry.isActive !== false)?.url ?? detail?.images?.find((entry) => entry.isActive !== false)?.url ?? null;
       return <div className="checkout-item" key={item.id}><span className="checkout-item-image"><BackendImage src={resolveImageUrl(image)} alt="" compact /><span className="checkout-item-count">{item.quantity}</span></span><div style={{ minWidth: 0 }}><strong><TruncatedText text={item.productName} label="Tên sản phẩm" block /></strong><span>{variant?.name ?? `Số lượng: ${item.quantity}`}</span></div><strong>{formatMoney(item.unitPriceSnapshot * item.quantity)}</strong></div>;
     })}</div> : cart.loading ? <LoadingState rows={2} label="Đang tải giỏ hàng…" /> : <EmptyState compact title="Chưa có sản phẩm được chọn" actionLabel="Về giỏ hàng" actionHref={ROUTES.buyer.cart} />}
-      <div className="checkout-summary-line"><span>Tiền hàng</span><strong>{items.length ? formatMoney(activeQuote ? quotedItemsAmount : subtotal) : "—"}</strong></div>
-      <div className="checkout-summary-line"><span>Phí giao hàng</span><strong>{activeQuote ? formatMoney(quotedShippingFee) : items.length ? "Theo báo giá" : "—"}</strong></div>
-      {items.length > 0 && <CheckoutVoucherPanel cartItemIds={items.map((item) => item.id)} selectedCodes={voucherCodes} cashOnDelivery={paymentMethod === "Cod"} disabled={unknownOutcome || quoting || submitting} onChange={setVoucherCodes} />}
-      {activeQuote?.appliedVoucherDetails?.map((applied) => <div className="checkout-summary-line" key={applied.code}><span>Mã {applied.code}</span><strong>−{formatMoney(applied.discountAmount)}</strong></div>)}
-      {activeQuote && quotedDiscount > 0 && !activeQuote.appliedVoucherDetails?.length && <div className="checkout-summary-line"><span>Giảm giá</span><strong>−{formatMoney(quotedDiscount)}</strong></div>}
-      {activeQuote?.rejectedVouchers?.map((rejected) => <p className="checkout-field-error" role="status" key={rejected.code}>Mã {rejected.code} không được áp dụng: {describeRejectedVoucher(rejected.reasonCode)}</p>)}
-      <div className="checkout-summary-total"><span>{activeQuote ? "Tổng thanh toán" : "Tạm tính tiền hàng"}</span><strong>{items.length ? formatMoney(activeQuote?.grandTotal ?? subtotal) : "—"}</strong></div>
+      <div className="checkout-summary-line"><span>Tiền hàng</span><strong>{items.length ? formatMoney(displayQuote ? quotedItemsAmount : subtotal) : "—"}</strong></div>
+      <div className="checkout-summary-line"><span>Phí giao hàng</span><strong>{displayQuote ? formatMoney(quotedShippingFee) : items.length ? "Theo báo giá" : "—"}</strong></div>
+      {items.length > 0 && (
+        <CheckoutVoucherPanel
+          cartItemIds={items.map((item) => item.id)}
+          selectedCodes={voucherCodes}
+          cashOnDelivery={paymentMethod === "Cod"}
+          disabled={unknownOutcome || quoting || submitting}
+          onChange={setVoucherCodes}
+          onVouchersChange={setSelectedVoucherDetails}
+        />
+      )}
+      {effectiveProductDiscount > 0 && (
+        <div className="checkout-summary-line checkout-summary-discount-line">
+          <span>Giảm giá sản phẩm{effectiveProductCodes.length ? ` (${effectiveProductCodes.join(", ")})` : ""}</span>
+          <strong>−{formatMoney(effectiveProductDiscount)}</strong>
+        </div>
+      )}
+      {effectiveShopDiscount > 0 && (
+        <div className="checkout-summary-line checkout-summary-discount-line">
+          <span>Giảm giá từ shop{effectiveShopCodes.length ? ` (${effectiveShopCodes.join(", ")})` : ""}</span>
+          <strong>−{formatMoney(effectiveShopDiscount)}</strong>
+        </div>
+      )}
+      {effectiveSystemDiscount > 0 && (
+        <div className="checkout-summary-line checkout-summary-discount-line">
+          <span>Giảm giá toàn sàn{effectiveSystemCodes.length ? ` (${effectiveSystemCodes.join(", ")})` : ""}</span>
+          <strong>−{formatMoney(effectiveSystemDiscount)}</strong>
+        </div>
+      )}
+      {activeQuote && quotedDiscount > 0 && quotedProductTotal === 0 && quotedShopTotal === 0 && quotedSystemTotal === 0 && (
+        <div className="checkout-summary-line checkout-summary-discount-line"><span>Giảm giá</span><strong>−{formatMoney(quotedDiscount)}</strong></div>
+      )}
+      {!activeQuote && voucherEstimate.warnings.map((warning) => (
+        <p className="checkout-field-error" role="status" key={warning.code}>{warning.reason}</p>
+      ))}
+      {displayQuote?.rejectedVouchers?.map((rejected) => <p className="checkout-field-error" role="status" key={rejected.code}>Mã {rejected.code} không được áp dụng: {describeRejectedVoucher(rejected.reasonCode)}</p>)}
+      <div className="checkout-summary-total">
+        <span>
+          {activeQuote
+            ? "Tổng thanh toán"
+            : quoting
+              ? "Đang cập nhật tổng…"
+              : effectiveTotalDiscount > 0
+                ? "Tạm tính sau giảm"
+                : "Tạm tính tiền hàng"}
+        </span>
+        <strong className="price-stack-inline">
+          {effectiveTotalDiscount > 0 && (
+            <span className="price-strikethrough">{formatMoney(effectiveOriginalTotal)}</span>
+          )}
+          <span>{items.length ? formatMoney(effectiveGrandTotal) : "—"}</span>
+        </strong>
+      </div>
       {unknownOutcome ? <div className="notice state-error" role="alert"><strong>Chưa xác định được kết quả đặt đơn</strong><p>Yêu cầu đặt hàng gần nhất có thể đã được xử lý. Để tránh đặt trùng, nút đặt hàng đang bị khóa.</p><p>Hãy kiểm tra <Link href={ROUTES.buyer.orders}>Đơn mua</Link> và <Link href={ROUTES.buyer.wallet}>Ví của bạn</Link>. Nếu đã có đơn hoặc ví đã bị trừ tiền, bạn không cần đặt lại. Nếu vẫn không chắc chắn, hãy liên hệ hỗ trợ để được đối soát trước khi đặt lại.</p></div> : quoteReady && activeQuote ? <><p>Báo giá có hiệu lực đến {new Date(activeQuote.expiredAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}. {paymentMethod === "Wallet" ? `Số dư ví theo thời điểm báo giá: ${formatMoney(activeQuote.walletBalance)}.` : "Bạn sẽ trả tiền mặt khi nhận hàng."}</p><button className="button checkout-place-order" type="button" disabled={submitting || (paymentMethod === "Wallet" && activeQuote.walletBalance < activeQuote.grandTotal)} onClick={() => void handlePlaceOrder()}>{submitting ? "Đang đặt hàng…" : paymentMethod === "Wallet" ? `Đặt hàng bằng Ví Nexus · ${formatMoney(activeQuote.grandTotal)}` : `Đặt hàng (thanh toán khi nhận) · ${formatMoney(activeQuote.grandTotal)}`}</button>{paymentMethod === "Wallet" && activeQuote.walletBalance < activeQuote.grandTotal && <div style={{ display: "grid", gap: 8, marginTop: 8 }}><p className="checkout-field-error" style={{ margin: 0 }}>Số dư Ví Nexus không đủ. Vui lòng nạp thêm trước khi đặt hàng.</p><Link className="button button-secondary button-small" href={ROUTES.buyer.topUp}>Nạp tiền vào Ví Nexus</Link></div>}</> : quoteExpired ? <p>Báo giá đã hết hạn. Vui lòng lấy báo giá mới.</p> : null}
       {submitError && !unknownOutcome && <><p className="checkout-field-error" role="alert">{submitError}</p><Link href={ROUTES.buyer.cart}>Quay lại giỏ hàng</Link></>}
     </aside></div>
@@ -1149,14 +1351,37 @@ export function OrderDetailScreen() {
                   </tr>
                 </thead>
                 <tbody>
-                  {sub.items.map((item, idx) => (
-                    <tr key={item.orderItemId ?? item.itemId ?? `${item.skuId}-${idx}`}>
-                      <td><strong><TruncatedText text={item.productName} label="Tên sản phẩm" maxWidth={280} /></strong></td>
-                      <td>{item.quantity}</td>
-                      <td>{formatMoney(item.unitPrice)}</td>
-                      <td><strong>{formatMoney(item.lineTotal)}</strong></td>
-                    </tr>
-                  ))}
+                  {sub.items.map((item, idx) => {
+                    const hasProductDiscount = item.unitPriceAfterDiscount != null && item.unitPriceAfterDiscount < item.unitPrice;
+                    const discountedUnit = hasProductDiscount ? item.unitPriceAfterDiscount! : item.unitPrice;
+                    const discountedLine = hasProductDiscount ? discountedUnit * item.quantity : item.lineTotal;
+                    return (
+                      <tr key={item.orderItemId ?? item.itemId ?? `${item.skuId}-${idx}`}>
+                        <td><strong><TruncatedText text={item.productName} label="Tên sản phẩm" maxWidth={280} /></strong></td>
+                        <td>{item.quantity}</td>
+                        <td>
+                          {hasProductDiscount ? (
+                            <span className="price-stack-inline">
+                              <span className="price-strikethrough">{formatMoney(item.unitPrice)}</span>
+                              <span>{formatMoney(discountedUnit)}</span>
+                            </span>
+                          ) : (
+                            formatMoney(item.unitPrice)
+                          )}
+                        </td>
+                        <td>
+                          {hasProductDiscount ? (
+                            <strong className="price-stack-inline">
+                              <span className="price-strikethrough">{formatMoney(item.lineTotal)}</span>
+                              <span>{formatMoney(discountedLine)}</span>
+                            </strong>
+                          ) : (
+                            <strong>{formatMoney(item.lineTotal)}</strong>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -1164,13 +1389,51 @@ export function OrderDetailScreen() {
               <span>Tiền hàng</span>
               <strong>{formatMoney(sub.itemsAmount)}</strong>
             </div>
+            {(sub.productDiscountAmount ?? 0) > 0 && (() => {
+              const pCodes = sub.appliedVouchers?.filter((v) => v.scopeType === "Product").map((v) => v.code) ?? [];
+              return (
+                <div className="info-row">
+                  <span>Giảm giá sản phẩm{pCodes.length ? ` (${pCodes.join(", ")})` : ""}</span>
+                  <strong>−{formatMoney(sub.productDiscountAmount ?? 0)}</strong>
+                </div>
+              );
+            })()}
+            {(sub.shopDiscountAmount ?? 0) > 0 && (() => {
+              const sCodes = sub.appliedVouchers?.filter((v) => v.scopeType === "Shop").map((v) => v.code) ?? [];
+              return (
+                <div className="info-row">
+                  <span>Giảm giá từ shop{sCodes.length ? ` (${sCodes.join(", ")})` : ""}</span>
+                  <strong>−{formatMoney(sub.shopDiscountAmount ?? 0)}</strong>
+                </div>
+              );
+            })()}
+            {(sub.systemDiscountAmount ?? 0) > 0 && (() => {
+              const sysCodes = sub.appliedVouchers?.filter((v) => v.scopeType === "System").map((v) => v.code) ?? [];
+              return (
+                <div className="info-row">
+                  <span>Giảm giá toàn sàn{sysCodes.length ? ` (${sysCodes.join(", ")})` : ""}</span>
+                  <strong>−{formatMoney(sub.systemDiscountAmount ?? 0)}</strong>
+                </div>
+              );
+            })()}
             <div className="info-row">
               <span>Phí giao hàng</span>
               <strong>{formatMoney(sub.shippingFeeAmount)}</strong>
             </div>
             <div className="info-row">
               <span>Tổng thanh toán đơn</span>
-              <strong style={{ color: "var(--sky-dark)" }}>{formatMoney(sub.totalAmount)}</strong>
+              {(() => {
+                const subDiscountTotal = (sub.productDiscountAmount ?? 0) + (sub.shopDiscountAmount ?? 0) + (sub.systemDiscountAmount ?? 0);
+                const subOriginalTotal = sub.itemsAmount + sub.shippingFeeAmount;
+                return (
+                  <strong className="price-stack-inline" style={{ color: "var(--sky-dark)" }}>
+                    {subDiscountTotal > 0 && (
+                      <span className="price-strikethrough">{formatMoney(subOriginalTotal)}</span>
+                    )}
+                    <span>{formatMoney(sub.totalAmount)}</span>
+                  </strong>
+                );
+              })()}
             </div>
           </Card>
         );
@@ -1178,7 +1441,25 @@ export function OrderDetailScreen() {
       <div className="grid-3">
         <Card className="card-pad"><h2>Trạng thái</h2><Badge>{describeOrderStatus(primaryStatus, subOrders[0]?.paymentMethod)}</Badge></Card>
         <Card className="card-pad"><h2>Mã đơn hàng</h2><strong className="seller-wrap-value">{order.data?.orderNo ?? orderId}</strong></Card>
-        <Card className="card-pad"><h2>Tổng thanh toán</h2><strong>{order.data ? formatMoney(order.data.totalAmount) : "—"}</strong></Card>
+        <Card className="card-pad">
+          <h2>Tổng thanh toán</h2>
+          {(() => {
+            if (!order.data) return <strong>—</strong>;
+            const totalOrderDiscount = subOrders.reduce(
+              (sum, s) => sum + (s.productDiscountAmount ?? 0) + (s.shopDiscountAmount ?? 0) + (s.systemDiscountAmount ?? 0),
+              0,
+            );
+            const originalOrderTotal = subOrders.reduce((sum, s) => sum + s.itemsAmount + s.shippingFeeAmount, 0);
+            return (
+              <strong className="price-stack-inline">
+                {totalOrderDiscount > 0 && originalOrderTotal > order.data.totalAmount && (
+                  <span className="price-strikethrough">{formatMoney(originalOrderTotal)}</span>
+                )}
+                <span>{formatMoney(order.data.totalAmount)}</span>
+              </strong>
+            );
+          })()}
+        </Card>
       </div>
       <div className="split">
         <Card className="card-pad">

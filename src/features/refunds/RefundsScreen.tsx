@@ -64,7 +64,7 @@ export function RefundsScreen({ role }: { role: Role }) {
   }
 
   const data = refunds.data;
-  return <div>
+  return <div className="page-stack">
     <PageHeading title="Yêu cầu hoàn tiền" description={role === "buyer" ? "Các yêu cầu hoàn tiền của đơn bạn đã mua." : "Duyệt hoặc từ chối yêu cầu hoàn tiền. Duyệt sẽ hoàn tiền vào ví người mua."} />
     <FluidChoiceBar mode="filter" ariaLabel="Lọc theo trạng thái hoàn tiền" options={REFUND_FILTERS.map(([value, label]) => ({ value, label }))} value={status} onChange={(next) => { setStatus(next); setPage(1); }} />
     {notice && <p className="form-success" role="status">{notice}</p>}

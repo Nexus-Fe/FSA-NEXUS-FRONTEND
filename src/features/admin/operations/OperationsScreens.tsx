@@ -30,11 +30,11 @@ function AuditLogsContent() {
   async function open(id: string) { setDetailError(""); try { setSelected(await operationsService.auditLog(id)); } catch (cause) { setDetailError(describeLookupFailure(cause, "bản ghi kiểm toán", ["AUDIT_LOG_NOT_FOUND"])); } }
   return <div className="page-stack">
     <PageHeading title="Nhật ký kiểm toán" description="Theo dõi hành động đã đồng bộ từ các service." />
-    <Card className="card-pad" style={{ marginBottom: 16 }}>
+    <Card className="card-pad">
       <h2>Trạng thái đồng bộ</h2>
       {sync.error ? errorView(sync.error) : sync.loading ? <TableSkeleton rows={2} cols={3} label="Đang kiểm tra…" /> : sync.data ? <><p>{sync.data.enabled ? "Đồng bộ đang bật" : "Đồng bộ chưa bật"}</p><div className="ops-source-grid">{sync.data.services.map((item) => <div className="ops-source" key={item.serviceName}><strong>{item.serviceName}</strong><span>{item.state === "Known" ? `${item.unsyncedCount ?? "Chưa rõ"} bản ghi chưa đồng bộ` : item.state === "Unavailable" ? `Không đọc được${item.observedAt ? ` từ ${date(item.observedAt)}` : ""}` : "Chưa có dữ liệu"}</span>{item.state === "Unavailable" && item.lastKnownUnsyncedCount != null && <small>Số liệu cũ: {item.lastKnownUnsyncedCount}</small>}</div>)}</div></> : null}
     </Card>
-    <Card className="card-pad" style={{ marginBottom: 16 }}>
+    <Card className="card-pad">
       <h2 style={{ marginBottom: 12 }}>Bộ lọc bản ghi</h2>
       <div className="ops-filters" style={{ margin: 0 }}>{field("serviceName", "Dịch vụ")}{field("entityName", "Thực thể")}{field("entityId", "Mã thực thể")}{field("userId", "Người làm")}{field("action", "Hành động")}{field("traceId", "Mã vết")}{field("fromDate", "Từ ngày")}{field("toDate", "Đến ngày")}</div>
     </Card>
@@ -44,7 +44,7 @@ function AuditLogsContent() {
     </Card>
     {detailError && <p role="alert" className="notice">{detailError}</p>}
     {linked.error && errorView(linked.error)}
-    {activeRecord && <Card className="card-pad" style={{ marginTop: 16 }}><div className="ops-section-head"><h2>Chi tiết · {activeRecord.action}</h2><button className="button button-secondary button-small" onClick={() => setSelected(null)}>Đóng</button></div><p>Mã vết: <code>{activeRecord.traceId ?? "—"}</code> {activeRecord.traceId && <button className="button button-secondary button-small" onClick={() => void navigator.clipboard.writeText(activeRecord.traceId ?? "")}>Sao chép</button>}</p><div className="table-scroll"><table className="data-table"><thead><tr><th>Trường</th><th>Trước</th><th>Sau</th></tr></thead><tbody>{jsonDiff(activeRecord.oldValues, activeRecord.newValues).map((row) => <tr key={row.key} className={row.changed ? "ops-changed" : undefined}><td>{row.key}</td><td>{safeAuditValue(row.key, row.before)}</td><td>{safeAuditValue(row.key, row.after)}</td></tr>)}</tbody></table></div></Card>}
+    {activeRecord && <Card className="card-pad"><div className="ops-section-head"><h2>Chi tiết · {activeRecord.action}</h2><button className="button button-secondary button-small" onClick={() => setSelected(null)}>Đóng</button></div><p>Mã vết: <code>{activeRecord.traceId ?? "—"}</code> {activeRecord.traceId && <button className="button button-secondary button-small" onClick={() => void navigator.clipboard.writeText(activeRecord.traceId ?? "")}>Sao chép</button>}</p><div className="table-scroll"><table className="data-table"><thead><tr><th>Trường</th><th>Trước</th><th>Sau</th></tr></thead><tbody>{jsonDiff(activeRecord.oldValues, activeRecord.newValues).map((row) => <tr key={row.key} className={row.changed ? "ops-changed" : undefined}><td>{row.key}</td><td>{safeAuditValue(row.key, row.before)}</td><td>{safeAuditValue(row.key, row.after)}</td></tr>)}</tbody></table></div></Card>}
   </div>;
 }
 
@@ -57,7 +57,7 @@ function SecurityAlertsContent() {
     <PageHeading title="Cảnh báo bảo mật" description="Kiểm tra và đóng các cảnh báo đã xác minh." />
     {notice && <p className="form-success" role="status">{notice}</p>}
     {error && <p className="form-error" role="alert">{error}</p>}
-    <Card className="card-pad" style={{ marginBottom: 16 }}>
+    <Card className="card-pad">
       <div className="ops-filters" style={{ margin: 0 }}>
         <label>Trạng thái<select className="select-field" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }}><option value="">Tất cả</option><option value="Open">Chưa đóng</option><option value="Resolved">Đã đóng</option></select></label>
         <label>Mức độ<select className="select-field" value={severity} onChange={(e) => { setSeverity(e.target.value); setPage(1); }}><option value="">Tất cả</option>{Object.entries(severityLabel).map(([key, value]) => <option key={key} value={key}>{value}</option>)}</select></label>
@@ -68,7 +68,7 @@ function SecurityAlertsContent() {
       {alerts.loading && !alerts.data ? <TableSkeleton rows={5} cols={5} label="Đang tải cảnh báo bảo mật…" /> : alerts.error ? errorView(alerts.error) : !alerts.data?.items.length ? <NoData title="Không có cảnh báo phù hợp" /> : <div className="table-scroll"><table className="data-table"><thead><tr><th>Thời điểm</th><th>Luật</th><th>Mức độ</th><th>Trạng thái</th><th></th></tr></thead><tbody>{alerts.data.items.map((item) => <tr key={item.id}><td>{date(item.createdAt)}</td><td><TruncatedText text={ruleLabel[item.rule] ?? item.rule} label="Quy tắc bảo mật" maxWidth={240} /></td><td>{severityLabel[item.severity] ?? item.severity}</td><td><Badge tone={item.status === "Resolved" ? "green" : "red"}>{item.status === "Resolved" ? "Đã đóng" : "Cần kiểm tra"}</Badge></td><td><button className="button button-secondary button-small" onClick={() => { setSelected(item); setNote(""); }}>Chi tiết</button></td></tr>)}</tbody></table></div>}
       {alerts.data && <PageControls page={page} total={alerts.data.pagination.totalCount} totalPages={alerts.data.pagination.totalPages} onChange={setPage} />}
     </Card>
-    {selected && <Card className="card-pad" style={{ marginTop: 16 }}><div className="ops-section-head"><h2>{ruleLabel[selected.rule] ?? selected.rule}</h2><button className="button button-secondary button-small" onClick={() => setSelected(null)}>Đóng xem</button></div><p>{selected.description}</p><p>Bản ghi kiểm toán: {selected.auditLogId ? <Link href={`${ROUTES.admin.auditLogs}?id=${encodeURIComponent(selected.auditLogId)}`}>{selected.auditLogId}</Link> : "—"}</p>{selected.status === "Resolved" ? <p>Đã đóng bởi {selected.resolvedBy ?? "—"} lúc {date(selected.resolvedAt)}. {selected.resolutionNote}</p> : <form onSubmit={(event) => void close(event)}><label>Ghi chú xử lý<textarea className="field" required value={note} onChange={(e) => setNote(e.target.value)} /></label><button className="button button-primary" disabled={busy || !note.trim()}>Đóng cảnh báo</button></form>}</Card>}
+    {selected && <Card className="card-pad"><div className="ops-section-head"><h2>{ruleLabel[selected.rule] ?? selected.rule}</h2><button className="button button-secondary button-small" onClick={() => setSelected(null)}>Đóng xem</button></div><p>{selected.description}</p><p>Bản ghi kiểm toán: {selected.auditLogId ? <Link href={`${ROUTES.admin.auditLogs}?id=${encodeURIComponent(selected.auditLogId)}`}>{selected.auditLogId}</Link> : "—"}</p>{selected.status === "Resolved" ? <p>Đã đóng bởi {selected.resolvedBy ?? "—"} lúc {date(selected.resolvedAt)}. {selected.resolutionNote}</p> : <form onSubmit={(event) => void close(event)}><label>Ghi chú xử lý<textarea className="field" required value={note} onChange={(e) => setNote(e.target.value)} /></label><button className="button button-primary" disabled={busy || !note.trim()}>Đóng cảnh báo</button></form>}</Card>}
   </div>;
 }
 

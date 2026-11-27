@@ -40,7 +40,7 @@ function WalletsTab() {
   const wallets = useApiResource(`admin-wallets:${page}:${search}:${status}`, (signal) => walletToolsService.wallets({ page, search, status }, signal));
   return (
     <>
-      <Card className="card-pad" style={{ marginBottom: 16 }}>
+      <Card className="card-pad">
         <div className="voucher-filters" style={{ margin: 0 }}>
           <label>Tìm theo mã người dùng<input className="field" value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} /></label>
           <label>Trạng thái<select className="select-field" value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}><option value="">Tất cả</option><option value="Active">Hoạt động</option><option value="Frozen">Đã đóng băng</option></select></label>
@@ -79,7 +79,7 @@ function HoldsTab() {
   const holds = useApiResource(`admin-holds:${page}:${status}:${userId}`, (signal) => walletToolsService.holds({ page, status, userId: userId.trim() || undefined }, signal));
   return (
     <>
-      <Card className="card-pad" style={{ marginBottom: 16 }}>
+      <Card className="card-pad">
         <div className="voucher-filters" style={{ margin: 0 }}>
           <label>Mã người dùng<input className="field" value={userId} onChange={(event) => { setUserId(event.target.value); setPage(1); }} placeholder="UUID" /></label>
           <label>Trạng thái khoản giữ<input className="field" value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }} placeholder="Ví dụ: Authorized" /></label>

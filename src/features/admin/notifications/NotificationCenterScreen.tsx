@@ -69,7 +69,7 @@ function Deliveries({ canWrite }: { canWrite: boolean }) {
   }
 
   return <>
-    <Card className="card-pad" style={{ marginBottom: 16 }}>
+    <Card className="card-pad">
       <div className="ops-filters" style={{ margin: 0 }}>
         <label>Trạng thái<select className="field" value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}><option value="">Tất cả</option>{["Pending", "Sending", "Sent", "Failed", "Skipped"].map((item) => <option key={item} value={item}>{deliveryStatusLabel(item)}</option>)}</select></label>
         <label>Kênh<input className="field" value={channel} onChange={(event) => { setChannel(event.target.value); setPage(1); }} placeholder="Email, Push…" /></label>
@@ -90,7 +90,7 @@ function Deliveries({ canWrite }: { canWrite: boolean }) {
       </table></div> : !list.error && <NoData title="Chưa có lượt gửi nào." />}
       {list.data && <Pager page={page} setPage={setPage} info={list.data.pagination} />}
     </Card>
-    {logsFor && <Card className="card-pad" style={{ marginTop: 16 }}>
+    {logsFor && <Card className="card-pad">
       <h3>Nhật ký lượt gửi</h3>
       {logs.error != null ? <ErrorState cause={logs.error} operation="read" onRetry={logs.reload} /> : logs.loading && !logs.data ? <TableSkeleton rows={3} cols={2} label="Đang tải nhật ký…" /> : logs.data?.items.length ? logs.data.items.map((log) => <div className="info-row" key={log.id}><span>{when(log.createdAt)} · {log.action}{log.attempt != null ? ` · lần ${log.attempt}` : ""}</span><strong>{log.message}{log.errorCode && <small> ({log.errorCode})</small>}</strong></div>) : <p className="muted">Chưa có nhật ký.</p>}
     </Card>}
@@ -136,7 +136,7 @@ function Templates({ canWrite }: { canWrite: boolean }) {
   }
 
   return <>
-    <Card className="card-pad" style={{ marginBottom: 16 }}>
+    <Card className="card-pad">
       <div className="ops-filters" style={{ margin: 0 }}><label>Mã mẫu<input className="field" value={code} onChange={(event) => { setCode(event.target.value); setPage(1); }} /></label></div>
     </Card>
     {list.error != null && <ErrorState cause={list.error} operation="read" onRetry={list.reload} />}
