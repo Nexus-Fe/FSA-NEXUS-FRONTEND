@@ -29,19 +29,73 @@ export const buyerNavigation: NavigationItem[] = [
   { label: "Đăng ký bán hàng", href: ROUTES.buyer.becomeSeller, icon: "warehouse" },
 ];
 
-export const sellerNavigation: NavigationItem[] = [
-  { label: "Quản lý sản phẩm", href: ROUTES.seller.products, icon: "package" },
-  { label: "Hồ sơ gian hàng", href: ROUTES.seller.shop, icon: "store" },
-  { label: "Quản lý kho", href: ROUTES.seller.inventory, icon: "warehouse" },
-  { label: "Đơn bán", href: ROUTES.seller.orders, icon: "orders" },
-  { label: "Vận chuyển", href: ROUTES.seller.shipments, icon: "truck" },
-  { label: "Hoàn tiền", href: ROUTES.seller.refunds, icon: "rotateCcw", feature: "refunds" },
-  { label: "Phiên đấu giá", href: ROUTES.seller.auctions, icon: "gavel" },
-  { label: "Đơn đấu giá", href: ROUTES.seller.auctionOrders, icon: "checkSquare" },
-  { label: "Doanh thu & ví", href: ROUTES.seller.wallet, icon: "wallet" },
-  { label: "Mã giảm giá", href: ROUTES.seller.coupons, icon: "ticket", feature: "vouchers" },
-  { label: "Đánh giá & uy tín", href: ROUTES.seller.reviews, icon: "star" },
+export const sellerNavigationSections: NavigationSection[] = [
+  {
+    kind: "group",
+    group: {
+      id: "seller-catalog",
+      label: "Gian hàng & Sản phẩm",
+      icon: "package",
+      items: [
+        { label: "Quản lý sản phẩm", href: ROUTES.seller.products, icon: "package" },
+        { label: "Quản lý kho", href: ROUTES.seller.inventory, icon: "warehouse" },
+        { label: "Hồ sơ gian hàng", href: ROUTES.seller.shop, icon: "store" },
+      ],
+    },
+  },
+  {
+    kind: "group",
+    group: {
+      id: "seller-orders",
+      label: "Đơn hàng & Vận chuyển",
+      icon: "bag",
+      items: [
+        { label: "Đơn bán", href: ROUTES.seller.orders, icon: "orders" },
+        { label: "Vận chuyển", href: ROUTES.seller.shipments, icon: "truck" },
+        { label: "Hoàn tiền", href: ROUTES.seller.refunds, icon: "rotateCcw", feature: "refunds" },
+      ],
+    },
+  },
+  {
+    kind: "group",
+    group: {
+      id: "seller-auctions",
+      label: "Đấu giá",
+      icon: "gavel",
+      items: [
+        { label: "Phiên đấu giá", href: ROUTES.seller.auctions, icon: "gavel" },
+        { label: "Đơn đấu giá", href: ROUTES.seller.auctionOrders, icon: "checkSquare" },
+      ],
+    },
+  },
+  {
+    kind: "group",
+    group: {
+      id: "seller-finance",
+      label: "Tài chính & Khuyến mãi",
+      icon: "wallet",
+      items: [
+        { label: "Doanh thu & ví", href: ROUTES.seller.wallet, icon: "wallet" },
+        { label: "Mã giảm giá", href: ROUTES.seller.coupons, icon: "ticket", feature: "vouchers" },
+      ],
+    },
+  },
+  {
+    kind: "group",
+    group: {
+      id: "seller-reputation",
+      label: "Uy tín & Đánh giá",
+      icon: "star",
+      items: [
+        { label: "Đánh giá & uy tín", href: ROUTES.seller.reviews, icon: "star" },
+      ],
+    },
+  },
 ];
+
+export const sellerNavigation: NavigationItem[] = sellerNavigationSections.flatMap((section) =>
+  section.kind === "item" ? [section.item] : section.group.items,
+);
 
 export const staffNavigationSections: NavigationSection[] = [
   {

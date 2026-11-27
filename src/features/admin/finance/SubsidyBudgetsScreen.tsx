@@ -73,7 +73,7 @@ export function SubsidyBudgetsScreen() {
                   const mine = user?.id && budget.createdByAdminId.toLowerCase() === user.id.toLowerCase();
                   return (
                     <tr key={budget.id}>
-                      <td><strong><TruncatedText text={budget.name} label="Tên ngân sách" maxWidth={240} /></strong><br /><small className="mono">Chứng từ: {budget.evidenceRef}</small></td>
+                      <td><strong><TruncatedText text={budget.name} label="Tên ngân sách" maxWidth={240} /></strong><div style={{ marginTop: 2 }}><small className="mono"><TruncatedText text={`Chứng từ: ${budget.evidenceRef}`} label="Chứng từ" maxWidth={220} /></small></div></td>
                       <td className="tabular-nums">{formatMoney(budget.totalLimit)}<br /><small>{formatMoney(budget.dailyLimit)} / ngày · {formatMoney(budget.perOrderCap)} / đơn</small></td>
                       <td className="tabular-nums">
                         <progress value={percent} max={100} aria-label={`Đã dùng hoặc giữ ${percent}%`} />

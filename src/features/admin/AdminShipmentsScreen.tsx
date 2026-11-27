@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { AdminPagination, Badge, Card, NoData, PageHeading, TruncatedText } from "@/components/ui/Primitives";
+import { CopyableId } from "@/components/ui/CopyableId";
 import { Icon } from "@/components/ui/Icon";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatError, describeError } from "@/lib/errors/error-messages";
@@ -631,7 +632,7 @@ export function AdminShipmentsScreen() {
                     {activeShipment.items.map((item, idx) => (
                       <tr key={`${item.skuId}-${idx}`}>
                         <td><strong><TruncatedText text={item.name} label="Tên sản phẩm" maxWidth={240} /></strong></td>
-                        <td><span className="mono" style={{ fontSize: 12 }}>{item.skuId}</span></td>
+                        <td><CopyableId id={item.skuId} /></td>
                         <td className="tabular-nums">{item.quantity}</td>
                         <td className="tabular-nums">{formatMoney(item.price)}</td>
                         <td className="tabular-nums">{item.weight ? `${item.weight}g` : "—"}</td>
@@ -807,7 +808,7 @@ export function AdminShipmentsScreen() {
                         </td>
                         <td>
                           {s.subOrderNo && <div style={{ fontWeight: 700 }}>{s.subOrderNo}</div>}
-                          <span className="mono" style={{ fontSize: 12, color: "var(--muted)" }}>{s.orderId}</span>
+                          <CopyableId id={s.orderId} />
                         </td>
                         <td>
                           <div style={{ fontSize: 13, maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>

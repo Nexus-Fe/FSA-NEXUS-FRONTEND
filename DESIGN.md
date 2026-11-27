@@ -107,8 +107,8 @@ All interfaces use `Plus Jakarta Sans` loaded via `next/font/google` and bound t
 
 ### Marketplace Shell (Public & Buyer)
 
-- Sticky top header (`buyer-header`) combining brand mark, global product/shop search bar, privileged role portal shortcuts, order/cart/notification icons, and `AccountMenu`.
-- Floating pill top navigation (`buyer-nav-wrap`) with a sliding dark capsule indicator (`fluid-nav-indicator`) and hover/focus category mega-menu.
+- Sticky top header (`buyer-header`) combining brand mark, capsule pill global product/shop search bar (`border-radius: 999px`), privileged role portal shortcuts, frosted `36px` pill holders for Orders & Cart (`.header-action-pill`), compact `36px` `NotificationBell`, and `AccountMenu`.
+- Floating glass pill top navigation (`buyer-nav-wrap`) with responsive wrapping (`flex-wrap: wrap`, `border-radius: 28px`), sliding dark capsule indicator (`fluid-nav-indicator`), and hover/focus category mega-menu.
 - Main content container capped at `1800px` max width (`buyer-main`) with consistent `Breadcrumbs` and compact `SiteFooter`.
 
 ### Operations Portal Shell (Seller, Staff & Admin)

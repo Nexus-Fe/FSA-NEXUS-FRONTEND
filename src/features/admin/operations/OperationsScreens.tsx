@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ROUTES } from "@/constants/routes";
 import { AdminPagination, Badge, Card, NoData, PageHeading, TruncatedText } from "@/components/ui/Primitives";
+import { CopyableId } from "@/components/ui/CopyableId";
 import { TableSkeleton } from "@/components/ui/Skeleton";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { describeLookupFailure } from "@/lib/api/lookup-failure";
@@ -38,7 +39,7 @@ function AuditLogsContent() {
       <div className="ops-filters" style={{ margin: 0 }}>{field("serviceName", "Dịch vụ")}{field("entityName", "Thực thể")}{field("entityId", "Mã thực thể")}{field("userId", "Người làm")}{field("action", "Hành động")}{field("traceId", "Mã vết")}{field("fromDate", "Từ ngày")}{field("toDate", "Đến ngày")}</div>
     </Card>
     <Card>
-      {logs.loading && !logs.data ? <TableSkeleton rows={5} cols={6} label="Đang tải nhật ký kiểm toán…" /> : logs.error ? errorView(logs.error) : !logs.data?.items.length ? <NoData title={sync.data?.enabled ? "Không có bản ghi phù hợp" : "Chưa bật đồng bộ nhật ký"} /> : <div className="table-scroll"><table className="data-table"><thead><tr><th>Thời điểm</th><th>Dịch vụ</th><th>Hành động</th><th>Thực thể</th><th>Người làm</th><th></th></tr></thead><tbody>{logs.data.items.map((item) => <tr key={item.id}><td>{date(item.createdAt)}</td><td>{item.serviceName}</td><td>{item.action}</td><td><TruncatedText text={`${item.entityName} · ${item.entityId}`} label="Thực thể" maxWidth={220} /></td><td className="mono">{item.userId ?? "Hệ thống"}</td><td><button className="button button-secondary button-small" onClick={() => void open(item.id)}>Chi tiết</button></td></tr>)}</tbody></table></div>}
+      {logs.loading && !logs.data ? <TableSkeleton rows={5} cols={6} label="Đang tải nhật ký kiểm toán…" /> : logs.error ? errorView(logs.error) : !logs.data?.items.length ? <NoData title={sync.data?.enabled ? "Không có bản ghi phù hợp" : "Chưa bật đồng bộ nhật ký"} /> : <div className="table-scroll"><table className="data-table"><thead><tr><th>Thời điểm</th><th>Dịch vụ</th><th>Hành động</th><th>Thực thể</th><th>Người làm</th><th></th></tr></thead><tbody>{logs.data.items.map((item) => <tr key={item.id}><td>{date(item.createdAt)}</td><td>{item.serviceName}</td><td>{item.action}</td><td><TruncatedText text={`${item.entityName} · ${item.entityId}`} label="Thực thể" maxWidth={220} /></td><td>{item.userId ? <CopyableId id={item.userId} /> : "Hệ thống"}</td><td><button className="button button-secondary button-small" onClick={() => void open(item.id)}>Chi tiết</button></td></tr>)}</tbody></table></div>}
       {logs.data && <PageControls page={page} total={logs.data.pagination.totalCount} totalPages={logs.data.pagination.totalPages} onChange={setPage} />}
     </Card>
     {detailError && <p role="alert" className="notice">{detailError}</p>}

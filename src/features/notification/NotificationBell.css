@@ -13,14 +13,14 @@
   position:relative;display:inline-flex;align-items:center;
 }
 .u074,.u074 *,.u074 *::before,.u074 *::after{box-sizing:border-box}
-.u074-bell{position:relative;width:42px;height:42px;border:0;padding:0;border-radius:50%;display:grid;place-items:center;background:var(--ux-surface);color:var(--ux-ink);box-shadow:0 0 0 1px var(--ux-line),0 10px 20px -14px var(--ux-shadow-strong);cursor:pointer;transition:transform .3s var(--ux-spring)}
+.u074-bell{position:relative;width:36px;height:36px;border:0;padding:0;border-radius:50%;display:grid;place-items:center;background:color-mix(in srgb,var(--surface,#fff) 86%,transparent);color:var(--ux-ink);box-shadow:0 0 0 1px var(--ux-line),0 6px 14px -10px var(--ux-shadow-strong);cursor:pointer;transition:transform .3s var(--ux-spring),background-color .18s ease}
 .u074-bell:hover{background:var(--ux-surface-2)}
 .u074-bell:active{transform:scale(.9)}
 .u074-bell:focus-visible{outline:2px solid var(--ux-accent);outline-offset:3px}
-.u074-bell svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transform-origin:50% 15%}
+.u074-bell svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transform-origin:50% 15%}
 .u074-bell.ring svg{animation:u074-ring .9s var(--ux-ease)}
 @keyframes u074-ring{10%{transform:rotate(18deg)}25%{transform:rotate(-16deg)}40%{transform:rotate(12deg)}55%{transform:rotate(-8deg)}70%{transform:rotate(4deg)}}
-.u074-badge{position:absolute;right:1px;top:1px;min-width:19px;height:19px;padding:0 5px;border-radius:10px;background:#FF5A6E;color:#fff;font-size:10.5px;font-weight:850;line-height:19px;text-align:center;box-shadow:0 0 0 2px var(--ux-surface);font-variant-numeric:tabular-nums;transition:transform .4s var(--ux-spring)}
+.u074-badge{position:absolute;right:-2px;top:-2px;min-width:17px;height:17px;padding:0 4px;border-radius:999px;background:#FF5A6E;color:#fff;font-size:10px;font-weight:850;line-height:17px;text-align:center;box-shadow:0 0 0 2px var(--ux-surface);font-variant-numeric:tabular-nums;transition:transform .4s var(--ux-spring)}
 .u074-badge.zero{transform:scale(0)}
 .u074-badge.is-pop{animation:u074-pop .45s cubic-bezier(.34,1.5,.64,1)}
 @keyframes u074-pop{50%{transform:scale(1.45)}}

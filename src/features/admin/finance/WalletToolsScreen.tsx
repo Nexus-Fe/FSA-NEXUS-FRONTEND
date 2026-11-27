@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { AdminPagination, Badge, Card, PageHeading } from "@/components/ui/Primitives";
+import { CopyableId } from "@/components/ui/CopyableId";
 import { FluidChoiceBar } from "@/components/ui/FluidChoiceBar";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { DataState, ErrorState } from "@/components/ui/States";
@@ -53,7 +54,7 @@ function WalletsTab() {
               <tbody>
                 {wallets.data?.items.map((wallet) => (
                   <tr key={wallet.walletId}>
-                    <td className="mono">{wallet.userId}</td>
+                    <td><CopyableId id={wallet.userId} /></td>
                     <td className="tabular-nums">{formatMoney(wallet.balance)}</td>
                     <td className="tabular-nums">{formatMoney(wallet.availableBalance)}</td>
                     <td className="tabular-nums">{formatMoney(wallet.lockedBalance)}</td>
@@ -92,8 +93,8 @@ function HoldsTab() {
               <tbody>
                 {holds.data?.items.map((hold) => (
                   <tr key={hold.holdId}>
-                    <td className="mono">{hold.ownerUserId}</td>
-                    <td>{hold.referenceType}<br /><small className="mono">{hold.auctionId ?? hold.referenceId}</small></td>
+                    <td><CopyableId id={hold.ownerUserId} /></td>
+                    <td>{hold.referenceType}<div style={{ marginTop: 4 }}><CopyableId id={hold.auctionId ?? hold.referenceId} /></div></td>
                     <td className="tabular-nums">{formatMoney(hold.amount)}</td>
                     <td><Badge tone={semanticStatusTone(hold.status)}>{({ HELD: "Đang giữ", RELEASED: "Đã giải tỏa", CAPTURED: "Đã thu", EXPIRED: "Hết hạn", CANCELLED: "Đã hủy" } as Record<string, string>)[hold.status.toUpperCase()] ?? hold.status}</Badge></td>
                     <td>{transactionDate(hold.createdAt)}</td>
@@ -172,9 +173,9 @@ function StripeTab() {
               {attempts.data?.items.map((attempt) => (
                 <tr key={attempt.attemptId}>
                   <td>{attempt.purpose}</td>
-                  <td className="mono">{attempt.ownerId}</td>
+                  <td><CopyableId id={attempt.ownerId} /></td>
                   <td className="tabular-nums">{formatMoney(attempt.amount)}</td>
-                  <td><small className="mono">{attempt.paymentIntentId ?? attempt.checkoutSessionId ?? "—"}</small></td>
+                  <td>{(attempt.paymentIntentId ?? attempt.checkoutSessionId) ? <CopyableId id={attempt.paymentIntentId ?? attempt.checkoutSessionId ?? ""} /> : "—"}</td>
                   <td>{attempt.blocksReplacement ? <Badge tone="amber">Có</Badge> : "Không"}</td>
                   <td>{transactionDate(attempt.updatedAt)}</td>
                   <td>

@@ -213,11 +213,11 @@ function AccountNavigation() {
           onLogout={() => void logout()}
         />
       ) : (
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <Link className="account-login" href={ROUTES.auth.login}>
+        <div className="header-auth-actions">
+          <Link className="header-action-pill account-login" href={ROUTES.auth.login}>
             Đăng nhập
           </Link>
-          <Link className="button button-small button-secondary" href={ROUTES.auth.register}>
+          <Link className="header-action-pill header-action-pill-primary" href={ROUTES.auth.register}>
             Đăng ký
           </Link>
         </div>
@@ -436,12 +436,12 @@ export function BuyerShell({ children }: { children: ReactNode }) {
                   <span>{label}</span>
                 </Link>
               ))}
-            <Link href={ROUTES.buyer.orders}>
-              <Icon name="orders" size={19} />
+            <Link href={ROUTES.buyer.orders} className="header-action-pill">
+              <Icon name="orders" size={16} />
               <span>Đơn mua</span>
             </Link>
-            <Link href={ROUTES.buyer.cart}>
-              <Icon name="bag" size={19} />
+            <Link href={ROUTES.buyer.cart} className="header-action-pill">
+              <Icon name="bag" size={16} />
               <span>Giỏ hàng</span>
             </Link>
             <NotificationBell href={ROUTES.buyer.notifications} />

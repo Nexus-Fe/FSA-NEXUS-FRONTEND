@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { AdminPagination, Badge, Card, PageHeading, TruncatedText } from "@/components/ui/Primitives";
+import { CopyableId } from "@/components/ui/CopyableId";
 import { ThumbnailBox } from "@/components/ui/BackendImage";
 import { FluidChoiceBar } from "@/components/ui/FluidChoiceBar";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -44,7 +45,10 @@ function AttentionTab({ role }: { role: "admin" | "staff" }) {
                       alt={item.productName ?? "Sản phẩm đấu giá"}
                     />
                   </td>
-                  <td><strong><TruncatedText text={item.productName ?? "Sản phẩm chưa có tên"} label="Sản phẩm đấu giá" maxWidth={240} /></strong><br /><small className="mono">{item.auctionId}</small></td>
+                  <td>
+                    <strong><TruncatedText text={item.productName ?? "Sản phẩm chưa có tên"} label="Sản phẩm đấu giá" maxWidth={240} /></strong>
+                    <div style={{ marginTop: 4 }}><CopyableId id={item.auctionId} /></div>
+                  </td>
                   <td><Badge tone={auctionStatusTone(item.status)}>{statusLabel(item.status)}</Badge></td>
                   <td className="tabular-nums">{formatMoney(item.currentPriceAmount ?? item.startPriceAmount)}</td>
                   <td>{attentionReasons(item).map((reason) => <Badge key={reason} tone="amber">{reason}</Badge>)}</td>

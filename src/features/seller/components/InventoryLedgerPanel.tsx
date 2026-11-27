@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { AdminPagination, Card, NoData } from "@/components/ui/Primitives";
+import { AdminPagination, Card, NoData, TruncatedText } from "@/components/ui/Primitives";
+import { CopyableId } from "@/components/ui/CopyableId";
 import { ErrorState } from "@/components/ui/States";
 import { api, fetchBlob, unwrap } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
@@ -57,7 +58,7 @@ export function InventoryLedgerPanel() {
       {data.summary && <p>Nhập {data.summary.totalInboundQuantity} · Xuất {data.summary.totalOutboundQuantity} · Chênh lệch {data.summary.netChange} · {data.summary.totalTransactions} giao dịch.</p>}
       {data.rows.length ? <div className="table-scroll"><table className="data-table">
         <thead><tr><th>Thời điểm</th><th>Loại</th><th>Số lượng</th><th>SKU</th><th>Kho</th><th>Ghi chú</th></tr></thead>
-        <tbody>{data.rows.map((row) => <tr key={row.id}><td>{when(row.createdAt)}</td><td>{movementLabel(row.movementType)}</td><td>{row.quantity}</td><td className="mono">{row.skuId}</td><td>{row.warehouseName ?? "—"}</td><td>{row.note ?? "—"}</td></tr>)}</tbody>
+        <tbody>{data.rows.map((row) => <tr key={row.id}><td style={{ whiteSpace: "nowrap" }}>{when(row.createdAt)}</td><td>{movementLabel(row.movementType)}</td><td className="tabular-nums">{row.quantity}</td><td><CopyableId id={row.skuId} /></td><td><TruncatedText text={row.warehouseName ?? "—"} label="Kho" maxWidth={180} /></td><td><TruncatedText text={row.note ?? "—"} label="Ghi chú" maxWidth={220} /></td></tr>)}</tbody>
       </table></div> : <NoData title="Không có biến động phù hợp." />}
       {data.totalPages > 1 && (
         <AdminPagination
