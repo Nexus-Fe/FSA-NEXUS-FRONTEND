@@ -1,5 +1,6 @@
 import { formatMoney } from "@/lib/presentation";
 import type { DiscountScopeType, DiscountType } from "./services/discount.service";
+import { canSelectVoucher } from "./voucher-rules";
 
 export type VoucherCartItemInput = {
   sellerId: string;
@@ -151,4 +152,34 @@ export function estimateCheckoutDiscounts(
     systemCodes,
     warnings,
   };
+}
+
+/**
+ * Checks whether adding `candidate` to `selectedVouchers` causes a scope conflict,
+ * COD platform restriction, or breaks any tier minimum-order condition symmetrically.
+ */
+export function validateVoucherCombination(
+  items: VoucherCartItemInput[],
+  selectedVouchers: VoucherCalcInput[],
+  candidate: VoucherCalcInput,
+  cashOnDelivery = false,
+): string | null {
+  const normalizedCode = candidate.code.toUpperCase();
+  if (selectedVouchers.some((v) => v.code.toUpperCase() === normalizedCode)) {
+    return null;
+  }
+  if (cashOnDelivery && candidate.scopeType === "System") {
+    return "Mã của sàn không dùng được khi thanh toán khi nhận hàng (COD).";
+  }
+  const conflict = canSelectVoucher(selectedVouchers, candidate);
+  if (conflict) {
+    return conflict;
+  }
+  if (items.length > 0) {
+    const simulated = estimateCheckoutDiscounts(items, [...selectedVouchers, candidate]);
+    if (simulated.warnings.length > 0) {
+      return simulated.warnings[0].reason;
+    }
+  }
+  return null;
 }

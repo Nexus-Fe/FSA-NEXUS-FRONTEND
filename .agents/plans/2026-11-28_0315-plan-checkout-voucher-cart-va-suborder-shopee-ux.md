@@ -3,10 +3,10 @@
 > **Vị trí lưu trữ:** `.agents/plans/2026-11-28_0315-plan-checkout-voucher-cart-va-suborder-shopee-ux.md`
 > **Note ngữ cảnh:** `.agents/notes/2026-11-28_0315-checkout-voucher-va-suborder-shopee-ux.md`
 > **Tham chiếu Design System:** `DESIGN.md`
-> **Trạng thái:** Chờ người dùng phê duyệt trước khi sửa mã nguồn.
+> **Trạng thái:** ✅ ĐÃ HOÀN THÀNH (`typecheck`, `lint`, unit tests 39/39, `build`, Playwright E2E passed).
 
 - **Thời gian lập:** 2026-11-28, 03:15 (UTC+7)
-- **Thời gian cập nhật:** 2026-11-28, 03:15 (UTC+7)
+- **Thời gian cập nhật:** 2026-11-28, 04:20 (UTC+7)
 
 ---
 
@@ -65,16 +65,18 @@ Triển khai đồng bộ toàn bộ nâng cấp trải nghiệm Giỏ hàng, Ch
 2. Cập nhật `tests/cart-selection.test.mjs` kiểm chứng mặc định item mới chưa được chọn và các item đã tích trước đó vẫn giữ nguyên.
 
 ### Bước 2: Checkout Voucher, Chặn Lỗi & Giữ Địa chỉ + Báo giá
-1. **`CheckoutVoucherPanel.tsx` & `voucher-calculator.ts` & `discount.service.ts`:**
+1. **`CheckoutVoucherPanel.tsx`, `voucher-calculator.ts`, `voucher-outcome.ts` & `discount.service.ts`:**
    - Bỏ các text `hint` dưới tiêu đề 3 nhóm voucher (`Product`, `Shop`, `System`).
-   - Bổ sung `validateVoucherCombination` trong `voucher-calculator.ts` kiểm tra đủ cả xung đột shop/sàn và điều kiện `minOrderAmount` còn lại sau tầng trước.
+   - Bổ sung `validateVoucherCombination` trong `voucher-calculator.ts` kiểm tra đủ cả xung đột shop/sàn và điều kiện `minOrderAmount` 2 chiều sau tầng trước (chặn cả chọn `System` trước rồi chọn `Product/Shop` làm tụt dưới ngưỡng `System`).
    - Khi chọn 1 mã khiến mã khác xung đột hoặc không đủ điều kiện tầng sau, làm mờ & khóa (`disabled`) các mã đó; khi bấm/nhập tay mã không hợp lệ thì chặn và hiện lỗi ngay tại panel.
-   - Mở rộng `ValidateVoucherResponse` nhận thêm `ownerSellerId`, `discountType`, `discountValue`, `minOrderAmount`, `maxDiscountAmount`.
-   - Sửa `recommend()`: nếu `cashOnDelivery` bật, không tự gán mã `System`; kiểm tra tương thích tầng trước khi áp dụng.
+   - Mở rộng `ValidateVoucherResponse` nhận thêm `ownerSellerId`, `discountType`, `discountValue`, `minOrderAmount`, `maxDiscountAmount` và truyền đầy đủ vào `addManual`.
+   - Sửa `ineligibleText` nhận diện rõ `"VOUCHER_OUT_OF_STOCK"` và `"VOUCHER_USAGE_LIMIT_EXCEEDED"`.
+   - Sửa `recommend()`: truyền `paymentMethod` (`Cod` / `Wallet`) lên `/api/v1/discounts/recommend`, đồng thời lọc bỏ `System` khi `cashOnDelivery` bật.
 2. **`BuyerCommerceScreens.tsx` (`CheckoutScreen`) & `error-messages.ts`:**
    - Tách `shippingConfirmed` và `lastShippingQuote` để khi tích/bỏ tích voucher hoặc check giá lại, khối `.checkout-address-review` và phí ship giữ nguyên, không bung lại form nhập địa chỉ; ẩn nút `"Sửa thông tin"` khi `submitting` / `unknownOutcome`.
-   - Khi `fetchQuote` báo lỗi voucher, xóa `quoteState` (`setQuoteState(null)`) nhưng giữ `shippingConfirmed` + `lastShippingQuote`, đồng thời khóa cứng nút Đặt hàng khi có `rejectedVouchers` hoặc `voucherEstimate.warnings.length > 0`.
-   - Bổ sung mapping các mã lỗi voucher mới vào `src/lib/errors/error-messages.ts`.
+   - **Chống deadlock auto-quote:** Cho phép `useEffect` auto-quote chạy bất kỳ khi nào `shippingConfirmed && !editingShipping && !quoteReady && !quoting && !quoteLock.current && lastAutoQuotedRef.current !== quoteKey` (không phụ thuộc `quoteState != null`!). Khi `fetchQuote` báo lỗi voucher, xóa `quoteState` (`setQuoteState(null)`) để khóa nút Đặt hàng nhưng giữ nguyên `shippingConfirmed` + `lastShippingQuote` — khi người dùng bỏ mã lỗi, `useEffect` tự động báo giá lại ngay.
+   - Khóa cứng nút Đặt hàng khi `Boolean(quoteError) || Boolean(activeQuote?.rejectedVouchers?.length) || voucherEstimate.warnings.length > 0`.
+   - Bổ sung đầy đủ mapping các mã lỗi voucher (`VOUCHER_MIN_ORDER_NOT_MET`, `VOUCHER_NOT_ACTIVE`, `VOUCHER_NOT_STARTED`, `VOUCHER_SCOPE_MISMATCH`, `VOUCHER_EVALUATION_FAILED`, `SHOP_MULTIPLE_VOUCHERS_NOT_ALLOWED`) vào `src/lib/errors/error-messages.ts`.
 
 ### Bước 3: Đơn mua (`/buyer/orders/[id]`) & Trang Chi tiết SubOrder (2/3 - 1/3)
 1. **Loại bỏ nút đổi địa chỉ sau khi đặt hàng (`BuyerCommerceScreens.tsx`):**
@@ -89,6 +91,7 @@ Triển khai đồng bộ toàn bộ nâng cấp trải nghiệm Giỏ hàng, Ch
      - **Card Sản phẩm & Thanh toán:** danh sách toàn bộ sản phẩm trong `SubOrder` với ảnh, **số lượng kế bên**, **giá record lúc mua** (gạch ngang giá gốc nếu có giảm sản phẩm). Bấm vào sản phẩm mở **Popup chi tiết sản phẩm cơ bản** (fetch `/api/v1/products/{productId}`, fallback snapshot) có **nút nhỏ ở góc trên phải** dẫn sang `/catalog/{productId}`. Bên dưới có **nút dropdown xổ xuống kiểu Shopee** hiện chi tiết các khoản giảm giá (loại + mã + số tiền), tổng ban đầu (tiền hàng + ship trước giảm, gạch ngang), và tổng cuối.
    - **Cột phải (1/3):**
      - **Card Thông tin giao hàng:** mã đơn con (`subOrderNo`), trạng thái chuẩn bị hàng của Seller / trạng thái vận chuyển, mã vận đơn (`trackingCode`), nút **Xem hành trình đơn hàng** (mở `ShipmentTimelineList` hiển thị đủ các mốc từ lúc đặt đơn -> chờ seller xác nhận -> seller đã xác nhận -> GHN).
+   - Giữ đầy đủ các thao tác cấp `SubOrder` ngay trên `SubOrderDetailScreen` (`Đã nhận được hàng`, `Hủy đơn hàng con` nếu có, `Đánh giá sản phẩm và gian hàng`, `Báo cáo vấn đề với người bán`, banner trạng thái hoàn tất/từ chối/hủy) để không mất tính năng khi thu gọn `SubOrder` card ở `/buyer/orders/[id]`.
    - Cập nhật `OrderBySubOrderScreen.tsx` & `ROUTES.buyer.subOrder(orderId, subOrderId)` để hỗ trợ mở trực tiếp trang chi tiết `SubOrder`.
 
 ### Bước 4: Styling & Responsive (`globals.css`)

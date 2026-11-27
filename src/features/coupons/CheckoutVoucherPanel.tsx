@@ -6,12 +6,12 @@ import { useFeature } from "@/lib/features/FeatureProvider";
 import { formatMoney } from "@/lib/presentation";
 import { LoadingState } from "@/components/ui/States";
 import { discountService, type AvailableVoucher } from "./services/discount.service";
-import { canSelectVoucher } from "./voucher-rules";
-import type { VoucherCalcInput } from "./voucher-calculator";
+import { validateVoucherCombination, type VoucherCalcInput, type VoucherCartItemInput } from "./voucher-calculator";
 import { describeVoucherFailure, ineligibleText } from "./voucher-outcome";
 
 type PanelProps = {
   cartItemIds: string[];
+  items?: VoucherCartItemInput[];
   selectedCodes: string[];
   disabled?: boolean;
   cashOnDelivery?: boolean;
@@ -28,6 +28,7 @@ export function CheckoutVoucherPanel(props: PanelProps) {
 
 function PanelContent({
   cartItemIds,
+  items = [],
   selectedCodes,
   disabled = false,
   cashOnDelivery = false,
@@ -88,15 +89,13 @@ function PanelContent({
 
   function toggle(item: AvailableVoucher) {
     setError("");
-    if (cashOnDelivery && item.scopeType === "System") {
-      setError("Mã của sàn không dùng được khi thanh toán khi nhận hàng (COD).");
+    const normalized = item.code.toUpperCase();
+    const isSelected = selectedCodes.some((c) => c.toUpperCase() === normalized);
+    if (isSelected) {
+      onChange(selectedCodes.filter((code) => code.toUpperCase() !== normalized));
       return;
     }
-    if (selectedCodes.includes(item.code)) {
-      onChange(selectedCodes.filter((code) => code !== item.code));
-      return;
-    }
-    const issue = canSelectVoucher(selectedVouchers, item);
+    const issue = validateVoucherCombination(items, selectedVouchers, item, cashOnDelivery);
     if (issue) {
       setError(issue);
       return;
@@ -113,7 +112,7 @@ function PanelContent({
     try {
       const result = await discountService.validate(code, cartItemIds);
       if (!result.isValid) {
-        setError(ineligibleText(result.ineligibleReason));
+        setError(ineligibleText(result.ineligibleReason ?? result.message));
         return;
       }
       const item = vouchers.find((voucher) => voucher.code.toUpperCase() === code);
@@ -121,16 +120,17 @@ function PanelContent({
         toggle(item);
       } else {
         const scopeType = result.scopeType ?? "System";
-        if (cashOnDelivery && scopeType === "System") {
-          setError("Mã của sàn không dùng được khi thanh toán khi nhận hàng (COD).");
-          return;
-        }
         const candidate: VoucherCalcInput = {
           code,
           scopeType,
+          ownerSellerId: result.ownerSellerId ?? null,
+          discountType: result.discountType ?? undefined,
+          discountValue: result.discountValue ?? undefined,
+          minOrderAmount: result.minOrderAmount ?? undefined,
+          maxDiscountAmount: result.maxDiscountAmount ?? undefined,
           estimatedDiscountAmount: result.estimatedDiscountAmount ?? 0,
         };
-        const issue = canSelectVoucher(selectedVouchers, candidate);
+        const issue = validateVoucherCombination(items, selectedVouchers, candidate, cashOnDelivery);
         if (issue) {
           setError(issue);
           return;
@@ -152,7 +152,7 @@ function PanelContent({
     setBusy(true);
     setError("");
     try {
-      const result = await discountService.recommend(cartItemIds);
+      const result = await discountService.recommend(cartItemIds, cashOnDelivery ? "Cod" : "Wallet");
       const nextCodes = cashOnDelivery
         ? result.recommendedVoucherCodes.filter((code) => {
             const matched = vouchers.find((v) => v.code.toUpperCase() === code.toUpperCase());
@@ -184,9 +184,9 @@ function PanelContent({
       ) : (
         <div className="checkout-voucher-list">
           {([
-            { scope: "Product" as const, title: "Voucher sản phẩm", hint: "Trừ trước theo sản phẩm" },
-            { scope: "Shop" as const, title: "Voucher của shop", hint: "Trừ sau sản phẩm (chỉ chọn 1 mã SP hoặc Shop)" },
-            { scope: "System" as const, title: "Voucher toàn sàn", hint: "Trừ cuối cùng trên phần còn lại" },
+            { scope: "Product" as const, title: "Voucher sản phẩm" },
+            { scope: "Shop" as const, title: "Voucher của shop" },
+            { scope: "System" as const, title: "Voucher toàn sàn" },
           ]).map((group) => {
             const groupItems = vouchers.filter((voucher) => voucher.scopeType === group.scope);
             if (groupItems.length === 0) return null;
@@ -194,14 +194,13 @@ function PanelContent({
               <div key={group.scope} className="checkout-voucher-group">
                 <div className="checkout-voucher-group-title">
                   <strong>{group.title}</strong>
-                  <small>{group.hint}</small>
                 </div>
                 {groupItems.map((voucher) => {
-                  const isSelected = selectedCodes.includes(voucher.code);
+                  const isSelected = selectedCodes.some((c) => c.toUpperCase() === voucher.code.toUpperCase());
                   const codBlocked = cashOnDelivery && voucher.scopeType === "System";
                   const conflictReason =
                     !isSelected && !codBlocked && voucher.isEligible
-                      ? canSelectVoucher(selectedVouchers, voucher)
+                      ? validateVoucherCombination(items, selectedVouchers, voucher, cashOnDelivery)
                       : null;
                   const optionDisabled =
                     locked ||

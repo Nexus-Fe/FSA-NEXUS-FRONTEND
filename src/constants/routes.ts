@@ -21,7 +21,9 @@ export const ROUTES = {
     checkout: "/buyer/checkout",
     orders: "/buyer/orders",
     order: (id: string) => "/buyer/orders/" + encodeURIComponent(id),
-    /** Opens a regular order from the id of one of its sub-orders (the id a notification carries). */
+    subOrder: (orderId: string, subOrderId: string) =>
+      "/buyer/orders/" + encodeURIComponent(orderId) + "/sub-orders/" + encodeURIComponent(subOrderId),
+    /** Opens a regular order sub-page from the id of one of its sub-orders (the id a notification carries). */
     orderBySubOrder: (id: string) => "/buyer/orders/by-sub/" + encodeURIComponent(id),
     orderReview: (id: string) => "/buyer/orders/" + encodeURIComponent(id) + "/review",
     notifications: "/buyer/notifications",

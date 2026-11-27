@@ -77,9 +77,9 @@ export function clearCartSelection(storage: CartStorageLike | null, key: string)
 
 /**
  * Reconciles remembered cart selection against the live cart item IDs:
- * - First visit (no stored record): selects all current items so behavior matches a fresh cart.
- * - Subsequent visits: keeps each previously known item's checked/unchecked state (including 0 selected),
- *   auto-selects brand-new items added elsewhere, and prunes items removed or already checked out.
+ * - First visit (no stored record): leaves all items unselected by default.
+ * - Subsequent visits: keeps each previously known item's checked/unchecked state,
+ *   leaves brand-new items unselected by default, and prunes items removed or already checked out.
  */
 export function reconcileCartSelection(
   stored: CartSelectionRecord | null,
@@ -90,7 +90,7 @@ export function reconcileCartSelection(
     return { selectedIds: [], knownIds: [] };
   }
   if (!stored) {
-    return { selectedIds: [...current], knownIds: [...current] };
+    return { selectedIds: [], knownIds: [...current] };
   }
 
   const prevSelected = new Set(stored.selectedIds);
@@ -98,10 +98,7 @@ export function reconcileCartSelection(
   const nextSelected: string[] = [];
 
   for (const id of current) {
-    if (!prevKnown.has(id)) {
-      // Newly added item since last cart view: select it without re-checking previously unchecked items.
-      nextSelected.push(id);
-    } else if (prevSelected.has(id)) {
+    if (prevKnown.has(id) && prevSelected.has(id)) {
       nextSelected.push(id);
     }
   }

@@ -28,10 +28,18 @@ export function describeRejectedVoucher(reasonCode?: string | null): string {
  */
 export function ineligibleText(reason?: string | null): string {
   if (!reason) return "Chưa đủ điều kiện dùng mã này.";
+  const code = reason.trim().toUpperCase();
+  if (code === "VOUCHER_OUT_OF_STOCK") return "Mã giảm giá đã hết lượt sử dụng.";
+  if (code === "VOUCHER_USAGE_LIMIT_EXCEEDED" || code === "VOUCHER_USER_LIMIT_EXCEEDED") {
+    return "Bạn đã dùng hết số lượt cho phép của mã này.";
+  }
   const text = reason.toLowerCase();
   if (text.includes("minimum")) return "Đơn hàng chưa đạt giá trị tối thiểu của mã.";
   if (text.includes("expired")) return "Mã đã hết hạn.";
-  if (text.includes("limit")) return "Mã đã hết lượt sử dụng.";
+  if (text.includes("usage limit for this voucher") || text.includes("user")) {
+    return "Bạn đã dùng hết số lượt cho phép của mã này.";
+  }
+  if (text.includes("limit") || text.includes("out_of_stock")) return "Mã đã hết lượt sử dụng.";
   return "Chưa đủ điều kiện dùng mã này.";
 }
 

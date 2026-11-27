@@ -20,10 +20,14 @@ import { NavLinks } from "./NavLinks";
 import { Breadcrumbs } from "./Breadcrumbs";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { categoryGroups, loadCategories } from "@/features/catalog/categories";
+import {
+  getNormalizedUserRoles,
+  getPortalHomeRoute,
+  getPrimaryPortalRole,
+  isAdminOrStaffUser,
+} from "@/lib/auth/role-routing";
 
 const roleDashboardLinks = [
-  { role: "admin", label: "Quản trị hệ thống", href: ROUTES.admin.overview, icon: "shield" },
-  { role: "staff", label: "Vận hành sàn", href: ROUTES.staff.auctions, icon: "gavel" },
   { role: "seller", label: "Kênh người bán", href: ROUTES.seller.products, icon: "grid" },
 ] as const;
 
@@ -36,15 +40,7 @@ export type ActiveRoleInfo = {
 export function getNormalizedRoles(
   user: { roles?: string[]; role?: string | null } | null | undefined,
 ): string[] {
-  const rawRoles = user?.roles?.length
-    ? user.roles
-    : user?.role
-      ? [user.role]
-      : [];
-
-  return rawRoles.map((r) =>
-    r.toLocaleLowerCase("en-US").replace(/^role_/, "").replace(/[\s_-]+/g, "")
-  );
+  return getNormalizedUserRoles(user);
 }
 
 export function resolveUserRole(
@@ -53,38 +49,29 @@ export function resolveUserRole(
 ): ActiveRoleInfo | null {
   if (!user && !contextualRole) return null;
 
+  const primary = getPrimaryPortalRole(user);
   const normalized = getNormalizedRoles(user);
 
-  // If in a portal and the user possesses that portal's role, favor that context:
+  // Admin and Staff always stay locked to their strict system role regardless of context:
+  if (primary === "admin") {
+    return { key: "admin", label: "Quản trị viên", tone: "indigo" };
+  }
+  if (primary === "staff") {
+    return { key: "staff", label: "Nhân viên", tone: "sky" };
+  }
+
+  // If in a Seller portal and the user possesses the Seller role, favor Seller:
   if (contextualRole) {
     const ctx = contextualRole.toLocaleLowerCase("en-US");
     if ((ctx.includes("bán") || ctx.includes("seller")) && normalized.includes("seller")) {
       return { key: "seller", label: "Người bán", tone: "amber" };
     }
-    if ((ctx.includes("nhân viên") || ctx.includes("staff")) && (normalized.includes("staff") || normalized.includes("supportstaff"))) {
-      return { key: "staff", label: "Nhân viên", tone: "sky" };
-    }
-    if ((ctx.includes("quản trị") || ctx.includes("admin")) && (normalized.includes("admin") || normalized.includes("administrator"))) {
-      return { key: "admin", label: "Quản trị viên", tone: "indigo" };
-    }
   }
 
-  // System role precedence: Admin > Staff > Seller > Buyer
-  if (normalized.includes("admin") || normalized.includes("administrator")) {
-    return { key: "admin", label: "Quản trị viên", tone: "indigo" };
-  }
-  if (normalized.includes("staff") || normalized.includes("supportstaff")) {
-    return { key: "staff", label: "Nhân viên", tone: "sky" };
-  }
-  if (normalized.includes("seller")) {
+  if (primary === "seller") {
     return { key: "seller", label: "Người bán", tone: "amber" };
   }
-  if (normalized.includes("buyer") || normalized.includes("customer")) {
-    return { key: "buyer", label: "Người mua", tone: "slate" };
-  }
-
-  // If user object exists but no matching role string, default to Buyer for authenticated user
-  if (user) {
+  if (primary === "buyer") {
     return { key: "buyer", label: "Người mua", tone: "slate" };
   }
 
@@ -104,25 +91,7 @@ export function getRoleHomeRoute(
   user: { roles?: string[]; role?: string | null } | null | undefined,
   contextualRole?: string,
 ): string {
-  const normalized = getNormalizedRoles(user);
-
-  if (contextualRole) {
-    const ctx = contextualRole.toLocaleLowerCase("en-US");
-    if (ctx.includes("quản trị") || ctx.includes("admin")) return ROUTES.admin.overview;
-    if (ctx.includes("nhân viên") || ctx.includes("staff")) return ROUTES.staff.auctions;
-    if (ctx.includes("bán") || ctx.includes("seller")) return ROUTES.seller.products;
-  }
-
-  if (normalized.includes("admin") || normalized.includes("administrator")) {
-    return ROUTES.admin.overview;
-  }
-  if (normalized.includes("staff") || normalized.includes("supportstaff")) {
-    return ROUTES.staff.auctions;
-  }
-  if (normalized.includes("seller") && contextualRole) {
-    return ROUTES.seller.products;
-  }
-  return ROUTES.home;
+  return getPortalHomeRoute(user, contextualRole);
 }
 
 export function getRoleHomeLabel(
@@ -136,17 +105,11 @@ export function getRoleHomeLabel(
   return "Quay lại trang chủ";
 }
 
-function dashboardsForRoles(roles: string[]) {
-  const normalizedRoles = new Set(
-    roles.map((role) => {
-      const normalized = role.toLocaleLowerCase("en-US").replace(/^role_/, "");
-      if (normalized === "supportstaff") return "staff";
-      if (normalized === "administrator") return "admin";
-      return normalized;
-    }),
-  );
-
-  return roleDashboardLinks.filter((entry) => normalizedRoles.has(entry.role));
+function dashboardsForRoles(user: { roles?: string[]; role?: string | null } | null | undefined) {
+  // Admin and Staff have dedicated portals and never see Marketplace dashboard switchers.
+  if (isAdminOrStaffUser(user)) return [];
+  const normalized = getNormalizedRoles(user);
+  return roleDashboardLinks.filter((entry) => normalized.includes(entry.role));
 }
 
 export function Brand({
@@ -392,9 +355,26 @@ const SiteFooter = memo(function SiteFooter() {
 });
 
 export function BuyerShell({ children }: { children: ReactNode }) {
-  const { user } = useSession();
-  const userRoles = user?.roles ?? (user?.role ? [user.role] : []);
-  const dashboardLinks = dashboardsForRoles(userRoles);
+  const { user, ready } = useSession();
+  const router = useRouter();
+  const restrictedToPortal = ready && isAdminOrStaffUser(user);
+  const portalRedirectHref = restrictedToPortal ? getRoleHomeRoute(user) : null;
+
+  useEffect(() => {
+    if (portalRedirectHref) {
+      router.replace(portalRedirectHref);
+    }
+  }, [portalRedirectHref, router]);
+
+  if (restrictedToPortal) {
+    return (
+      <main className="route-loading" role="status" aria-live="polite">
+        Đang chuyển hướng về phân hệ chuyên biệt…
+      </main>
+    );
+  }
+
+  const dashboardLinks = dashboardsForRoles(user);
   const hasPrivilegedRole = dashboardLinks.length > 0;
   const homeHref = getRoleHomeRoute(user);
   const homeLabel = getRoleHomeLabel(user);

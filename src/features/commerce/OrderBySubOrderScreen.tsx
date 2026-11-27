@@ -25,8 +25,8 @@ export function OrderBySubOrderScreen() {
   const orderId = resource.data?.orderId ?? null;
 
   useEffect(() => {
-    if (orderId) router.replace(ROUTES.buyer.order(orderId));
-  }, [orderId, router]);
+    if (orderId && subOrderId) router.replace(ROUTES.buyer.subOrder(orderId, subOrderId));
+  }, [orderId, subOrderId, router]);
 
   if (resource.error) {
     const status = resource.error instanceof ApiError ? resource.error.status : 0;

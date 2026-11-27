@@ -128,10 +128,15 @@ export const ERROR_DICTIONARY: Record<string, Entry> = {
 
   // ---- vouchers and subsidy
   VOUCHER_NOT_FOUND: { message: "Không tìm thấy mã giảm giá." },
+  VOUCHER_NOT_ACTIVE: { message: "Mã giảm giá hiện đang tạm ngưng." },
+  VOUCHER_NOT_STARTED: { message: "Mã giảm giá chưa đến thời gian áp dụng." },
   VOUCHER_EXPIRED: { message: "Mã giảm giá đã hết hạn." },
   VOUCHER_OUT_OF_STOCK: { message: "Mã giảm giá đã hết lượt sử dụng." },
   VOUCHER_USAGE_LIMIT_EXCEEDED: { message: "Mã giảm giá đã hết lượt sử dụng." },
   VOUCHER_USER_LIMIT_EXCEEDED: { message: "Bạn đã dùng hết số lượt cho phép của mã này." },
+  VOUCHER_MIN_ORDER_NOT_MET: { message: "Đơn hàng chưa đạt giá trị tối thiểu cho mã giảm giá đã chọn.", hint: "Chọn mã khác hoặc bỏ mã không đủ điều kiện." },
+  VOUCHER_SCOPE_MISMATCH: { message: "Mã giảm giá không áp dụng cho sản phẩm hoặc gian hàng đã chọn." },
+  VOUCHER_EVALUATION_FAILED: { message: "Không thể kiểm tra mã giảm giá lúc này.", hint: "Thử chọn lại mã hoặc tải lại báo giá." },
   VOUCHER_STACKING_CONFLICT: { message: "Mã này không dùng chung được với mã khác trong cùng đơn." },
   VOUCHER_NOT_APPLICABLE: { message: "Mã giảm giá không áp dụng được cho đơn này." },
   VOUCHER_SKU_AUCTION_NOT_ALLOWED: { message: "Mã giảm giá không áp dụng cho sản phẩm hoặc đơn đấu giá này." },

@@ -27,28 +27,14 @@ import { AvatarCropEditor } from "@/components/auth/AvatarCropEditor";
 import { saveStoredAvatar, useStoredAvatar } from "@/lib/auth/avatar-storage";
 import { resolveImageUrl } from "@/lib/presentation";
 import { useOtpCooldown, clearStoredCooldown } from "./hooks/useOtpCooldown";
+import { getLandingPathForUser, resolveSafeReturnPath } from "@/lib/auth/role-routing";
 
 function landingPath(user: AuthUser): string {
-  const roles = (user.roles ?? (user.role ? [user.role] : [])).map((role) => {
-    const normalized = role.toLocaleLowerCase("en-US");
-    return normalized === "supportstaff" ? "staff" : normalized;
-  });
-  if (roles.includes("admin")) return ROUTES.admin.overview;
-  if (roles.includes("staff")) return ROUTES.staff.auctions;
-  if (roles.includes("seller")) return ROUTES.seller.products;
-  if (roles.includes("buyer") || roles.includes("customer")) return ROUTES.home;
-  return ROUTES.home;
+  return getLandingPathForUser(user);
 }
 
 function safeReturnPath(value: string | null, user: AuthUser): string | null {
-  if (!value || !value.startsWith("/") || value.startsWith("//") || value.includes("\\")) return null;
-  const path = value.split(/[?#]/, 1)[0];
-  const roles = (user.roles ?? (user.role ? [user.role] : [])).map((role) => role.toLowerCase());
-  if ((path === "/buyer" || path.startsWith("/buyer/")) && !roles.some((role) => ["buyer", "customer", "seller"].includes(role))) return null;
-  if ((path === "/seller" || path.startsWith("/seller/")) && !roles.includes("seller")) return null;
-  if ((path === "/staff" || path.startsWith("/staff/")) && !roles.some((role) => ["staff", "supportstaff", "admin"].includes(role))) return null;
-  if ((path === "/admin" || path.startsWith("/admin/")) && !roles.includes("admin")) return null;
-  return value;
+  return resolveSafeReturnPath(value, user);
 }
 
 const LOGIN_ERROR_MESSAGES: Record<string, string> = {
@@ -85,7 +71,7 @@ function formatLoginError(reason: unknown): string {
 export function LoginScreen() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { setAuthenticatedUser } = useSession();
+  const { user, ready, setAuthenticatedUser } = useSession();
   const passwordChanged = searchParams.get("passwordChanged") === "1";
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
@@ -96,6 +82,19 @@ export function LoginScreen() {
   const [shaking, setShaking] = useState(false);
   const authInFlightRef = useRef(false);
   const busy = submitting || googleSubmitting || succeeded !== null;
+
+  useEffect(() => {
+    if (!ready || !user || busy) return;
+    router.replace(safeReturnPath(searchParams.get("returnTo"), user) ?? landingPath(user));
+  }, [ready, user, busy, router, searchParams]);
+
+  if (ready && user && !busy) {
+    return (
+      <main className="route-loading" role="status" aria-live="polite">
+        Đang chuyển hướng về phân hệ phù hợp…
+      </main>
+    );
+  }
 
   async function runAuthAttempt(
     setLoading: (loading: boolean) => void,
@@ -238,7 +237,7 @@ const roleConfig = {
 export function RegisterScreen() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { setAuthenticatedUser } = useSession();
+  const { user, ready, setAuthenticatedUser } = useSession();
   const searchRole = searchParams.get("role");
   const [overrideRole, setOverrideRole] = useState<RegistrationChoice | null>(null);
   const [prevSearchRole, setPrevSearchRole] = useState(searchRole);
@@ -261,6 +260,19 @@ export function RegisterScreen() {
   const [message, setMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const { cooldown: resendIn, startCooldown } = useOtpCooldown(fields.email);
+
+  useEffect(() => {
+    if (!ready || !user || step !== "account" || submitting) return;
+    router.replace(landingPath(user));
+  }, [ready, user, step, submitting, router]);
+
+  if (ready && user && step === "account" && !submitting) {
+    return (
+      <main className="route-loading" role="status" aria-live="polite">
+        Đang chuyển hướng về phân hệ phù hợp…
+      </main>
+    );
+  }
 
   function updateField(field: keyof RegisterFields, value: string) {
     setFields((current) => ({ ...current, [field]: value }));

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { NavigationItem, NavigationSection } from "@/constants/navigation";
 import { ROUTES } from "@/constants/routes";
 import { Icon } from "@/components/ui/Icon";
@@ -37,6 +37,7 @@ export function NavLinks({
   catalogMenu?: ReactNode;
 }) {
   const pathname = usePathname();
+  const navInstanceId = useId();
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [pending, setPending] = useState<{ fromPath: string; href: string } | null>(null);
   const optimisticHref = variant === "top" && pending?.fromPath === pathname ? pending.href : null;
@@ -207,7 +208,7 @@ export function NavLinks({
                 type="button"
                 className={toggleClass}
                 aria-expanded={isOpen}
-                aria-controls={`side-nav-group-${group.id}`}
+                aria-controls={`${navInstanceId}-group-${group.id}`}
                 onClick={() =>
                   setOpenGroups((prev) => ({
                     ...prev,
@@ -220,7 +221,7 @@ export function NavLinks({
                 <span className="side-nav-group-label">{group.label}</span>
               </button>
               <div
-                id={`side-nav-group-${group.id}`}
+                id={`${navInstanceId}-group-${group.id}`}
                 className="side-nav-group-items"
                 hidden={!isOpen}
               >

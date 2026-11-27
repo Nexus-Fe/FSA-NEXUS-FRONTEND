@@ -20,7 +20,20 @@ export type CreateDiscountInput = {
   endsAt?: string | null; scopes?: Array<{ scopeRefType: string; scopeRefId?: string | null }>;
 };
 export type UpdateDiscountInput = Pick<DiscountSummary, "name" | "isVisible" | "maxUsesPerUser" | "maxUsesTotal" | "endsAt">;
-export type ValidateVoucherResponse = { isValid: boolean; discountId?: string | null; code?: string | null; scopeType?: DiscountScopeType | null; estimatedDiscountAmount: number; ineligibleReason?: string | null; message?: string | null };
+export type ValidateVoucherResponse = {
+  isValid: boolean;
+  discountId?: string | null;
+  code?: string | null;
+  scopeType?: DiscountScopeType | null;
+  estimatedDiscountAmount: number;
+  ineligibleReason?: string | null;
+  message?: string | null;
+  ownerSellerId?: string | null;
+  discountType?: DiscountType | null;
+  discountValue?: number | null;
+  minOrderAmount?: number | null;
+  maxDiscountAmount?: number | null;
+};
 export type RecommendVouchersResponse = { recommendedVoucherCodes: string[]; savingsBreakdown: { productDiscount: number; shopDiscount: number; systemDiscount: number; totalSavings: number } };
 
 function page<T>(raw: DiscountPage<T>): DiscountPage<T> {
@@ -46,5 +59,12 @@ export const discountService = {
     return page(unwrap(await api.get<ApiResponse<DiscountPage<AvailableVoucher>> | DiscountPage<AvailableVoucher>>(`/api/v1/discounts/available?${query}`, { signal })));
   },
   async validate(code: string, cartItemIds: string[]) { return unwrap(await api.post<ApiResponse<ValidateVoucherResponse> | ValidateVoucherResponse>("/api/v1/discounts/validate", { code, cartItemIds })); },
-  async recommend(cartItemIds: string[]) { return unwrap(await api.post<ApiResponse<RecommendVouchersResponse> | RecommendVouchersResponse>("/api/v1/discounts/recommend", { cartItemIds })); },
+  async recommend(cartItemIds: string[], paymentMethod?: "Wallet" | "Cod") {
+    return unwrap(
+      await api.post<ApiResponse<RecommendVouchersResponse> | RecommendVouchersResponse>(
+        "/api/v1/discounts/recommend",
+        paymentMethod ? { cartItemIds, paymentMethod } : { cartItemIds },
+      ),
+    );
+  },
 };

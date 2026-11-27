@@ -4,6 +4,8 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { ROUTES } from "@/constants/routes";
 import { NexusBrandHeader } from "@/components/ui/NexusLogo";
+import { useSession } from "@/components/auth/SessionProvider";
+import { getPortalHomeRoute } from "@/lib/auth/role-routing";
 
 interface AuthSplitLayoutProps {
   children: ReactNode;
@@ -14,17 +16,19 @@ interface AuthSplitLayoutProps {
 
 export function AuthSplitLayout({
   children,
-  closeHref = ROUTES.home,
+  closeHref,
   badgeText = "NEXUS • Sàn thương mại điện tử & Đấu giá trực tuyến",
   wide = false,
 }: AuthSplitLayoutProps) {
-  const closeLabel = closeHref === ROUTES.home ? "Đóng và quay lại trang chủ" : "Quay lại";
+  const { user } = useSession();
+  const resolvedHomeHref = closeHref ?? getPortalHomeRoute(user);
+  const closeLabel = resolvedHomeHref === ROUTES.home ? "Đóng và quay lại trang chủ" : "Quay lại phân hệ";
 
   return (
     <div className="auth-split-container">
       {/* Nút Đóng [X] Toàn Cục Cố Định Ở Góc Trên Phải Màn Hình */}
       <Link
-        href={closeHref}
+        href={resolvedHomeHref}
         className="auth-close-btn"
         aria-label={closeLabel}
         title={closeLabel}
@@ -42,10 +46,10 @@ export function AuthSplitLayout({
         {/* Top: Logo Thương Hiệu với Biểu tượng Búa Đấu Giá */}
         <div className="auth-split-left-header">
           <Link
-            href={ROUTES.home}
+            href={resolvedHomeHref}
             className="auth-left-brand"
-            aria-label="NEXUS Trang chủ"
-            title="Quay lại trang chủ"
+            aria-label={resolvedHomeHref === ROUTES.home ? "NEXUS Trang chủ" : "NEXUS Phân hệ"}
+            title={resolvedHomeHref === ROUTES.home ? "Quay lại trang chủ" : "Quay lại phân hệ"}
           >
             <NexusBrandHeader light height={34} />
           </Link>
@@ -132,9 +136,9 @@ export function AuthSplitLayout({
         <div className={`auth-split-body ${wide ? "auth-split-body-wide" : ""}`}>
           <div className="auth-form-brand">
             <Link
-              href={ROUTES.home}
-              aria-label="NEXUS Trang chủ"
-              title="Quay lại trang chủ"
+              href={resolvedHomeHref}
+              aria-label={resolvedHomeHref === ROUTES.home ? "NEXUS Trang chủ" : "NEXUS Phân hệ"}
+              title={resolvedHomeHref === ROUTES.home ? "Quay lại trang chủ" : "Quay lại phân hệ"}
               style={{ display: "inline-flex", textDecoration: "none" }}
             >
               <NexusBrandHeader height={30} />

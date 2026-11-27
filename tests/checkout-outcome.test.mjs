@@ -6,7 +6,8 @@ import {
 } from "../src/features/commerce/checkout-outcome.ts";
 import { describeRejectedVoucher, ineligibleText, validateVoucherForm } from "../src/features/coupons/voucher-outcome.ts";
 import { canSelectVoucher } from "../src/features/coupons/voucher-rules.ts";
-import { estimateCheckoutDiscounts } from "../src/features/coupons/voucher-calculator.ts";
+import { estimateCheckoutDiscounts, validateVoucherCombination } from "../src/features/coupons/voucher-calculator.ts";
+import { describeError, formatError } from "../src/lib/errors/error-messages.ts";
 
 const api = (status, errorCode) => ({ status, errorCode });
 
@@ -178,4 +179,21 @@ test("manual voucher without ownerSellerId blocks conflicting non-system voucher
   assert.notEqual(canSelectVoucher([manualProd], shopA), null);
   assert.notEqual(canSelectVoucher([shopA], manualProd), null);
   assert.equal(canSelectVoucher([manualProd], sys), null);
+});
+
+test("validateVoucherCombination blocks incompatible minOrderAmount across tiers symmetrically and blocks System on COD", () => {
+  const items = [{ sellerId: "shop-a", quantity: 1, unitPriceSnapshot: 200_000 }];
+  const prod30 = { code: "PROD30", scopeType: "Product", ownerSellerId: "shop-a", estimatedDiscountAmount: 30_000 };
+  const sys50 = { code: "SYS50", scopeType: "System", discountType: "FixedAmount", discountValue: 50_000, minOrderAmount: 180_000, estimatedDiscountAmount: 50_000 };
+
+  assert.notEqual(validateVoucherCombination(items, [prod30], sys50, false), null);
+  assert.notEqual(validateVoucherCombination(items, [sys50], prod30, false), null);
+  assert.notEqual(validateVoucherCombination(items, [], sys50, true), null);
+});
+
+test("ineligibleText and error-messages map VOUCHER_OUT_OF_STOCK, VOUCHER_USAGE_LIMIT_EXCEEDED and VOUCHER_MIN_ORDER_NOT_MET", () => {
+  assert.equal(ineligibleText("VOUCHER_OUT_OF_STOCK"), "Mã giảm giá đã hết lượt sử dụng.");
+  assert.equal(ineligibleText("VOUCHER_USAGE_LIMIT_EXCEEDED"), "Bạn đã dùng hết số lượt cho phép của mã này.");
+  const msg = formatError(describeError({ errorCode: "VOUCHER_MIN_ORDER_NOT_MET", message: "Minimum order amount not met." }));
+  assert.match(msg, /tối thiểu/i);
 });

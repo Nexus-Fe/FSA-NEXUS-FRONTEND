@@ -24,10 +24,10 @@ function createMemoryStorage() {
   };
 }
 
-test("first visit with no stored state selects all items and records knownIds", () => {
+test("first visit with no stored state defaults all items to unselected and records knownIds", () => {
   const result = reconcileCartSelection(null, ["a", "b", "c"]);
   assert.deepEqual(result, {
-    selectedIds: ["a", "b", "c"],
+    selectedIds: [],
     knownIds: ["a", "b", "c"],
   });
 });
@@ -37,8 +37,9 @@ test("subsequent visit remembers partial selection and unchecked items", () => {
   const key = getCartSelectionStorageKey("buyer-1", "cart-1");
 
   const initial = reconcileCartSelection(null, ["a", "b", "c"]);
-  const afterUncheckB = toggleCartItemSelection(initial.selectedIds, initial.knownIds, "b");
-  writeCartSelection(storage, key, afterUncheckB);
+  const afterSelectA = toggleCartItemSelection(initial.selectedIds, initial.knownIds, "a");
+  const afterSelectAC = toggleCartItemSelection(afterSelectA.selectedIds, afterSelectA.knownIds, "c");
+  writeCartSelection(storage, key, afterSelectAC);
 
   const restored = reconcileCartSelection(readCartSelection(storage, key), ["a", "b", "c"]);
   assert.deepEqual(restored, {
@@ -61,11 +62,11 @@ test("unchecking all items stays empty when returning to cart", () => {
   });
 });
 
-test("adding a new item auto-selects only the new item without re-selecting previously unchecked items", () => {
+test("adding a new item defaults the new item to unselected while preserving existing selections", () => {
   const stored = { selectedIds: ["a"], knownIds: ["a", "b"] };
   const reconciled = reconcileCartSelection(stored, ["a", "b", "d"]);
   assert.deepEqual(reconciled, {
-    selectedIds: ["a", "d"],
+    selectedIds: ["a"],
     knownIds: ["a", "b", "d"],
   });
 });

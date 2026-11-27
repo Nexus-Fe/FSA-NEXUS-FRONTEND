@@ -4,23 +4,17 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
 import { ROUTES } from "@/constants/routes";
+import { getPrimaryPortalRole, hasStrictPortalAccess } from "@/lib/auth/role-routing";
 import { useSession } from "./SessionProvider";
-
-function normalizeRole(role: string): string {
-  const normalized = role.toLocaleLowerCase("en-US").replace(/^role_/, "");
-  if (normalized === "staff" || normalized === "supportstaff") return "supportstaff";
-  if (normalized === "admin" || normalized === "administrator") return "admin";
-  return normalized;
-}
 
 export function RoleGate({ allowedRoles, children }: { allowedRoles: string[]; children: ReactNode }) {
   const { user, ready, restoreError, refreshUser } = useSession();
   const router = useRouter();
 
-const roles = user?.roles?.length ? user.roles : (user?.role ? [user.role] : []);
-  const hasAccess = roles.some((role) => allowedRoles.some((allowed) => normalizeRole(role) === normalizeRole(allowed)));
-  const isAdmin = roles.some((r) => normalizeRole(r) === "admin");
-  const isStaff = roles.some((r) => normalizeRole(r) === "supportstaff");
+  const hasAccess = hasStrictPortalAccess(user, allowedRoles);
+  const primaryRole = getPrimaryPortalRole(user);
+  const isAdmin = primaryRole === "admin";
+  const isStaff = primaryRole === "staff";
 
   useEffect(() => {
     if (!ready || !user || hasAccess) return;

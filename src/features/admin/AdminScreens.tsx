@@ -28,7 +28,7 @@ const adminWorkspaces = [
   ["Cấu hình toàn sàn", "Tham số vận hành động của toàn hệ thống", ROUTES.admin.configs],
   ["Mã giảm giá toàn sàn", "Thiết lập và quản lý các chương trình khuyến mãi", ROUTES.admin.coupons],
   ["Điều chỉnh số dư ví", "Ghi nhận bút toán tăng hoặc giảm số dư ví kèm lý do đối soát", ROUTES.admin.ledger],
-  ["Duyệt rút tiền", "Xử lý yêu cầu rút tiền trên màn dùng chung với Staff", ROUTES.admin.withdrawals],
+  ["Duyệt rút tiền", "Xem xét và phê duyệt các yêu cầu rút tiền trong phân hệ quản trị", ROUTES.admin.withdrawals],
   ["Thông báo & Event Logs", "Tra cứu lịch sử thông báo và nhật ký sự kiện đồng bộ", ROUTES.admin.notifications],
   ["Vận đơn & Giả lập GHN", "Quản lý vận đơn, kiểm tra mã GHN và mô phỏng trạng thái giao hàng", ROUTES.admin.shipments],
 ] as const;

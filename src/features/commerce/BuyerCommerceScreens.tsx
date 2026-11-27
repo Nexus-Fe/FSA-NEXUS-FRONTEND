@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useSession } from "@/components/auth/SessionProvider";
-import { BackendImage } from "@/components/ui/BackendImage";
+import { ThumbnailBox } from "@/components/ui/BackendImage";
 import { AdminPagination, Badge, Card, PageHeading, TruncatedText } from "@/components/ui/Primitives";
 import { ErrorState, LoadingState } from "@/components/ui/States";
 import { useToast } from "@/components/ui/Toast";
@@ -13,8 +13,6 @@ import { ROUTES } from "@/constants/routes";
 import { ApiError, api, unwrap, type ApiResponse } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatMoney, resolveImageUrl } from "@/lib/presentation";
-import { OrderShipmentsCard } from "@/features/fulfillment/components/OrderShipmentsCard";
-import { OrderProgressStepper } from "@/features/fulfillment/components/OrderProgressStepper";
 import { Icon } from "@/components/ui/Icon";
 import "@/features/fulfillment/components/shipping-tracking.css";
 import { walletService } from "@/features/wallet";
@@ -37,9 +35,9 @@ import {
   type CartSelectionRecord,
 } from "@/features/commerce/cart-selection";
 import { canContinueToCheckout, describeCartIssue, type CartValidation } from "@/features/commerce/cart-rules";
-import { ChangeAddressButton, CompleteOrderButton, RepayButton } from "@/features/commerce/OrderActions";
-import { canReportSubOrder, orderReportHref } from "@/features/commerce/order-report";
-import { canChangeAddress, canCompleteOrder, canRepay, describeBuyerOrderStatus, isCodPaymentMethod } from "@/features/commerce/order-rules";
+import { CompleteOrderButton, RepayButton } from "@/features/commerce/OrderActions";
+import { ProductQuickPreviewModal, type OrderItemPreviewSnapshot } from "@/features/commerce/ProductQuickPreviewModal";
+import { canCompleteOrder, canRepay, describeBuyerOrderStatus, isCodPaymentMethod } from "@/features/commerce/order-rules";
 import { clearUnknownOrderMarker, describeCartFailure, describePlaceOrderFailure, describeQuoteFailure, readUnknownOrderMarker, writeUnknownOrderMarker } from "@/features/commerce/checkout-outcome";
 import { GhnLocationSelect } from "@/features/shipping/GhnLocationSelect";
 import { SavedAddressPicker } from "@/features/profile/SavedAddressPicker";
@@ -122,24 +120,6 @@ type Paged<T> = { items: T[]; pagination: { pageIndex: number; pageSize: number;
 
 export function describeOrderStatus(status: string, paymentMethod?: string | null): string {
   return describeBuyerOrderStatus(status, paymentMethod);
-}
-
-function isSellerRejected(status: string): boolean {
-  return status.replace(/[^a-z]/gi, "").toUpperCase() === "SELLERREJECTED";
-}
-
-function isSellerConfirmedOrDelivering(status: string): boolean {
-  const key = status.replace(/[^a-z]/gi, "").toUpperCase();
-  return key === "CONFIRMED" || key === "SELLERACCEPTED" || key === "SHIPPING" || key === "SHIPPED" || key === "DELIVERED";
-}
-
-function isSubOrderCompleted(status: string): boolean {
-  return status.replace(/[^a-z]/gi, "").toUpperCase() === "COMPLETED";
-}
-
-function isOrderCancelled(status: string): boolean {
-  const key = status.replace(/[^a-z]/gi, "").toUpperCase();
-  return key === "CANCELLED" || key === "REFUNDED";
 }
 
 function canBuyerCancelOrder(orderStatus: string, subOrders: SubOrderDetail[]): boolean {
@@ -452,7 +432,7 @@ export function CartScreen() {
     }
   }
 
-  return <>
+  return <div className="buyer-cart-shell">
     <nav className="checkout-breadcrumb" aria-label="Đường dẫn"><Link href={ROUTES.home}>Trang chủ</Link><span aria-hidden="true">›</span><span aria-current="page">Giỏ hàng</span></nav>
     <div className="cart-page-heading"><div><h1>Giỏ hàng</h1><p>{items.length ? `${items.length} sản phẩm trong giỏ` : "Chọn sản phẩm cần mua trước khi đặt hàng."}</p></div><Link className="cart-continue-link" href={ROUTES.catalog.index}>Tiếp tục mua sắm</Link></div>
     {actionError && <p className="notice" role="alert">{actionError}</p>}
@@ -518,7 +498,7 @@ export function CartScreen() {
               const image = variant?.primaryImageUrl ?? variant?.images?.find((entry) => entry.isActive !== false)?.url ?? detail?.images?.find((entry) => entry.isActive !== false)?.url ?? null;
               return <article className="cart-product" key={item.id}>
                 <input className="cart-product-check" type="checkbox" checked={activeSelectedIds.has(item.id)} onChange={() => toggleItem(item.id)} aria-label={`Chọn ${item.productName}`} />
-                <Link className="cart-product-image" href={ROUTES.catalog.product(item.productId)} aria-label={`Xem ${item.productName}`}><BackendImage src={resolveImageUrl(image)} alt="" compact /></Link>
+                <Link className="cart-product-image" href={ROUTES.catalog.product(item.productId)} aria-label={`Xem ${item.productName}`}><ThumbnailBox src={resolveImageUrl(image)} alt="" size={52} /></Link>
                 <div className="cart-product-info">
                   <Link className="cart-product-title" href={ROUTES.catalog.product(item.productId)}><TruncatedText text={item.productName} label="Tên sản phẩm" block /></Link>
                   {(detail?.variants?.length ?? 0) > 1
@@ -527,7 +507,7 @@ export function CartScreen() {
                   <p>Mã SKU: {variant?.skuCode ?? item.skuId}</p>
                   <div className="cart-product-actions"><span className="cart-quantity-label">Số lượng</span><div className="cart-quantity-control" role="group" aria-label={`Số lượng ${item.productName}`}>
                     <button type="button" disabled={busyId !== null || stock.loading} aria-label={item.quantity === 1 ? `Xóa ${item.productName} khỏi giỏ hàng` : `Giảm số lượng ${item.productName}`} onClick={() => void (item.quantity === 1 ? removeItem(item) : updateQuantity(item, item.quantity - 1))}>
-                      {item.quantity === 1 ? <svg aria-hidden="true" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6" /></svg> : <span aria-hidden="true">−</span>}
+                      {item.quantity === 1 ? <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6" /></svg> : <span aria-hidden="true">−</span>}
                     </button>
                     <input type="text" inputMode="numeric" pattern="[0-9]*" value={draft} disabled={busyId !== null} aria-label={`Nhập số lượng ${item.productName}`} aria-invalid={Boolean(quantityError)} aria-describedby={quantityError ? `cart-quantity-error-${item.id}` : undefined} onChange={(event) => setDraft(item, event.target.value)} onBlur={() => commitDraft(item)} onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }} />
                     <button type="button" disabled={busyId !== null || stock.loading} aria-label={`Tăng số lượng ${item.productName}`} onClick={() => {
@@ -551,10 +531,10 @@ export function CartScreen() {
       footer={<><button type="button" className="button button-secondary" disabled={bulkBusy} onClick={() => setClearOpen(false)}>Giữ lại</button><button type="button" className="button button-primary" disabled={bulkBusy} onClick={() => void clearCart()}>{bulkBusy ? "Đang xóa…" : "Xóa cả giỏ hàng"}</button></>}>
       <p>Tất cả {items.length} sản phẩm sẽ bị xóa khỏi giỏ hàng. Thao tác này không hoàn tác được.</p>
     </Modal>
-  </>;
+  </div>;
 }
 
-type CartProductDetail = { images?: Array<{ url: string; isActive?: boolean }>; variants?: Array<{ variantId: string; name?: string; skuCode?: string; primaryImageUrl?: string | null; images?: Array<{ url: string; isActive?: boolean }> }> };
+type CartProductDetail = { primaryImageUrl?: string | null; images?: Array<{ url: string; isActive?: boolean }>; variants?: Array<{ variantId: string; name?: string; skuCode?: string; primaryImageUrl?: string | null; images?: Array<{ url: string; isActive?: boolean }> }> };
 type InventoryBalance = { skuId: string; availableQuantity: number };
 
 export function CheckoutScreen() {
@@ -571,6 +551,8 @@ export function CheckoutScreen() {
   // What the session kept is only a draft: the codes are checked against the GHN lists before a quote is asked for.
   const [ghnCheck, setGhnCheck] = useState<GhnCheck>({ state: "empty" });
   const [quoteState, setQuoteState] = useState<{ key: string; baseKey: string; data: CheckoutQuoteResponse } | null>(null);
+  const [shippingConfirmed, setShippingConfirmed] = useState(false);
+  const [lastShippingQuote, setLastShippingQuote] = useState<CheckoutQuoteResponse | null>(null);
   const [editingShipping, setEditingShipping] = useState(true);
   const [quoting, setQuoting] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -611,23 +593,25 @@ export function CheckoutScreen() {
   });
   const activeQuote = quoteState?.key === quoteKey ? quoteState.data : null;
   const displayQuote = activeQuote ?? (quoting ? quoteState?.data ?? null : null);
+  const shippingReferenceQuote = activeQuote ?? (shippingConfirmed && !editingShipping ? lastShippingQuote : null);
   const quoteExpired = Boolean(activeQuote && now >= Date.parse(activeQuote.expiredAt));
   const quoteReady = Boolean(activeQuote && !quoteExpired);
-  const quotedShippingFee = displayQuote?.shops.reduce((sum, shop) => sum + shop.shippingFeeAmount, 0) ?? 0;
+  const quotedShippingFee = shippingReferenceQuote?.shops.reduce((sum, shop) => sum + shop.shippingFeeAmount, 0) ?? 0;
   const quotedDiscount = displayQuote?.shops.reduce((sum, shop) => sum + shop.discountAmount, 0) ?? 0;
-  const quotedItemsAmount = displayQuote?.shops.reduce((sum, shop) => sum + shop.itemsAmount, 0) ?? 0;
+  const quotedItemsAmount = shippingReferenceQuote?.shops.reduce((sum, shop) => sum + shop.itemsAmount, 0) ?? subtotal;
   const quotedProductDiscounts = displayQuote?.appliedVoucherDetails?.filter((v) => v.scopeType === "Product") ?? [];
   const quotedShopDiscounts = displayQuote?.appliedVoucherDetails?.filter((v) => v.scopeType === "Shop") ?? [];
   const quotedSystemDiscounts = displayQuote?.appliedVoucherDetails?.filter((v) => v.scopeType === "System") ?? [];
   const quotedProductTotal = quotedProductDiscounts.reduce((sum, v) => sum + v.discountAmount, 0) || (displayQuote?.shops.reduce((sum, s) => sum + (s.productDiscountAmount ?? 0), 0) ?? 0);
   const quotedShopTotal = quotedShopDiscounts.reduce((sum, v) => sum + v.discountAmount, 0) || (displayQuote?.shops.reduce((sum, s) => sum + (s.shopDiscountAmount ?? 0), 0) ?? 0);
   const quotedSystemTotal = quotedSystemDiscounts.reduce((sum, v) => sum + v.discountAmount, 0) || (displayQuote?.shops.reduce((sum, s) => sum + (s.systemDiscountAmount ?? 0), 0) ?? 0);
-  const quotedOriginalTotal = displayQuote ? quotedItemsAmount + quotedShippingFee : subtotal;
+  const quotedOriginalTotal = shippingReferenceQuote ? quotedItemsAmount + quotedShippingFee : subtotal;
   const voucherEstimate = useMemo(
     () => estimateCheckoutDiscounts(items, selectedVoucherDetails),
     [items, selectedVoucherDetails],
   );
-  const shippingForEstimate = displayQuote ? quotedShippingFee : 0;
+  const hasVoucherBlock = Boolean(quoteError) || Boolean(activeQuote?.rejectedVouchers?.length) || voucherEstimate.warnings.length > 0;
+  const shippingForEstimate = shippingReferenceQuote ? quotedShippingFee : 0;
   const effectiveProductDiscount = activeQuote ? quotedProductTotal : voucherEstimate.productDiscount;
   const effectiveShopDiscount = activeQuote ? quotedShopTotal : voucherEstimate.shopDiscount;
   const effectiveSystemDiscount = activeQuote ? quotedSystemTotal : voucherEstimate.systemDiscount;
@@ -643,10 +627,10 @@ export function CheckoutScreen() {
     : voucherEstimate.systemCodes;
   const effectiveOriginalTotal = activeQuote
     ? quotedOriginalTotal
-    : subtotal + shippingForEstimate;
+    : quotedItemsAmount + shippingForEstimate;
   const effectiveGrandTotal = activeQuote
     ? activeQuote.grandTotal
-    : Math.max(0, subtotal - effectiveTotalDiscount) + shippingForEstimate;
+    : Math.max(0, quotedItemsAmount - effectiveTotalDiscount) + shippingForEstimate;
 
   useEffect(() => {
     if (!quoteState) return;
@@ -656,13 +640,13 @@ export function CheckoutScreen() {
 
   const lastAutoQuotedRef = useRef<string>("");
   useEffect(() => {
-    if (!quoteState || quoteReady || quoting || quoteLock.current) return;
+    if (!shippingConfirmed || editingShipping || quoteReady || quoting || quoteLock.current) return;
     if (!items.length || !isShippingComplete || ghnWriteBlock(ghnCheck)) return;
     if (lastAutoQuotedRef.current === quoteKey) return;
     lastAutoQuotedRef.current = quoteKey;
     void fetchQuote(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [quoteKey, quoteReady, isShippingComplete, ghnCheck.state, items.length]);
+  }, [shippingConfirmed, editingShipping, quoteKey, quoteReady, isShippingComplete, ghnCheck.state, items.length]);
 
   const checkoutProductIds = [...new Set(items.map((item) => item.productId).filter(Boolean))];
   const checkoutProducts = useApiResource(checkoutProductIds.length ? `checkout-products:${checkoutProductIds.join(",")}` : null, async (signal) => {
@@ -742,8 +726,11 @@ export function CheckoutScreen() {
       }
       lastAutoQuotedRef.current = quoteKey;
       setQuoteState({ key: quoteKey, baseKey, data: quote });
+      setLastShippingQuote(quote);
+      setShippingConfirmed(true);
       setEditingShipping(false);
     } catch (reason) {
+      setQuoteState(null);
       setQuoteError(describeQuoteFailure(reason).message);
     } finally {
       quoteLock.current = false;
@@ -777,7 +764,7 @@ export function CheckoutScreen() {
   }
 
   async function handlePlaceOrder() {
-    if (orderLock.current || !activeQuote || unknownOutcome) return;
+    if (orderLock.current || !activeQuote || unknownOutcome || hasVoucherBlock) return;
     setSubmitError("");
     if (Date.now() >= Date.parse(activeQuote.expiredAt)) {
       setQuoteState(null);
@@ -885,7 +872,7 @@ export function CheckoutScreen() {
             </div>
             <div className="info-row">
               <span>Tổng tiền đã trừ ví</span>
-              <strong style={{ color: "var(--sky-dark)" }}>{formatMoney(completedOrder.totalAmount)}</strong>
+              <strong style={{ color: "var(--primary-hover)" }}>{formatMoney(completedOrder.totalAmount)}</strong>
             </div>
             <div className="info-row">
               <span>Người nhận</span>
@@ -922,9 +909,9 @@ export function CheckoutScreen() {
     {cart.error && <ErrorState cause={cart.error} onRetry={cart.reload} />}
     <div className="checkout-layout"><div className="checkout-main">
       <section className="checkout-panel" aria-labelledby="checkout-address-heading"><div className="checkout-panel-heading"><div><h1 id="checkout-address-heading">Địa chỉ nhận hàng</h1><p>Điền thông tin để xem tổng thanh toán trước khi đặt hàng.</p></div></div>
-        {quoteReady && !editingShipping && <div className="checkout-address-review"><div><span>Liên hệ</span><strong>{form.receiverName} · {form.phone}</strong>{extra.email && <small>{extra.email}</small>}</div><div><span>Giao tới</span><strong>{formatAddressLine(form.address, ghn)}</strong></div><button className="button button-secondary" type="button" onClick={() => { setEditingShipping(true); setSubmitError(""); }}>Sửa thông tin</button></div>}
+        {shippingConfirmed && !editingShipping && <div className="checkout-address-review"><div><span>Liên hệ</span><strong>{form.receiverName} · {form.phone}</strong>{extra.email && <small>{extra.email}</small>}</div><div><span>Giao tới</span><strong>{formatAddressLine(form.address, ghn)}</strong></div>{!submitting && !unknownOutcome && <button className="button button-secondary" type="button" onClick={() => { setEditingShipping(true); setSubmitError(""); setQuoteError(""); }}>Sửa thông tin</button>}</div>}
         <form className="checkout-form" onSubmit={(e) => void handleCheckoutSubmit(e)} noValidate>
-          {(!quoteReady || editingShipping) && <>
+          {(!shippingConfirmed || editingShipping) && <>
           <SavedAddressPicker onPick={(saved) => { setForm({ receiverName: saved.recipientName, phone: saved.phone, address: saved.addressLine }); setGhn(toGhnSelection(saved)); setErrors({}); setSubmitError(""); setQuoteError(""); }} />
           <label className="field-wrap"><span>Họ tên người nhận <abbr className="checkout-required" title="Bắt buộc">*</abbr></span><input className="field" name="receiverName" required autoComplete="name" value={form.receiverName} onChange={(event) => setField("receiverName", event.target.value)} onBlur={() => blurField("receiverName")} aria-invalid={Boolean(errors.receiverName)} placeholder="Ví dụ: Nguyễn Văn A" />{errors.receiverName && <small className="checkout-field-error" role="alert">{errors.receiverName}</small>}</label>
           <div className="checkout-contact-row"><EmailInput label="Email liên hệ" value={extra.email} onChange={(next) => setExtra((current) => ({ ...current, email: next }))} placeholder="contact@example.com" helpText="Tùy chọn: nhận thông báo trạng thái đơn hàng" />
@@ -937,7 +924,7 @@ export function CheckoutScreen() {
 
           <fieldset className="checkout-payment-methods" disabled={unknownOutcome || quoting || submitting}><legend>Phương thức thanh toán</legend><label className={"checkout-payment-choice" + (paymentMethod === "Wallet" ? " is-selected" : "")}><input type="radio" name="paymentMethod" value="Wallet" checked={paymentMethod === "Wallet"} onChange={() => setPaymentMethod("Wallet")} /><span><strong>Ví Nexus</strong><small>Số dư khả dụng: {activeQuote ? formatMoney(activeQuote.walletBalance) : wallet.loading ? "Đang kiểm tra…" : wallet.data ? formatMoney(availableBalance) : "Không xác định"}</small></span></label><label className={"checkout-payment-choice" + (paymentMethod === "Cod" ? " is-selected" : "")}><input type="radio" name="paymentMethod" value="Cod" checked={paymentMethod === "Cod"} onChange={() => setPaymentMethod("Cod")} /><span><strong>Thanh toán khi nhận hàng (COD)</strong><small>Trả tiền mặt cho đơn vị giao hàng. Không dùng được mã giảm giá của sàn.</small></span></label><label className="checkout-payment-choice is-disabled"><input type="radio" name="paymentMethod" value="Stripe" disabled /><span><strong>Stripe <small>Chưa khả dụng</small></strong><small>Thanh toán trực tiếp qua Stripe đang hoàn thiện.</small></span></label></fieldset>
 
-          {(!quoteReady || editingShipping) && <div className="checkout-form-footer">
+          {(!shippingConfirmed || editingShipping) && <div className="checkout-form-footer">
             <Link href={ROUTES.buyer.cart}>← Quay lại giỏ hàng</Link>
             <button
               className={`button button-primary${isShippingComplete && items.length > 0 ? "" : " checkout-submit-incomplete"}`}
@@ -956,17 +943,18 @@ export function CheckoutScreen() {
       const detail = checkoutProducts.data?.[item.productId];
       const variant = detail?.variants?.find((entry) => entry.variantId === item.skuId);
       const image = variant?.primaryImageUrl ?? variant?.images?.find((entry) => entry.isActive !== false)?.url ?? detail?.images?.find((entry) => entry.isActive !== false)?.url ?? null;
-      return <div className="checkout-item" key={item.id}><span className="checkout-item-image"><BackendImage src={resolveImageUrl(image)} alt="" compact /><span className="checkout-item-count">{item.quantity}</span></span><div style={{ minWidth: 0 }}><strong><TruncatedText text={item.productName} label="Tên sản phẩm" block /></strong><span>{variant?.name ?? `Số lượng: ${item.quantity}`}</span></div><strong>{formatMoney(item.unitPriceSnapshot * item.quantity)}</strong></div>;
+      return <div className="checkout-item" key={item.id}><span className="checkout-item-image"><ThumbnailBox src={resolveImageUrl(image)} alt="" size={48} /><span className="checkout-item-count">{item.quantity}</span></span><div style={{ minWidth: 0 }}><strong><TruncatedText text={item.productName} label="Tên sản phẩm" block /></strong><span>{variant?.name ?? `Số lượng: ${item.quantity}`}</span></div><strong>{formatMoney(item.unitPriceSnapshot * item.quantity)}</strong></div>;
     })}</div> : cart.loading ? <LoadingState rows={2} label="Đang tải giỏ hàng…" /> : <EmptyState compact title="Chưa có sản phẩm được chọn" actionLabel="Về giỏ hàng" actionHref={ROUTES.buyer.cart} />}
-      <div className="checkout-summary-line"><span>Tiền hàng</span><strong>{items.length ? formatMoney(displayQuote ? quotedItemsAmount : subtotal) : "—"}</strong></div>
-      <div className="checkout-summary-line"><span>Phí giao hàng</span><strong>{displayQuote ? formatMoney(quotedShippingFee) : items.length ? "Theo báo giá" : "—"}</strong></div>
+      <div className="checkout-summary-line"><span>Tiền hàng</span><strong>{items.length ? formatMoney(quotedItemsAmount) : "—"}</strong></div>
+      <div className="checkout-summary-line"><span>Phí giao hàng</span><strong>{shippingReferenceQuote ? formatMoney(quotedShippingFee) : items.length ? "Theo báo giá" : "—"}</strong></div>
       {items.length > 0 && (
         <CheckoutVoucherPanel
           cartItemIds={items.map((item) => item.id)}
+          items={items}
           selectedCodes={voucherCodes}
           cashOnDelivery={paymentMethod === "Cod"}
           disabled={unknownOutcome || quoting || submitting}
-          onChange={setVoucherCodes}
+          onChange={(next) => { setQuoteError(""); setVoucherCodes(next); }}
           onVouchersChange={setSelectedVoucherDetails}
         />
       )}
@@ -1012,7 +1000,7 @@ export function CheckoutScreen() {
           <span>{items.length ? formatMoney(effectiveGrandTotal) : "—"}</span>
         </strong>
       </div>
-      {unknownOutcome ? <div className="notice state-error" role="alert"><strong>Chưa xác định được kết quả đặt đơn</strong><p>Yêu cầu đặt hàng gần nhất có thể đã được xử lý. Để tránh đặt trùng, nút đặt hàng đang bị khóa.</p><p>Hãy kiểm tra <Link href={ROUTES.buyer.orders}>Đơn mua</Link> và <Link href={ROUTES.buyer.wallet}>Ví của bạn</Link>. Nếu đã có đơn hoặc ví đã bị trừ tiền, bạn không cần đặt lại. Nếu vẫn không chắc chắn, hãy liên hệ hỗ trợ để được đối soát trước khi đặt lại.</p></div> : quoteReady && activeQuote ? <><p>Báo giá có hiệu lực đến {new Date(activeQuote.expiredAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}. {paymentMethod === "Wallet" ? `Số dư ví theo thời điểm báo giá: ${formatMoney(activeQuote.walletBalance)}.` : "Bạn sẽ trả tiền mặt khi nhận hàng."}</p><button className="button checkout-place-order" type="button" disabled={submitting || (paymentMethod === "Wallet" && activeQuote.walletBalance < activeQuote.grandTotal)} onClick={() => void handlePlaceOrder()}>{submitting ? "Đang đặt hàng…" : paymentMethod === "Wallet" ? `Đặt hàng bằng Ví Nexus · ${formatMoney(activeQuote.grandTotal)}` : `Đặt hàng (thanh toán khi nhận) · ${formatMoney(activeQuote.grandTotal)}`}</button>{paymentMethod === "Wallet" && activeQuote.walletBalance < activeQuote.grandTotal && <div style={{ display: "grid", gap: 8, marginTop: 8 }}><p className="checkout-field-error" style={{ margin: 0 }}>Số dư Ví Nexus không đủ. Vui lòng nạp thêm trước khi đặt hàng.</p><Link className="button button-secondary button-small" href={ROUTES.buyer.topUp}>Nạp tiền vào Ví Nexus</Link></div>}</> : quoteExpired ? <p>Báo giá đã hết hạn. Vui lòng lấy báo giá mới.</p> : null}
+      {unknownOutcome ? <div className="notice state-error" role="alert"><strong>Chưa xác định được kết quả đặt đơn</strong><p>Yêu cầu đặt hàng gần nhất có thể đã được xử lý. Để tránh đặt trùng, nút đặt hàng đang bị khóa.</p><p>Hãy kiểm tra <Link href={ROUTES.buyer.orders}>Đơn mua</Link> và <Link href={ROUTES.buyer.wallet}>Ví của bạn</Link>. Nếu đã có đơn hoặc ví đã bị trừ tiền, bạn không cần đặt lại. Nếu vẫn không chắc chắn, hãy liên hệ hỗ trợ để được đối soát trước khi đặt lại.</p></div> : quoteReady && activeQuote ? <><p>Báo giá có hiệu lực đến {new Date(activeQuote.expiredAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}. {paymentMethod === "Wallet" ? `Số dư ví theo thời điểm báo giá: ${formatMoney(activeQuote.walletBalance)}.` : "Bạn sẽ trả tiền mặt khi nhận hàng."}</p><button className="button checkout-place-order" type="button" disabled={submitting || hasVoucherBlock || (paymentMethod === "Wallet" && activeQuote.walletBalance < activeQuote.grandTotal)} onClick={() => void handlePlaceOrder()}>{submitting ? "Đang đặt hàng…" : hasVoucherBlock ? "Vui lòng chọn lại mã giảm giá hợp lệ" : paymentMethod === "Wallet" ? `Đặt hàng bằng Ví Nexus · ${formatMoney(activeQuote.grandTotal)}` : `Đặt hàng (thanh toán khi nhận) · ${formatMoney(activeQuote.grandTotal)}`}</button>{paymentMethod === "Wallet" && activeQuote.walletBalance < activeQuote.grandTotal && <div style={{ display: "grid", gap: 8, marginTop: 8 }}><p className="checkout-field-error" style={{ margin: 0 }}>Số dư Ví Nexus không đủ. Vui lòng nạp thêm trước khi đặt hàng.</p><Link className="button button-secondary button-small" href={ROUTES.buyer.topUp}>Nạp tiền vào Ví Nexus</Link></div>}</> : quoteExpired ? <div style={{ display: "grid", gap: 8 }}><p style={{ margin: 0 }}>Báo giá đã hết hạn. Vui lòng lấy báo giá mới.</p><button className="button button-secondary" type="button" disabled={quoting} onClick={() => { lastAutoQuotedRef.current = ""; void fetchQuote(true); }}>{quoting ? "Đang lấy báo giá…" : "Lấy báo giá mới"}</button></div> : quoteError ? <p className="checkout-field-error" role="alert">Không thể đặt hàng khi mã giảm giá chưa hợp lệ. Hãy bỏ hoặc chọn mã khác.</p> : null}
       {submitError && !unknownOutcome && <><p className="checkout-field-error" role="alert">{submitError}</p><Link href={ROUTES.buyer.cart}>Quay lại giỏ hàng</Link></>}
     </aside></div>
   </>;
@@ -1057,7 +1045,7 @@ export function OrdersScreen() {
   const allItems = orders.data?.items ?? [];
   const visibleItems = allItems.filter((order) => matchesBuyerOrderTab(order.status, activeTab));
 
-  return <>
+  return <div className="order-page-shell">
     <PageHeading
       title="Đơn mua của tôi"
       description="Theo dõi trạng thái giao hàng và xác nhận khi bạn đã nhận được hàng."
@@ -1132,45 +1120,122 @@ export function OrdersScreen() {
         />
       )}
     </Card>
-  </>;
+  </div>;
+}
+
+const SUBORDER_PROGRESS_TABS = [
+  { key: "all", label: "Tất cả", icon: "orders" },
+  { key: "pending", label: "Chờ thanh toán", icon: "clock" },
+  { key: "paid", label: "Đã thanh toán", icon: "wallet" },
+  { key: "confirmed", label: "Chờ lấy hàng", icon: "package" },
+  { key: "shipping", label: "Đang giao hàng", icon: "truck" },
+  { key: "delivered", label: "Đã giao / Hoàn tất", icon: "packageCheck" },
+  { key: "cancelled", label: "Đã hủy / Hoàn hàng", icon: "xCircle" },
+] as const;
+
+type SubOrderProgressTabKey = (typeof SUBORDER_PROGRESS_TABS)[number]["key"];
+
+function matchesSubOrderProgressTab(status: string, tab: SubOrderProgressTabKey): boolean {
+  if (tab === "all") return true;
+  const key = status.replace(/[^a-z]/gi, "").toUpperCase();
+  if (tab === "pending") return key === "PENDINGPAYMENT" || key === "PAYMENTPROCESSING" || key === "AWAITINGPAYMENT";
+  if (tab === "paid") return key === "PAID" || key === "PENDINGCONFIRMATION";
+  if (tab === "confirmed") return key === "CONFIRMED" || key === "SELLERACCEPTED" || key === "READYTOPICK" || key === "PICKING" || key === "PACKED";
+  if (tab === "shipping") return key === "SHIPPING" || key === "SHIPPED" || key === "HANDEDOVER" || key === "INTRANSIT" || key === "OUTFORDELIVERY" || key === "DELIVERYATTEMPTFAILED";
+  if (tab === "delivered") return key === "DELIVERED" || key === "COMPLETED";
+  if (tab === "cancelled") return ["CANCELLED", "CANCELED", "EXPIRED", "SELLERREJECTED", "REFUNDED", "RETURNING", "RETURNED", "DELIVERYFAILED"].includes(key);
+  return true;
+}
+
+function isFallbackShopLabel(name: string | null | undefined, sellerId: string): boolean {
+  if (!name || !name.trim()) return true;
+  return name.trim().toLowerCase() === `shop ${sellerId.slice(0, 8).toLowerCase()}`;
 }
 
 export function OrderDetailScreen() {
   const { id } = useParams<{ id: string }>();
   const orderId = String(id ?? "");
-  const order = useApiResource(orderId ? `buyer-order:${orderId}` : null, (signal) => api.get<ApiResponse<Order> | Order>(`/api/v1/orders/${encodeURIComponent(orderId)}`, { signal }).then(unwrap));
-  const [shipmentRefresh, setShipmentRefresh] = useState(0);
-  const [confirmingSubOrderId, setConfirmingSubOrderId] = useState<string | null>(null);
-  const [receiptConfirmationId, setReceiptConfirmationId] = useState<string | null>(null);
-  const [confirmedSubOrderIds, setConfirmedSubOrderIds] = useState<string[]>([]);
+  const order = useApiResource(
+    orderId ? `buyer-order:${orderId}` : null,
+    (signal) => api.get<ApiResponse<Order> | Order>(`/api/v1/orders/${encodeURIComponent(orderId)}`, { signal }).then(unwrap),
+  );
+  const [activeSubTab, setActiveSubTab] = useState<SubOrderProgressTabKey>("all");
+  const [previewItem, setPreviewItem] = useState<OrderItemPreviewSnapshot | null>(null);
   const [cancellingOrder, setCancellingOrder] = useState(false);
   const [confirmMessage, setConfirmMessage] = useState("");
   const [confirmError, setConfirmError] = useState("");
   const [mountedAt] = useState(() => Date.now());
 
+  const subOrders = useMemo(() => order.data?.subOrders ?? [], [order.data?.subOrders]);
+  const fallbackSellerIds = useMemo(
+    () =>
+      [...new Set(
+        subOrders
+          .filter((s) => isFallbackShopLabel(s.shopName, s.sellerId))
+          .map((s) => s.sellerId)
+          .filter(Boolean),
+      )],
+    [subOrders],
+  );
+
+  const fallbackShops = useApiResource(
+    fallbackSellerIds.length ? `order-shop-names:${fallbackSellerIds.join(",")}` : null,
+    async (signal) => {
+      const pairs = await Promise.all(
+        fallbackSellerIds.map(async (sellerId) => {
+          try {
+            const profile = unwrap(
+              await api.get<ApiResponse<{ shopName?: string | null }> | { shopName?: string | null }>(
+                `/api/v1/sellers/${encodeURIComponent(sellerId)}`,
+                { signal },
+              ),
+            );
+            return [sellerId, profile?.shopName?.trim() || null] as const;
+          } catch {
+            return [sellerId, null] as const;
+          }
+        }),
+      );
+      return Object.fromEntries(pairs) as Record<string, string | null>;
+    },
+  );
+
+  const firstProductIds = useMemo(
+    () =>
+      [...new Set(
+        subOrders
+          .map((s) => s.items?.[0]?.productId)
+          .filter((pid): pid is string => Boolean(pid)),
+      )],
+    [subOrders],
+  );
+
+  const firstProductDetails = useApiResource(
+    firstProductIds.length ? `order-first-products:${firstProductIds.join(",")}` : null,
+    async (signal) => {
+      const pairs = await Promise.all(
+        firstProductIds.map(async (pid) => {
+          try {
+            const detail = unwrap(
+              await api.get<ApiResponse<CartProductDetail> | CartProductDetail>(
+                `/api/v1/products/${encodeURIComponent(pid)}`,
+                { signal },
+              ),
+            );
+            return [pid, detail] as const;
+          } catch {
+            return [pid, null] as const;
+          }
+        }),
+      );
+      return Object.fromEntries(pairs) as Record<string, CartProductDetail | null>;
+    },
+  );
+
   function afterAction(message: string) {
     setConfirmError("");
     setConfirmMessage(message);
     order.reload();
-    setShipmentRefresh((value) => value + 1);
-  }
-
-  async function confirmDelivery(subOrderId: string) {
-    if (receiptConfirmationId !== subOrderId || confirmingSubOrderId) return;
-    setConfirmingSubOrderId(subOrderId);
-    setConfirmMessage("");
-    setConfirmError("");
-    try {
-      await api.post(`/api/v1/sub-orders/${encodeURIComponent(subOrderId)}/confirm-receipt`, {});
-      setConfirmedSubOrderIds((ids) => [...ids, subOrderId]);
-      setReceiptConfirmationId(null);
-      setConfirmMessage("Đã xác nhận nhận hàng. Hệ thống đang cập nhật trạng thái giải ngân cho người bán.");
-      order.reload();
-    } catch (reason) {
-      setConfirmError(describeCartFailure(reason));
-    } finally {
-      setConfirmingSubOrderId(null);
-    }
   }
 
   async function handleCancelOrder() {
@@ -1190,7 +1255,6 @@ export function OrderDetailScreen() {
       }
       setConfirmMessage("Đã hủy đơn hàng. Nếu bạn đã thanh toán qua Ví Nexus, tiền sẽ được hoàn lại.");
       order.reload();
-      setShipmentRefresh((value) => value + 1);
     } catch (reason) {
       setConfirmError(describeCartFailure(reason));
     } finally {
@@ -1198,286 +1262,287 @@ export function OrderDetailScreen() {
     }
   }
 
-  const subOrders = order.data?.subOrders ?? [];
   const primaryStatus = subOrders[0]?.status ?? order.data?.status ?? "—";
   const canCancel = Boolean(order.data && canBuyerCancelOrder(order.data.status, subOrders));
   const canPayAgain = Boolean(order.data && canRepay(order.data, subOrders, mountedAt));
   const canComplete = Boolean(order.data && canCompleteOrder(order.data, subOrders));
+  const visibleSubOrders = subOrders.filter((sub) => matchesSubOrderProgressTab(sub.status, activeSubTab));
 
-  return <>
-    <PageHeading
-      title="Chi tiết đơn mua"
-      action={
-        canCancel || canPayAgain || canComplete ? (
-          <div className="action-row">
-            {canPayAgain && order.data && <RepayButton orderId={orderId} total={order.data.totalAmount} onDone={afterAction} />}
-            {canComplete && <CompleteOrderButton orderId={orderId} onDone={afterAction} />}
-            {canCancel && (
-              <button
-                type="button"
-                className="button button-secondary"
-                style={{ borderColor: "var(--danger, #dc2626)", color: "var(--danger, #dc2626)" }}
-                disabled={cancellingOrder}
-                onClick={() => void handleCancelOrder()}
-              >
-                {cancellingOrder ? "Đang hủy đơn…" : "Hủy đơn hàng"}
-              </button>
-            )}
-          </div>
-        ) : undefined
-      }
-    />
-    {confirmError && <p className="notice" role="alert">{confirmError}</p>}
-    {order.error && <ErrorState cause={order.error} onRetry={order.reload} />}
-    {confirmMessage && <p className="form-success" role="status">{confirmMessage}</p>}
-    {order.data && (
-      <OrderProgressStepper
-        status={primaryStatus}
-        createdAt={order.data.createdAt}
-        orderNo={order.data.orderNo}
+  const totalItemsAmount = subOrders.reduce((sum, s) => sum + s.itemsAmount, 0);
+  const totalShippingFee = subOrders.reduce((sum, s) => sum + s.shippingFeeAmount, 0);
+  const totalProductDiscount = subOrders.reduce((sum, s) => sum + (s.productDiscountAmount ?? 0), 0);
+  const totalShopDiscount = subOrders.reduce((sum, s) => sum + (s.shopDiscountAmount ?? 0), 0);
+  const totalSystemDiscount = subOrders.reduce((sum, s) => sum + (s.systemDiscountAmount ?? 0), 0);
+  const totalOrderDiscount = totalProductDiscount + totalShopDiscount + totalSystemDiscount;
+  const originalOrderTotal = totalItemsAmount + totalShippingFee;
+
+  const orderAppliedVouchers = order.data?.appliedVouchers ?? [];
+  const productCodes = [...new Set(orderAppliedVouchers.filter((v) => v.scopeType === "Product").map((v) => v.code))];
+  const shopCodes = [...new Set(orderAppliedVouchers.filter((v) => v.scopeType === "Shop").map((v) => v.code))];
+  const systemCodes = [...new Set(orderAppliedVouchers.filter((v) => v.scopeType === "System").map((v) => v.code))];
+  const firstSub = subOrders[0];
+  const deliveryAddressText = firstSub?.shippingAddress?.fullAddress
+    || [firstSub?.shippingAddress?.street, firstSub?.shippingAddress?.ward, firstSub?.shippingAddress?.district, firstSub?.shippingAddress?.province]
+      .filter((part) => part && part.trim())
+      .join(", ")
+    || "—";
+
+  return (
+    <div className="order-page-shell">
+      <PageHeading
+        title={order.data?.orderNo ? `Chi tiết đơn mua · ${order.data.orderNo}` : "Chi tiết đơn mua"}
+        action={
+          canCancel || canPayAgain || canComplete ? (
+            <div className="action-row">
+              {canPayAgain && order.data && <RepayButton orderId={orderId} total={order.data.totalAmount} onDone={afterAction} />}
+              {canComplete && <CompleteOrderButton orderId={orderId} onDone={afterAction} />}
+              {canCancel && (
+                <button
+                  type="button"
+                  className="button button-secondary"
+                  style={{ borderColor: "var(--danger, #dc2626)", color: "var(--danger, #dc2626)" }}
+                  disabled={cancellingOrder}
+                  onClick={() => void handleCancelOrder()}
+                >
+                  {cancellingOrder ? "Đang hủy đơn…" : "Hủy đơn hàng"}
+                </button>
+              )}
+            </div>
+          ) : undefined
+        }
       />
-    )}
-    <div className="order-detail-layout">
-      {subOrders.map((sub) => {
-        const sellerAccepted = isSellerConfirmedOrDelivering(sub.status);
-        const canConfirmReceipt = ["SHIPPING", "SHIPPED", "DELIVERED"].includes(sub.status.replace(/[^a-z]/gi, "").toUpperCase());
-        const completed = isSubOrderCompleted(sub.status);
-        const rejected = isSellerRejected(sub.status);
-        const cancelled = isOrderCancelled(sub.status);
-        const showReceiptAction = !completed && !rejected && !cancelled && !confirmedSubOrderIds.includes(sub.subOrderId);
-        const awaitingReceiptConfirmation = receiptConfirmationId === sub.subOrderId;
-        return (
-          <Card className="card-pad" key={sub.subOrderId}>
-            {showReceiptAction && (
-              <div className="order-status-banner" role="status">
-                <div>
-                  <strong>{sellerAccepted ? `Người bán đang xử lý đơn hàng ${sub.subOrderNo}` : `Đơn hàng ${sub.subOrderNo} đang chờ xử lý`}</strong>
-                  <p>
-                    {canConfirmReceipt
-                      ? "Chỉ xác nhận khi bạn đã thực sự nhận được hàng."
-                      : "Bạn có thể xác nhận sau khi đơn chuyển sang đang giao hoặc đã giao và bạn thực sự nhận được hàng."}
-                  </p>
-                  {awaitingReceiptConfirmation && (
-                    <p role="alert" style={{ marginTop: 8 }}>
-                      Xác nhận sẽ hoàn tất đơn và bắt đầu giải ngân cho người bán. Chỉ tiếp tục khi bạn đã nhận được hàng.
-                    </p>
-                  )}
+
+      {confirmError && <p className="notice" role="alert">{confirmError}</p>}
+      {order.error && <ErrorState cause={order.error} onRetry={order.reload} />}
+      {confirmMessage && <p className="form-success" role="status">{confirmMessage}</p>}
+
+      {order.data && (
+        <section className="shipment-stepper-card" aria-label="Tiến trình các đơn hàng theo trạng thái">
+          <div className="shipment-stepper-head">
+            <span className="shipment-stepper-title">
+              <Icon name="truck" size={18} />
+              <span>Tiến trình đơn {order.data.orderNo} ({subOrders.length} gian hàng)</span>
+            </span>
+            <Badge>{describeOrderStatus(primaryStatus, firstSub?.paymentMethod)}</Badge>
+          </div>
+          <div className="order-progress-tabs" role="tablist" aria-label="Lọc đơn hàng shop theo trạng thái">
+            {SUBORDER_PROGRESS_TABS.map((tab) => {
+              const count = tab.key === "all"
+                ? subOrders.length
+                : subOrders.filter((s) => matchesSubOrderProgressTab(s.status, tab.key)).length;
+              const selected = activeSubTab === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={selected}
+                  className={`order-progress-tab${selected ? " is-active" : ""}${count > 0 ? " has-items" : ""}`}
+                  onClick={() => setActiveSubTab(tab.key)}
+                >
+                  <span className="order-progress-tab-icon">
+                    <Icon name={tab.icon} size={16} />
+                  </span>
+                  <span className="order-progress-tab-label">{tab.label}</span>
+                  <span className="order-progress-tab-count tabular-nums">{count}</span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      <div className="order-detail-layout">
+        {visibleSubOrders.length > 0 ? (
+          visibleSubOrders.map((sub) => {
+            const shopTitle = !isFallbackShopLabel(sub.shopName, sub.sellerId)
+              ? sub.shopName
+              : fallbackShops.data?.[sub.sellerId] || sub.shopName;
+            const firstItem = sub.items?.[0];
+            const firstDetail = firstItem ? firstProductDetails.data?.[firstItem.productId] : null;
+            const firstVariant = firstItem
+              ? firstDetail?.variants?.find((entry) => entry.variantId === firstItem.skuId)
+              : undefined;
+            const firstImage =
+              firstVariant?.primaryImageUrl ??
+              firstVariant?.images?.find((entry) => entry.isActive !== false)?.url ??
+              firstDetail?.primaryImageUrl ??
+              firstDetail?.images?.find((entry) => entry.isActive !== false)?.url ??
+              null;
+            const subDiscountTotal = (sub.productDiscountAmount ?? 0) + (sub.shopDiscountAmount ?? 0) + (sub.systemDiscountAmount ?? 0);
+            const subOriginalTotal = sub.itemsAmount + sub.shippingFeeAmount;
+            const hasFirstDiscount = Boolean(
+              firstItem &&
+                firstItem.unitPriceAfterDiscount != null &&
+                firstItem.unitPriceAfterDiscount < firstItem.unitPrice,
+            );
+            const firstRecordedUnit = firstItem
+              ? hasFirstDiscount
+                ? firstItem.unitPriceAfterDiscount!
+                : firstItem.unitPrice
+              : 0;
+
+            return (
+              <Card className="card-pad suborder-summary-card" key={sub.subOrderId}>
+                <div className="suborder-summary-head">
+                  <div className="suborder-summary-shop">
+                    <Icon name="store" size={17} />
+                    <h2 style={{ margin: 0, minWidth: 0 }}>
+                      <TruncatedText text={shopTitle} label="Tên gian hàng" block />
+                    </h2>
+                    <Badge>{describeOrderStatus(sub.status, sub.paymentMethod)}</Badge>
+                  </div>
+                  <span className="suborder-summary-no">{sub.subOrderNo}</span>
                 </div>
-                <div className="action-row" style={{ marginTop: 0 }}>
+
+                {firstItem && (
                   <button
                     type="button"
-                    className="button button-primary"
-                    disabled={!canConfirmReceipt || confirmingSubOrderId !== null}
-                    title={!canConfirmReceipt ? "Chờ đơn chuyển sang đang giao hoặc đã giao" : undefined}
-                    onClick={() => {
-                      if (awaitingReceiptConfirmation) void confirmDelivery(sub.subOrderId);
-                      else {
-                        setConfirmError("");
-                        setReceiptConfirmationId(sub.subOrderId);
-                      }
-                    }}
+                    className="suborder-summary-item"
+                    onClick={() =>
+                      setPreviewItem({
+                        productId: firstItem.productId,
+                        skuId: firstItem.skuId,
+                        productName: firstItem.productName,
+                        skuCode: firstItem.skuCode,
+                        quantity: firstItem.quantity,
+                        unitPrice: firstItem.unitPrice,
+                        unitPriceAfterDiscount: firstItem.unitPriceAfterDiscount,
+                        lineTotal: firstItem.lineTotal,
+                        shopName: shopTitle,
+                        imageUrl: firstImage,
+                      })
+                    }
                   >
-                    {confirmingSubOrderId === sub.subOrderId ? "Đang xác nhận…" : awaitingReceiptConfirmation ? "Xác nhận đã nhận hàng" : "Đã nhận được hàng"}
+                    <ThumbnailBox src={resolveImageUrl(firstImage)} alt={firstItem.productName} size={48} />
+                    <span className="suborder-item-content">
+                      <span className="suborder-item-info">
+                        <strong><TruncatedText text={firstItem.productName} label="Tên sản phẩm" block /></strong>
+                        <small>
+                          {firstItem.skuCode ? `SKU: ${firstItem.skuCode} · ` : ""}
+                          Số lượng: <b className="suborder-item-qty">× {firstItem.quantity}</b>
+                          {sub.items.length > 1 ? ` · Và ${sub.items.length - 1} sản phẩm khác` : ""}
+                        </small>
+                      </span>
+                      <span className="suborder-item-price">
+                        <span className="price-stack-inline">
+                          {hasFirstDiscount && (
+                            <span className="price-strikethrough">{formatMoney(firstItem.unitPrice)}</span>
+                          )}
+                          <strong>{formatMoney(firstRecordedUnit)}</strong>
+                        </span>
+                      </span>
+                    </span>
                   </button>
-                  {awaitingReceiptConfirmation && (
-                    <button type="button" className="button button-secondary" disabled={confirmingSubOrderId !== null} onClick={() => setReceiptConfirmationId(null)}>
-                      Quay lại
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
-            {rejected && (
-              <div className="notice" role="alert" style={{ marginBottom: 16 }}>
-                {isCodPaymentMethod(sub.paymentMethod) ? (
-                  <strong>Đơn hàng COD đã bị người bán từ chối.</strong>
-                ) : (
-                  <>
-                    <strong>Đơn hàng đã bị người bán từ chối.</strong> Vui lòng kiểm tra lịch sử <strong>Ví Nexus</strong> để xác nhận khoản hoàn tiền của đơn này.
-                  </>
                 )}
-              </div>
-            )}
-            {cancelled && !rejected && (
-              <div className="notice" role="status" style={{ marginBottom: 16 }}>
-                <strong>Đơn hàng đã hủy.</strong> Tồn kho giữ chỗ của đơn đã được nhả lại vào kho khả dụng và khoản thanh toán Ví (nếu có) đã được hoàn trả.
-              </div>
-            )}
-            {completed && (
-              <>
-                <div className="form-success" role="status" style={{ marginBottom: 16 }}>
-                  <strong>Đơn hàng đã hoàn tất!</strong> Bạn đã xác nhận nhận hàng thành công. Trạng thái giải ngân được cập nhật trong ví của người bán.
-                </div>
-                <div className="action-row" style={{ marginBottom: 16 }}>
-                  <Link className="button button-secondary" href={ROUTES.buyer.orderReview(orderId)}>
-                    Đánh giá sản phẩm và gian hàng
+
+                <div className="suborder-summary-foot">
+                  <div className="suborder-summary-total">
+                    <span>Tổng đơn shop:</span>
+                    <strong className="price-stack-inline" style={{ color: "var(--primary-hover)" }}>
+                      {subDiscountTotal > 0 && subOriginalTotal > sub.totalAmount && (
+                        <span className="price-strikethrough">{formatMoney(subOriginalTotal)}</span>
+                      )}
+                      <span>{formatMoney(sub.totalAmount)}</span>
+                    </strong>
+                  </div>
+                  <Link
+                    className="button button-primary button-small"
+                    href={ROUTES.buyer.subOrder(orderId, sub.subOrderId)}
+                  >
+                    Xem chi tiết đơn hàng shop
                   </Link>
                 </div>
-              </>
-            )}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 12 }}>
-              <h2 style={{ margin: 0, minWidth: 0 }}><TruncatedText text={`Đơn gian hàng ${sub.subOrderNo} · ${sub.shopName}`} label="Đơn gian hàng" block /></h2>
-              <Badge>{describeOrderStatus(sub.status, sub.paymentMethod)}</Badge>
-            </div>
-            {canChangeAddress(sub) && <div className="action-row" style={{ marginBottom: 12 }}><ChangeAddressButton subOrderId={sub.subOrderId} onDone={afterAction} /></div>}
-            <div className="info-row">
-              <span>Phương thức thanh toán</span>
-              <strong>
-                {(() => {
-                  const method = String(sub.paymentMethod ?? "").trim();
-                  const key = method.toUpperCase();
-                  if (key === "COD") return "Thanh toán khi nhận hàng (COD)";
-                  if (!key || key === "WALLET") return "Ví Nexus";
-                  return method;
-                })()}
-              </strong>
-            </div>
-            <div className="info-row">
-              <span>Người nhận</span>
-              <strong>{sub.shippingAddress?.receiverName} · {sub.contactPhone}</strong>
-            </div>
-            <div className="info-row">
-              <span>Địa chỉ nhận hàng</span>
-              <strong>{sub.shippingAddress?.fullAddress || `${sub.shippingAddress?.street}, ${sub.shippingAddress?.ward}, ${sub.shippingAddress?.province}`}</strong>
-            </div>
-            <div className="table-scroll" style={{ marginTop: 14 }}>
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Sản phẩm</th>
-                    <th>Số lượng</th>
-                    <th>Đơn giá</th>
-                    <th>Thành tiền</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sub.items.map((item, idx) => {
-                    const hasProductDiscount = item.unitPriceAfterDiscount != null && item.unitPriceAfterDiscount < item.unitPrice;
-                    const discountedUnit = hasProductDiscount ? item.unitPriceAfterDiscount! : item.unitPrice;
-                    const discountedLine = hasProductDiscount ? discountedUnit * item.quantity : item.lineTotal;
-                    return (
-                      <tr key={item.orderItemId ?? item.itemId ?? `${item.skuId}-${idx}`}>
-                        <td><strong><TruncatedText text={item.productName} label="Tên sản phẩm" maxWidth={280} /></strong></td>
-                        <td>{item.quantity}</td>
-                        <td>
-                          {hasProductDiscount ? (
-                            <span className="price-stack-inline">
-                              <span className="price-strikethrough">{formatMoney(item.unitPrice)}</span>
-                              <span>{formatMoney(discountedUnit)}</span>
-                            </span>
-                          ) : (
-                            formatMoney(item.unitPrice)
-                          )}
-                        </td>
-                        <td>
-                          {hasProductDiscount ? (
-                            <strong className="price-stack-inline">
-                              <span className="price-strikethrough">{formatMoney(item.lineTotal)}</span>
-                              <span>{formatMoney(discountedLine)}</span>
-                            </strong>
-                          ) : (
-                            <strong>{formatMoney(item.lineTotal)}</strong>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            <div className="info-row" style={{ marginTop: 12 }}>
-              <span>Tiền hàng</span>
-              <strong>{formatMoney(sub.itemsAmount)}</strong>
-            </div>
-            {(sub.productDiscountAmount ?? 0) > 0 && (() => {
-              const pCodes = sub.appliedVouchers?.filter((v) => v.scopeType === "Product").map((v) => v.code) ?? [];
-              return (
-                <div className="info-row">
-                  <span>Giảm giá sản phẩm{pCodes.length ? ` (${pCodes.join(", ")})` : ""}</span>
-                  <strong>−{formatMoney(sub.productDiscountAmount ?? 0)}</strong>
-                </div>
-              );
-            })()}
-            {(sub.shopDiscountAmount ?? 0) > 0 && (() => {
-              const sCodes = sub.appliedVouchers?.filter((v) => v.scopeType === "Shop").map((v) => v.code) ?? [];
-              return (
-                <div className="info-row">
-                  <span>Giảm giá từ shop{sCodes.length ? ` (${sCodes.join(", ")})` : ""}</span>
-                  <strong>−{formatMoney(sub.shopDiscountAmount ?? 0)}</strong>
-                </div>
-              );
-            })()}
-            {(sub.systemDiscountAmount ?? 0) > 0 && (() => {
-              const sysCodes = sub.appliedVouchers?.filter((v) => v.scopeType === "System").map((v) => v.code) ?? [];
-              return (
-                <div className="info-row">
-                  <span>Giảm giá toàn sàn{sysCodes.length ? ` (${sysCodes.join(", ")})` : ""}</span>
-                  <strong>−{formatMoney(sub.systemDiscountAmount ?? 0)}</strong>
-                </div>
-              );
-            })()}
-            <div className="info-row">
-              <span>Phí giao hàng</span>
-              <strong>{formatMoney(sub.shippingFeeAmount)}</strong>
-            </div>
-            <div className="info-row">
-              <span>Tổng thanh toán đơn</span>
-              {(() => {
-                const subDiscountTotal = (sub.productDiscountAmount ?? 0) + (sub.shopDiscountAmount ?? 0) + (sub.systemDiscountAmount ?? 0);
-                const subOriginalTotal = sub.itemsAmount + sub.shippingFeeAmount;
-                return (
-                  <strong className="price-stack-inline" style={{ color: "var(--sky-dark)" }}>
-                    {subDiscountTotal > 0 && (
-                      <span className="price-strikethrough">{formatMoney(subOriginalTotal)}</span>
-                    )}
-                    <span>{formatMoney(sub.totalAmount)}</span>
-                  </strong>
-                );
-              })()}
-            </div>
+              </Card>
+            );
+          })
+        ) : order.loading ? (
+          <LoadingState rows={4} label="Đang tải đơn hàng…" />
+        ) : order.data ? (
+          <Card className="card-pad">
+            <EmptyState
+              compact
+              title="Không có đơn hàng shop nào ở trạng thái này"
+              description="Chọn mục Tất cả hoặc trạng thái khác trên thanh tiến trình để xem các đơn hàng con."
+            />
           </Card>
-        );
-      })}
-      <div className="grid-3">
-        <Card className="card-pad"><h2>Trạng thái</h2><Badge>{describeOrderStatus(primaryStatus, subOrders[0]?.paymentMethod)}</Badge></Card>
-        <Card className="card-pad"><h2>Mã đơn hàng</h2><strong className="seller-wrap-value">{order.data?.orderNo ?? orderId}</strong></Card>
-        <Card className="card-pad">
-          <h2>Tổng thanh toán</h2>
-          {(() => {
-            if (!order.data) return <strong>—</strong>;
-            const totalOrderDiscount = subOrders.reduce(
-              (sum, s) => sum + (s.productDiscountAmount ?? 0) + (s.shopDiscountAmount ?? 0) + (s.systemDiscountAmount ?? 0),
-              0,
-            );
-            const originalOrderTotal = subOrders.reduce((sum, s) => sum + s.itemsAmount + s.shippingFeeAmount, 0);
-            return (
-              <strong className="price-stack-inline">
-                {totalOrderDiscount > 0 && originalOrderTotal > order.data.totalAmount && (
-                  <span className="price-strikethrough">{formatMoney(originalOrderTotal)}</span>
-                )}
-                <span>{formatMoney(order.data.totalAmount)}</span>
-              </strong>
-            );
-          })()}
-        </Card>
+        ) : null}
+
+        {order.data && (
+          <div className="split">
+            <Card className="card-pad">
+              <h2>Chi tiết thanh toán đơn hàng</h2>
+              <div className="info-row">
+                <span>Tiền hàng ({subOrders.length} gian hàng)</span>
+                <strong>{formatMoney(totalItemsAmount)}</strong>
+              </div>
+              <div className="info-row">
+                <span>Phí giao hàng</span>
+                <strong>{formatMoney(totalShippingFee)}</strong>
+              </div>
+              {totalProductDiscount > 0 && (
+                <div className="info-row suborder-discount-row">
+                  <span>Giảm giá sản phẩm{productCodes.length ? ` (${productCodes.join(", ")})` : ""}</span>
+                  <strong>−{formatMoney(totalProductDiscount)}</strong>
+                </div>
+              )}
+              {totalShopDiscount > 0 && (
+                <div className="info-row suborder-discount-row">
+                  <span>Giảm giá từ shop{shopCodes.length ? ` (${shopCodes.join(", ")})` : ""}</span>
+                  <strong>−{formatMoney(totalShopDiscount)}</strong>
+                </div>
+              )}
+              {totalSystemDiscount > 0 && (
+                <div className="info-row suborder-discount-row">
+                  <span>Giảm giá toàn sàn{systemCodes.length ? ` (${systemCodes.join(", ")})` : ""}</span>
+                  <strong>−{formatMoney(totalSystemDiscount)}</strong>
+                </div>
+              )}
+              <div className="info-row">
+                <span>Tổng gốc (gồm phí giao hàng)</span>
+                <strong className={totalOrderDiscount > 0 ? "price-strikethrough" : undefined}>
+                  {formatMoney(originalOrderTotal)}
+                </strong>
+              </div>
+              <div className="info-row suborder-final-row">
+                <span>Tổng thanh toán</span>
+                <strong className="price-stack-inline">
+                  {totalOrderDiscount > 0 && originalOrderTotal > order.data.totalAmount && (
+                    <span className="price-strikethrough">{formatMoney(originalOrderTotal)}</span>
+                  )}
+                  <span>{formatMoney(order.data.totalAmount)}</span>
+                </strong>
+              </div>
+            </Card>
+
+            <Card className="card-pad">
+              <h2>Thông tin giao hàng &amp; Đơn hàng</h2>
+              <div className="info-row">
+                <span>Mã đơn hàng</span>
+                <strong className="seller-wrap-value">{order.data.orderNo ?? orderId}</strong>
+              </div>
+              <div className="info-row">
+                <span>Thời gian tạo đơn</span>
+                <strong>{order.data.createdAt ? new Date(order.data.createdAt).toLocaleString("vi-VN") : "—"}</strong>
+              </div>
+              <div className="info-row">
+                <span>Phương thức thanh toán</span>
+                <strong>{isCodPaymentMethod(firstSub?.paymentMethod) ? "Thanh toán khi nhận hàng (COD)" : "Ví Nexus"}</strong>
+              </div>
+              <div className="info-row">
+                <span>Người nhận</span>
+                <strong>{firstSub?.shippingAddress?.receiverName || "—"} · {firstSub?.contactPhone || "—"}</strong>
+              </div>
+              <div className="info-row">
+                <span>Địa chỉ giao hàng</span>
+                <strong>{deliveryAddressText}</strong>
+              </div>
+            </Card>
+          </div>
+        )}
       </div>
-      <div className="split">
-        <Card className="card-pad">
-          <h2>Thông tin đơn</h2>
-          {order.data ? (
-            <>
-              <div className="info-row"><span>Mã Buyer</span><strong>{order.data.buyerId}</strong></div>
-              <div className="info-row"><span>Ngày tạo đơn</span><strong>{order.data.createdAt ? new Date(order.data.createdAt).toLocaleString("vi-VN") : "—"}</strong></div>
-              {subOrders.filter((sub) => canReportSubOrder(sub.status)).map((sub) => (
-                <div className="info-row" key={sub.subOrderId}><span>{sub.shopName || sub.subOrderNo}</span><Link href={orderReportHref(sub)}>Báo cáo vấn đề với người bán</Link></div>
-              ))}
-            </>
-          ) : (
-            order.loading ? <LoadingState rows={5} label="Đang tải đơn hàng…" /> : order.error ? null : <EmptyState title="Không có dữ liệu đơn hàng" />
-          )}
-        </Card>
-        <OrderShipmentsCard key={shipmentRefresh} orderId={orderId} />
-      </div>
+
+      <ProductQuickPreviewModal item={previewItem} onClose={() => setPreviewItem(null)} />
     </div>
-  </>;
+  );
 }
