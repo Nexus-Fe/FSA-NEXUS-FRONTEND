@@ -76,6 +76,8 @@ export type ShipmentEvent = {
 export type ShipmentDetail = Shipment & {
   estimatedDeliveryAt: string | null;
   deliveredAt: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
   events: ShipmentEvent[] | null;
 };
 
@@ -107,8 +109,11 @@ export type ShipmentFilterQuery = {
   page?: number;
   pageSize?: number;
   trackingNumber?: string;
+  search?: string;
   status?: string;
   orderId?: string;
+  sortBy?: "createdAt" | "updatedAt";
+  sortOrder?: "asc" | "desc";
 };
 
 export type PagedShipments = {

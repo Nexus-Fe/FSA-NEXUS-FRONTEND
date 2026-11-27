@@ -65,8 +65,11 @@ export const fulfillmentService = {
     if (query?.page) params.set("page", String(query.page));
     if (query?.pageSize) params.set("pageSize", String(query.pageSize));
     if (query?.trackingNumber) params.set("trackingNumber", query.trackingNumber);
+    if (query?.search) params.set("search", query.search);
     if (query?.status) params.set("status", query.status);
     if (query?.orderId) params.set("orderId", query.orderId);
+    if (query?.sortBy) params.set("sortBy", query.sortBy);
+    if (query?.sortOrder) params.set("sortOrder", query.sortOrder);
     const qs = params.toString() ? `?${params.toString()}` : "";
     return unwrap(await api.get<ApiResponse<PagedShipments> | PagedShipments>(`/api/v1/shipments${qs}`, { signal }));
   },

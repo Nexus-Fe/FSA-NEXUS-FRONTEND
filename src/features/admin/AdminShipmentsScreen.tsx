@@ -12,12 +12,27 @@ import {
   ShipmentTimelineList,
   type PagedShipments,
   type ShipmentDetail,
+  type SubOrderShipment,
 } from "@/features/fulfillment";
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const GHN_SIMULATE_STATUS_OPTIONS = [
   {
+    value: "picking",
+    label: "Đang lấy hàng (picking)",
+    description: "Bưu tá GHN đang trên đường tới kho người bán để nhận bưu kiện.",
+    tone: "amber" as const,
+  },
+  {
+    value: "storing",
+    label: "Đã đóng gói / Nhập kho GHN (storing)",
+    description: "Bưu kiện đã được đóng gói hoặc nhập kho phân loại GHN.",
+    tone: "amber" as const,
+  },
+  {
     value: "picked",
-    label: "Đã lấy hàng (picked)",
+    label: "Đã lấy hàng / Bàn giao (picked)",
     description: "Bưu tá GHN đã nhận hàng từ người bán. Hệ thống tự động chuyển SubOrder sang 'Đang giao'.",
     tone: "sky" as const,
   },
@@ -59,6 +74,43 @@ const GHN_SIMULATE_STATUS_OPTIONS = [
   },
 ];
 
+const SHIPMENT_FILTER_STATUS_OPTIONS = [
+  { value: "ReadyToPick", label: "Chờ lấy hàng" },
+  { value: "Picking", label: "Đang lấy hàng" },
+  { value: "Packed", label: "Đã đóng gói" },
+  { value: "HandedOver", label: "Đã bàn giao" },
+  { value: "InTransit", label: "Đang vận chuyển" },
+  { value: "Delivered", label: "Đã giao" },
+  { value: "DeliveryFailed", label: "Giao lỗi" },
+  { value: "Returning", label: "Đang hoàn hàng" },
+  { value: "Returned", label: "Đã hoàn hàng" },
+  { value: "Cancelled", label: "Đã hủy" },
+] as const;
+
+type SortOptionValue = "createdAt:desc" | "createdAt:asc" | "updatedAt:desc" | "updatedAt:asc";
+
+const SORT_OPTIONS: Array<{ value: SortOptionValue; label: string; sortBy: "createdAt" | "updatedAt"; sortOrder: "asc" | "desc" }> = [
+  { value: "createdAt:desc", label: "Mới nhất (Ngày tạo ↓)", sortBy: "createdAt", sortOrder: "desc" },
+  { value: "createdAt:asc", label: "Cũ nhất (Ngày tạo ↑)", sortBy: "createdAt", sortOrder: "asc" },
+  { value: "updatedAt:desc", label: "Cập nhật gần nhất (↓)", sortBy: "updatedAt", sortOrder: "desc" },
+  { value: "updatedAt:asc", label: "Cập nhật lâu nhất (↑)", sortBy: "updatedAt", sortOrder: "asc" },
+];
+
+function formatDateTime(iso?: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString("vi-VN");
+}
+
+function getLatestEventTime(shipment: ShipmentDetail): string | null {
+  if (!shipment.events?.length) return null;
+  const sorted = [...shipment.events].sort(
+    (a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime(),
+  );
+  return sorted[0]?.occurredAt ?? null;
+}
+
 export function AdminShipmentsScreen() {
   const [inputCode, setInputCode] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("picked");
@@ -74,35 +126,117 @@ export function AdminShipmentsScreen() {
   const [printPageSize, setPrintPageSize] = useState<"A5" | "80x80" | "52x70">("A5");
 
   const [activeShipment, setActiveShipment] = useState<ShipmentDetail | null>(null);
+  const [masterOrderShipments, setMasterOrderShipments] = useState<SubOrderShipment[]>([]);
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
 
   const [page, setPage] = useState(1);
-  const [statusFilter, setStatusFilter] = useState("");
+  const [searchInput, setSearchInput] = useState("");
+  const [appliedSearch, setAppliedSearch] = useState("");
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
+  const [sortOption, setSortOption] = useState<SortOptionValue>("createdAt:desc");
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
+  const activeSort = SORT_OPTIONS.find((s) => s.value === sortOption) ?? SORT_OPTIONS[0];
+  const statusQuery = selectedStatuses.join(",");
+
   const shipmentsResource = useApiResource(
-    `admin-shipments:${page}:${statusFilter}:${refreshTrigger}`,
+    `admin-shipments:${page}:${appliedSearch}:${statusQuery}:${sortOption}:${refreshTrigger}`,
     (signal) =>
       fulfillmentService.listShipments(
-        { page, pageSize: 10, status: statusFilter || undefined },
+        {
+          page,
+          pageSize: 10,
+          search: appliedSearch || undefined,
+          status: statusQuery || undefined,
+          sortBy: activeSort.sortBy,
+          sortOrder: activeSort.sortOrder,
+        },
         signal,
       ),
   );
 
+  async function resolveShipmentByAnyCode(rawCode: string): Promise<ShipmentDetail | null> {
+    const code = rawCode.trim();
+    if (!code) return null;
+
+    // 1. Direct lookup via Fulfillment /tracking/{code} (supports GHN code, SubOrderId GUID, ShipmentId GUID)
+    try {
+      return await fulfillmentService.getShipmentByTracking(code);
+    } catch {
+      // Continue to fallback lookups
+    }
+
+    // 2. If UUID, try Fulfillment list filter by SubOrderId, then Commerce Master Order tracking
+    if (UUID_REGEX.test(code)) {
+      try {
+        const byOrder = await fulfillmentService.listShipments({ orderId: code, page: 1, pageSize: 1 });
+        if (byOrder.items.length > 0) {
+          return byOrder.items[0];
+        }
+      } catch {
+        // Continue to Commerce master order lookup
+      }
+
+      try {
+        const masterTracking = await fulfillmentService.getOrderTracking(code);
+        const subs = masterTracking.shipments ?? [];
+        if (subs.length > 0) {
+          setMasterOrderShipments(subs);
+          const firstWithCode = subs.find((s) => s.trackingCode) ?? subs[0];
+          const lookupKey = firstWithCode.trackingCode ?? firstWithCode.subOrderId;
+          try {
+            return await fulfillmentService.getShipmentByTracking(lookupKey);
+          } catch {
+            const listRes = await fulfillmentService.listShipments({
+              orderId: firstWithCode.subOrderId,
+              page: 1,
+              pageSize: 1,
+            });
+            if (listRes.items.length > 0) return listRes.items[0];
+          }
+        }
+      } catch {
+        // Fall through to general search
+      }
+    }
+
+    // 3. Fallback search in Fulfillment list (partial tracking code / phone / receiver name)
+    try {
+      const searchRes = await fulfillmentService.listShipments({
+        search: code,
+        page: 1,
+        pageSize: 5,
+      });
+      if (searchRes.items.length > 0) {
+        return searchRes.items[0];
+      }
+    } catch {
+      // No match
+    }
+
+    return null;
+  }
+
   async function handleLookup(codeToSearch?: string) {
     const code = (codeToSearch ?? inputCode).trim();
     if (!code) {
-      setErrorMessage("Vui lòng nhập mã vận đơn GHN hoặc SubOrder ID để tra cứu.");
+      setErrorMessage("Vui lòng nhập mã vận đơn GHN, SubOrder ID hoặc Order ID để tra cứu.");
       return;
     }
     setLookupLoading(true);
     setErrorMessage("");
     setSuccessMessage("");
+    setMasterOrderShipments([]);
     try {
-      const detail = await fulfillmentService.getShipmentByTracking(code);
+      const detail = await resolveShipmentByAnyCode(code);
+      if (!detail) {
+        setActiveShipment(null);
+        setErrorMessage(`Không tìm thấy vận đơn nào khớp với mã "${code}".`);
+        return;
+      }
       setActiveShipment(detail);
-      setInputCode(detail.trackingNumber ?? detail.id);
+      setInputCode(detail.trackingNumber ?? detail.orderId ?? detail.id);
     } catch (cause) {
       setActiveShipment(null);
       setErrorMessage(
@@ -119,7 +253,7 @@ export function AdminShipmentsScreen() {
     event.preventDefault();
     const tracking = inputCode.trim();
     if (!tracking) {
-      setErrorMessage("Vui lòng nhập mã vận đơn GHN để cập nhật trạng thái.");
+      setErrorMessage("Vui lòng nhập mã vận đơn GHN hoặc SubOrder ID để cập nhật trạng thái.");
       return;
     }
 
@@ -146,13 +280,10 @@ export function AdminShipmentsScreen() {
         }`,
       );
 
-      // Auto-reload shipment details and table
       setRefreshTrigger((v) => v + 1);
-      try {
-        const updated = await fulfillmentService.getShipmentByTracking(tracking);
+      const updated = await resolveShipmentByAnyCode(res.trackingNumber || tracking);
+      if (updated) {
         setActiveShipment(updated);
-      } catch {
-        // Fallback: keep current view
       }
     } catch (cause) {
       setErrorMessage(formatError(describeError(cause, { operation: "write" })));
@@ -181,15 +312,40 @@ export function AdminShipmentsScreen() {
   }
 
   function selectShipmentFromTable(shipment: ShipmentDetail) {
-    const code = shipment.trackingNumber ?? shipment.id;
+    const code = shipment.trackingNumber ?? shipment.orderId ?? shipment.id;
     setInputCode(code);
     setActiveShipment(shipment);
+    setMasterOrderShipments([]);
     setErrorMessage("");
     setSuccessMessage(`Đã chọn vận đơn ${code}. Bạn có thể thay đổi trạng thái bên dưới.`);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  function handleTableSearchSubmit(event: FormEvent) {
+    event.preventDefault();
+    setAppliedSearch(searchInput.trim());
+    setPage(1);
+  }
+
+  function toggleStatusFilter(statusValue: string) {
+    setSelectedStatuses((prev) =>
+      prev.includes(statusValue)
+        ? prev.filter((s) => s !== statusValue)
+        : [...prev, statusValue],
+    );
+    setPage(1);
+  }
+
+  function clearTableFilters() {
+    setSearchInput("");
+    setAppliedSearch("");
+    setSelectedStatuses([]);
+    setSortOption("createdAt:desc");
+    setPage(1);
+  }
+
   const pagedData: PagedShipments | null = shipmentsResource.data ?? null;
+  const hasActiveFilters = Boolean(appliedSearch || selectedStatuses.length > 0 || sortOption !== "createdAt:desc");
 
   return (
     <div className="page-stack">
@@ -199,7 +355,7 @@ export function AdminShipmentsScreen() {
         action={
           <div className="action-row">
             <a
-              href="https://5sao.ghn.dev/"
+              href="https://5sao.ghn.dev/ops-live"
               target="_blank"
               rel="noopener noreferrer"
               className="button button-secondary"
@@ -241,10 +397,10 @@ export function AdminShipmentsScreen() {
           {/* Ô nhập mã & Tra cứu */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 10, alignItems: "end" }}>
             <label className="field-wrap" style={{ margin: 0 }}>
-              <span>Mã vận đơn GHN hoặc SubOrder ID (*)</span>
+              <span>Mã vận đơn GHN, SubOrder ID hoặc Order ID (*)</span>
               <input
                 className="field"
-                placeholder="Nhập mã vận đơn (VD: LY9WHT) hoặc SubOrder ID..."
+                placeholder="Nhập hoặc dán mã vận đơn (VD: LY9WHT), SubOrder ID hoặc Order ID..."
                 value={inputCode}
                 onChange={(e) => setInputCode(e.target.value)}
                 required
@@ -261,6 +417,24 @@ export function AdminShipmentsScreen() {
               {lookupLoading ? "Đang tra cứu…" : "Tra cứu"}
             </button>
           </div>
+
+          {masterOrderShipments.length > 1 && (
+            <div style={{ padding: "10px 12px", borderRadius: 8, backgroundColor: "var(--surface-2, rgba(0,0,0,0.03))", display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+              <span style={{ fontSize: 13, color: "var(--muted)" }}>
+                Đơn hàng cha có {masterOrderShipments.length} đơn con, chọn để kiểm tra:
+              </span>
+              {masterOrderShipments.map((sub) => (
+                <button
+                  key={sub.subOrderId}
+                  type="button"
+                  className="button button-secondary button-small"
+                  onClick={() => void handleLookup(sub.trackingCode ?? sub.subOrderId)}
+                >
+                  {sub.subOrderNo} ({sub.trackingCode ?? "Chưa có mã GHN"})
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Trạng thái GHN muốn chuyển */}
           <label className="field-wrap">
@@ -335,7 +509,7 @@ export function AdminShipmentsScreen() {
               onChange={(e) => setForce(e.target.checked)}
             />
             <span>
-              <strong>Bắt buộc chuyển trạng thái (Force override)</strong>: Bỏ qua kiểm tra tuần tự vòng đời để test nhảy cóc trạng thái.
+              <strong>Bắt buộc chuyển trạng thái (Force override)</strong>: Bỏ qua kiểm tra tuần tự vòng đời để test nhảy cóc hoặc lùi trạng thái.
             </span>
           </label>
 
@@ -366,7 +540,6 @@ export function AdminShipmentsScreen() {
               <Badge tone={shipmentStatusTone(activeShipment.status)}>
                 {shipmentStatusLabel(activeShipment.status)}
               </Badge>
-              {/* Nút In phiếu GHN */}
               <select
                 className="select-field"
                 style={{ width: "auto", height: 34, padding: "0 8px", fontSize: 13 }}
@@ -404,6 +577,10 @@ export function AdminShipmentsScreen() {
                 <span>Kho lấy hàng</span>
                 <strong>{activeShipment.warehouseId}</strong>
               </div>
+              <div className="info-row">
+                <span>Ngày tạo vận đơn</span>
+                <span>{formatDateTime(activeShipment.createdAt)}</span>
+              </div>
             </div>
             <div>
               <div className="info-row">
@@ -416,7 +593,11 @@ export function AdminShipmentsScreen() {
               </div>
               <div className="info-row">
                 <span>Thời gian giao dự kiến</span>
-                <span>{activeShipment.estimatedDeliveryAt ? new Date(activeShipment.estimatedDeliveryAt).toLocaleString("vi-VN") : "—"}</span>
+                <span>{formatDateTime(activeShipment.estimatedDeliveryAt)}</span>
+              </div>
+              <div className="info-row">
+                <span>Cập nhật gần nhất</span>
+                <span>{formatDateTime(activeShipment.updatedAt ?? getLatestEventTime(activeShipment))}</span>
               </div>
             </div>
           </div>
@@ -439,32 +620,27 @@ export function AdminShipmentsScreen() {
         </Card>
       )}
 
-      {/* KHỐI 3: DANH SÁCH CÁC VẬN ĐƠN GẦN ĐÂY */}
+      {/* KHỐI 3: DANH SÁCH CÁC VẬN ĐƠN TOÀN SÀN */}
       <Card className="card-pad">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
           <h2 style={{ margin: 0 }}>Danh sách vận đơn toàn sàn</h2>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <label style={{ fontSize: 13, color: "var(--muted)", margin: 0 }}>Lọc trạng thái:</label>
+            <label style={{ fontSize: 13, color: "var(--muted)", margin: 0 }}>Sắp xếp:</label>
             <select
+              aria-label="Sắp xếp vận đơn theo thời gian"
               className="select-field"
               style={{ width: "auto", height: 36, padding: "0 10px" }}
-              value={statusFilter}
+              value={sortOption}
               onChange={(e) => {
-                setStatusFilter(e.target.value);
+                setSortOption(e.target.value as SortOptionValue);
                 setPage(1);
               }}
             >
-              <option value="">Tất cả trạng thái</option>
-              <option value="ReadyToPick">Chờ lấy hàng</option>
-              <option value="Picking">Đang lấy hàng</option>
-              <option value="Packed">Đã đóng gói</option>
-              <option value="HandedOver">Đã lấy hàng (bàn giao)</option>
-              <option value="InTransit">Đang vận chuyển</option>
-              <option value="Delivered">Đã giao thành công</option>
-              <option value="DeliveryFailed">Giao không thành công</option>
-              <option value="Returning">Đang hoàn hàng</option>
-              <option value="Returned">Đã hoàn hàng</option>
-              <option value="Cancelled">Đã hủy</option>
+              {SORT_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
             </select>
             <button
               type="button"
@@ -478,6 +654,70 @@ export function AdminShipmentsScreen() {
           </div>
         </div>
 
+        {/* Thanh tìm kiếm đơn hàng / mã vận đơn */}
+        <form
+          onSubmit={handleTableSearchSubmit}
+          style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "end", marginBottom: 14 }}
+        >
+          <label className="field-wrap" style={{ flex: "1 1 280px", margin: 0 }}>
+            <span>Tìm kiếm đơn vận chuyển</span>
+            <input
+              type="search"
+              className="field"
+              placeholder="Tìm theo mã vận đơn GHN, SubOrder ID, tên hoặc SĐT người nhận..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+            />
+          </label>
+          <button
+            type="submit"
+            className="button button-primary"
+            style={{ display: "inline-flex", alignItems: "center", gap: 6, height: 42 }}
+          >
+            <Icon name="search" size={15} />
+            Tìm kiếm
+          </button>
+          {hasActiveFilters && (
+            <button
+              type="button"
+              className="button button-secondary"
+              style={{ height: 42 }}
+              onClick={clearTableFilters}
+            >
+              Xóa lọc
+            </button>
+          )}
+        </form>
+
+        {/* Bộ lọc đa trạng thái */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center", marginBottom: 16 }}>
+          <span style={{ fontSize: 13, color: "var(--muted)", marginRight: 4 }}>Trạng thái:</span>
+          <button
+            type="button"
+            className={selectedStatuses.length === 0 ? "button button-primary button-small" : "button button-secondary button-small"}
+            onClick={() => {
+              setSelectedStatuses([]);
+              setPage(1);
+            }}
+          >
+            Tất cả
+          </button>
+          {SHIPMENT_FILTER_STATUS_OPTIONS.map((opt) => {
+            const active = selectedStatuses.includes(opt.value);
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                aria-pressed={active}
+                className={active ? "button button-primary button-small" : "button button-secondary button-small"}
+                onClick={() => toggleStatusFilter(opt.value)}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+
         {shipmentsResource.loading && !pagedData ? (
           <p>Đang tải danh sách vận đơn…</p>
         ) : shipmentsResource.error ? (
@@ -485,7 +725,13 @@ export function AdminShipmentsScreen() {
             {formatError(describeError(shipmentsResource.error, { operation: "read" }))}
           </p>
         ) : !pagedData?.items.length ? (
-          <NoData title="Chưa có vận đơn nào được tạo. Các đơn hàng được người bán tiếp nhận sẽ xuất hiện tại đây." />
+          <NoData
+            title={
+              hasActiveFilters
+                ? "Không tìm thấy vận đơn nào khớp bộ lọc hiện tại."
+                : "Chưa có vận đơn nào được tạo. Các đơn hàng được người bán tiếp nhận sẽ xuất hiện tại đây."
+            }
+          />
         ) : (
           <>
             <div className="table-scroll">
@@ -496,12 +742,15 @@ export function AdminShipmentsScreen() {
                     <th>SubOrder ID</th>
                     <th>Người nhận</th>
                     <th>Trạng thái</th>
+                    <th>Thời gian</th>
                     <th>Hành động</th>
                   </tr>
                 </thead>
                 <tbody>
                   {pagedData.items.map((s) => {
                     const isSelected = activeShipment?.id === s.id;
+                    const createdLabel = formatDateTime(s.createdAt);
+                    const updatedLabel = formatDateTime(s.updatedAt ?? getLatestEventTime(s));
                     return (
                       <tr key={s.id} style={isSelected ? { backgroundColor: "var(--accent-subtle, rgba(59,130,246,0.06))" } : undefined}>
                         <td>
@@ -515,7 +764,7 @@ export function AdminShipmentsScreen() {
                         </td>
                         <td>
                           <div><strong>{s.receiverName}</strong> · {s.receiverPhone}</div>
-                          <div style={{ fontSize: 12, color: "var(--muted)", maxWidth: 280, textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
+                          <div style={{ fontSize: 12, color: "var(--muted)", maxWidth: 260, textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
                             {s.receiverAddress}
                           </div>
                         </td>
@@ -523,6 +772,10 @@ export function AdminShipmentsScreen() {
                           <Badge tone={shipmentStatusTone(s.status)}>
                             {shipmentStatusLabel(s.status)}
                           </Badge>
+                        </td>
+                        <td style={{ fontSize: 12, whiteSpace: "nowrap" }}>
+                          <div>Tạo: {createdLabel}</div>
+                          <div style={{ color: "var(--muted)", marginTop: 2 }}>Cập nhật: {updatedLabel}</div>
                         </td>
                         <td>
                           <button
