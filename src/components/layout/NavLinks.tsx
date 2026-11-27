@@ -126,7 +126,7 @@ export function NavLinks({
           moveIndicator(event.currentTarget, true);
         }}
       >
-        <Icon name={item.icon} size={extraClassName ? 16 : 18} />
+        <Icon name={item.icon} size={extraClassName === "side-nav-sublink" || extraClassName === "side-nav-top-item" ? 16 : 18} />
         <span>{item.label}</span>
       </Link>
     );
@@ -183,7 +183,7 @@ export function NavLinks({
       <nav ref={navRef} aria-label={ariaLabel} className="side-nav">
         {sections.map((section) => {
           if (section.kind === "item") {
-            return renderFlatItem(section.item);
+            return renderFlatItem(section.item, "side-nav-top-item");
           }
 
           const { group } = section;
@@ -215,9 +215,9 @@ export function NavLinks({
                   }))
                 }
               >
-                <Icon name={group.icon} size={18} />
+                <Icon name="chevron" size={14} className="side-nav-group-chevron" />
+                <Icon name={group.icon} size={16} />
                 <span className="side-nav-group-label">{group.label}</span>
-                <Icon name="chevronDown" size={15} className="side-nav-group-chevron" />
               </button>
               <div
                 id={`side-nav-group-${group.id}`}
