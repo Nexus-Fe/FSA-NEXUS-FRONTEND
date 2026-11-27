@@ -3571,9 +3571,6 @@ h1,h2,h3 { letter-spacing: -.01em; word-spacing: .06em; }
 .order-page-shell .page-heading {
   margin-bottom: 4px;
 }
-.order-page-shell .checkout-breadcrumb {
-  margin-bottom: 2px;
-}
 .order-progress-tabs {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));

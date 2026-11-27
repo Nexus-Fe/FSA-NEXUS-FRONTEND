@@ -305,18 +305,6 @@ export function SubOrderDetailScreen({
 
   return (
     <div className="order-page-shell">
-      <nav className="checkout-breadcrumb" aria-label="Đường dẫn">
-        <Link href={ROUTES.buyer.orders}>Đơn mua</Link>
-        <span aria-hidden="true">›</span>
-        {effectiveOrderId && (
-          <>
-            <Link href={ROUTES.buyer.order(effectiveOrderId)}>Chi tiết đơn mua</Link>
-            <span aria-hidden="true">›</span>
-          </>
-        )}
-        <span aria-current="page">{sub ? sub.subOrderNo : "Chi tiết đơn shop"}</span>
-      </nav>
-
       <PageHeading
         title={sub ? `${resolvedShopName} · ${sub.subOrderNo}` : "Chi tiết đơn hàng shop"}
         action={
