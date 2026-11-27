@@ -43,6 +43,8 @@ export function GhnLocationSelect({
   const wards = useApiResource(districtConfirmed ? `ghn-wards:${value.districtId}` : null, (signal) => locationService.wards(value.districtId as number, signal));
 
   const failed = provinces.error ?? districts.error ?? wards.error;
+  const noDistricts = Boolean(value.provinceId) && !districts.loading && !districts.error && Boolean(districts.data) && districts.data!.items.length === 0;
+  const noWards = Boolean(value.districtId) && !wards.loading && !wards.error && Boolean(wards.data) && wards.data!.items.length === 0;
 
   const check = checkGhnSelection(value, {
     provinces: provinces.data,
@@ -85,7 +87,7 @@ export function GhnLocationSelect({
           className="field"
           name="province"
           required
-          disabled={disabled || provinces.loading}
+          disabled={disabled || provinces.loading || Boolean(provinces.error)}
           value={value.provinceId ?? ""}
           aria-invalid={Boolean(errors.province)}
           onChange={(event) => {
@@ -94,7 +96,7 @@ export function GhnLocationSelect({
             onChange(found ? { ...EMPTY_GHN_SELECTION, provinceId: found.provinceId, provinceName: found.provinceName } : EMPTY_GHN_SELECTION, "user");
           }}
         >
-          <option value="">{provinces.loading ? "Đang tải…" : "Chọn tỉnh / thành phố"}</option>
+          <option value="">{provinces.loading ? "Đang tải…" : provinces.error ? "Không tải được tỉnh / thành phố" : "Chọn tỉnh / thành phố"}</option>
           {provinces.data?.items.map((entry) => <option key={entry.provinceId} value={entry.provinceId}>{entry.provinceName}</option>)}
         </select>
         {errors.province && <small className="checkout-field-error" role="alert">{errors.province}</small>}
@@ -105,7 +107,7 @@ export function GhnLocationSelect({
           className="field"
           name="district"
           required
-          disabled={disabled || !value.provinceId || districts.loading}
+          disabled={disabled || !value.provinceId || districts.loading || Boolean(districts.error) || noDistricts}
           value={value.districtId ?? ""}
           aria-invalid={Boolean(errors.district)}
           onChange={(event) => {
@@ -114,7 +116,7 @@ export function GhnLocationSelect({
             onChange({ ...value, districtId: found?.districtId ?? null, districtName: found?.districtName ?? "", wardCode: "", wardName: "" }, "user");
           }}
         >
-          <option value="">{!value.provinceId ? "Chọn tỉnh / thành phố trước" : districts.loading ? "Đang tải…" : "Chọn quận / huyện"}</option>
+          <option value="">{!value.provinceId ? "Chọn tỉnh / thành phố trước" : districts.loading ? "Đang tải…" : districts.error ? "Không tải được quận / huyện" : noDistricts ? "Không có quận / huyện khả dụng" : "Chọn quận / huyện"}</option>
           {districts.data?.items.map((entry) => <option key={entry.districtId} value={entry.districtId}>{entry.districtName}</option>)}
         </select>
         {errors.district && <small className="checkout-field-error" role="alert">{errors.district}</small>}
@@ -125,7 +127,7 @@ export function GhnLocationSelect({
           className="field"
           name="ward"
           required
-          disabled={disabled || !value.districtId || wards.loading}
+          disabled={disabled || !value.districtId || wards.loading || Boolean(wards.error) || noWards}
           value={value.wardCode}
           aria-invalid={Boolean(errors.ward)}
           onChange={(event) => {
@@ -133,11 +135,18 @@ export function GhnLocationSelect({
             onChange({ ...value, wardCode: found?.wardCode ?? "", wardName: found?.wardName ?? "" }, "user");
           }}
         >
-          <option value="">{!value.districtId ? "Chọn quận / huyện trước" : wards.loading ? "Đang tải…" : "Chọn phường / xã"}</option>
+          <option value="">{!value.districtId ? "Chọn quận / huyện trước" : wards.loading ? "Đang tải…" : wards.error ? "Không tải được phường / xã" : noWards ? "Quận / huyện này chưa có phường / xã" : "Chọn phường / xã"}</option>
           {wards.data?.items.map((entry) => <option key={entry.wardCode} value={entry.wardCode}>{entry.wardName}</option>)}
         </select>
         {errors.ward && <small className="checkout-field-error" role="alert">{errors.ward}</small>}
       </label>
+      {!failed && (noDistricts || noWards) && (
+        <p className="notice" role="status">
+          {noWards
+            ? "Quận / huyện này chưa có dữ liệu phường / xã từ GHN. Vui lòng chọn quận / huyện khác."
+            : "Tỉnh / thành phố này chưa có dữ liệu quận / huyện từ GHN. Vui lòng chọn tỉnh / thành phố khác."}
+        </p>
+      )}
       {staleLevel && (staleLevel === "province" ? !value.provinceId : staleLevel === "district" ? !value.districtId : !value.wardCode) && (
         <p className="notice" role="alert" data-testid="ghn-stale-notice">{GHN_STALE_MESSAGE[staleLevel]}</p>
       )}
