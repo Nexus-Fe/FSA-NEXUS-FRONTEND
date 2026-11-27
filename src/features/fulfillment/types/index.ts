@@ -37,6 +37,14 @@ export type Shipment = {
   receiverName: string;
   receiverPhone: string;
   receiverAddress: string;
+  buyerId?: string | null;
+  toProvinceName?: string | null;
+  toDistrictId?: number | null;
+  toWardCode?: string | null;
+  shippingFee?: number;
+  codAmount?: number;
+  insuranceValue?: number;
+  ghnOrderCode?: string | null;
 };
 
 /** One sub-order (one shop's part of an order) as listed by Commerce `GET /api/v1/shipments/order/{orderId}`. */

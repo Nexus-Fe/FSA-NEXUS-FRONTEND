@@ -1,0 +1,807 @@
+.admin-shipments-page {
+  font-family: var(--font-ui);
+}
+
+.admin-shipments-toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-shipments-btn-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.admin-shipments-toolbar-btn {
+  min-height: 36px;
+  padding: 0 14px;
+  font-size: 13px;
+}
+
+.admin-shipments-form-btn {
+  min-height: 42px;
+  padding: 0 18px;
+}
+
+.admin-shipments-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.admin-shipments-card-head h2,
+.admin-shipments-card-head h3 {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.admin-shipments-env-note {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.admin-shipments-form-stack {
+  display: grid;
+  gap: 16px;
+}
+
+.admin-shipments-lookup-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.admin-shipments-lookup-row .field-wrap {
+  margin: 0;
+}
+
+.admin-shipments-two-col {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.admin-shipments-master-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--canvas);
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.admin-shipments-status-hint {
+  margin-top: 6px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.admin-shipments-force-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--ink);
+}
+
+.admin-shipments-force-toggle input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--primary);
+  flex: none;
+}
+
+/* GHN 5-Step Lifecycle Stepper */
+.ghn-stepper-box {
+  padding: 16px 18px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: rgba(253, 250, 245, 0.72);
+  display: grid;
+  gap: 14px;
+}
+
+.ghn-stepper-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.ghn-stepper-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.ghn-stepper-next-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ghn-stepper-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.ghn-stepper-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 11px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--muted);
+  transition: border-color 0.16s ease, background-color 0.16s ease;
+}
+
+.ghn-stepper-item.is-done {
+  border-color: rgba(22, 163, 74, 0.35);
+  background: var(--green-soft);
+  color: var(--ink);
+}
+
+.ghn-stepper-item.is-current {
+  border-color: var(--primary-border);
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.ghn-stepper-item.is-exception {
+  border-color: rgba(220, 38, 38, 0.35);
+  background: var(--red-soft);
+  color: var(--red-dark);
+}
+
+.ghn-stepper-dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: var(--canvas);
+  color: var(--muted);
+  border: 1px solid var(--line);
+}
+
+.ghn-stepper-item.is-done .ghn-stepper-dot {
+  background: var(--green);
+  border-color: var(--green);
+  color: #fff;
+}
+
+.ghn-stepper-item.is-current .ghn-stepper-dot {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+.ghn-stepper-item.is-exception .ghn-stepper-dot {
+  background: var(--red);
+  border-color: var(--red);
+  color: #fff;
+}
+
+.ghn-stepper-label {
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.ghn-stepper-sub {
+  font-size: 11.5px;
+  color: var(--muted);
+  line-height: 1.3;
+}
+
+.ghn-stepper-exception-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(220, 38, 38, 0.28);
+  background: var(--red-soft);
+  color: var(--red-dark);
+  font-size: 13px;
+}
+
+.ghn-stepper-exception-copy {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Detail Header & Order/SubOrder Relationship Bar */
+.admin-shipment-detail-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-shipment-print-select {
+  min-width: 148px;
+}
+
+.admin-shipment-print-select .select-box-trigger {
+  min-height: 36px;
+  height: 36px;
+  font-size: 13px;
+}
+
+.admin-shipment-hierarchy-bar {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.admin-shipment-hierarchy-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: #fff;
+  text-align: left;
+  width: 100%;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+}
+
+.admin-shipment-hierarchy-card:hover:not(:disabled) {
+  border-color: var(--primary-border);
+  box-shadow: 0 8px 20px rgba(31, 32, 36, 0.06);
+  transform: translateY(-1px);
+}
+
+.admin-shipment-hierarchy-card:disabled {
+  opacity: 0.72;
+  cursor: not-allowed;
+}
+
+.admin-shipment-hierarchy-main {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.admin-shipment-hierarchy-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.admin-shipment-hierarchy-code {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.admin-shipment-hierarchy-sub {
+  font-size: 12.5px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-shipment-hierarchy-cta {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+/* 2-Party Summary Cards (Seller / Buyer) */
+.admin-shipment-parties-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.admin-shipment-party-card {
+  display: grid;
+  gap: 10px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: rgba(253, 250, 245, 0.86);
+  text-align: left;
+  width: 100%;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+}
+
+.admin-shipment-party-card:hover {
+  border-color: var(--primary-border);
+  box-shadow: 0 10px 24px rgba(31, 32, 36, 0.06);
+  transform: translateY(-1px);
+}
+
+.admin-shipment-party-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-shipment-party-role {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--primary);
+}
+
+.admin-shipment-party-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.35;
+}
+
+.admin-shipment-party-meta {
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.admin-shipment-party-meta span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-shipment-party-meta strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.admin-shipment-facts-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 28px;
+}
+
+.admin-shipment-section-sub {
+  margin-top: 20px;
+}
+
+.admin-shipment-section-sub h4 {
+  margin: 0 0 10px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.admin-shipment-product-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--primary);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.admin-shipment-product-link:hover {
+  color: var(--primary-hover);
+  text-decoration: underline;
+}
+
+/* Flush Table Card (List of all shipments) */
+.admin-shipments-list-head {
+  padding: 22px 24px 16px;
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  gap: 14px;
+}
+
+.admin-shipments-list-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.admin-shipments-list-top h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.admin-shipments-sort-wrap {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-shipments-sort-label {
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.admin-shipments-sort-select {
+  min-width: 220px;
+}
+
+.admin-shipments-sort-select .select-box-trigger {
+  min-height: 36px;
+  height: 36px;
+  font-size: 13px;
+}
+
+.admin-shipments-search-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.admin-shipments-search-input-wrap {
+  flex: 1 1 280px;
+  min-width: 0;
+}
+
+.admin-shipments-search-input {
+  border-radius: 999px;
+  padding: 9px 16px;
+  min-height: 42px;
+}
+
+.admin-shipments-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.admin-shipments-chips-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-right: 4px;
+}
+
+.admin-shipments-chip {
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 12.5px;
+  font-weight: 600;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.admin-shipments-chip:hover {
+  border-color: var(--primary-border);
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.admin-shipments-chip.is-active {
+  background: var(--hero-bg-deep);
+  border-color: var(--hero-bg-deep);
+  color: #fff;
+}
+
+.admin-shipments-table-state {
+  padding: 20px 24px;
+}
+
+.admin-shipments-pagination-wrap {
+  padding: 14px 24px 20px;
+  border-top: 1px solid var(--line);
+}
+
+.admin-shipments-row-selected {
+  background: var(--primary-soft);
+}
+
+.admin-shipments-cell-sub {
+  margin-top: 3px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.admin-shipments-time-cell {
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+/* Modals */
+.modal-panel.admin-shipment-modal {
+  width: min(100%, 760px);
+  border-radius: 16px;
+}
+
+.modal-panel.admin-shipment-modal.admin-shipment-modal-wide {
+  width: min(100%, 920px);
+}
+
+.admin-shipment-modal-stack,
+.admin-shipment-modal-sections {
+  display: grid;
+  gap: 16px;
+}
+
+.admin-shipment-modal-block {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-shipment-modal-block h3 {
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.admin-shipment-kv-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 24px;
+}
+
+.admin-shipment-kv-full {
+  grid-column: 1 / -1;
+}
+
+.admin-shipment-modal-head-strip {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-shipment-modal-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.admin-shipment-muted {
+  font-size: 12.5px;
+  color: var(--muted);
+  margin: 0;
+}
+
+.admin-shipment-inline-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--primary);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.admin-shipment-inline-link:hover {
+  text-decoration: underline;
+  color: var(--primary-hover);
+}
+
+.admin-shipment-modal-two-col {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  align-items: start;
+}
+
+.admin-shipment-voucher-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.admin-shipment-voucher-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: #fff;
+}
+
+.admin-shipment-voucher-item > div {
+  display: grid;
+  gap: 2px;
+}
+
+.admin-shipment-discount {
+  color: var(--green);
+}
+
+.admin-shipment-total-row {
+  border-bottom: 0;
+  padding-top: 14px;
+  font-size: 14.5px;
+}
+
+.admin-shipment-total-row strong {
+  color: var(--primary);
+  font-size: 16px;
+}
+
+.admin-shipment-suborder-list {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-shipment-suborder-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: #fff;
+}
+
+.admin-shipment-suborder-card.is-current {
+  border-color: var(--primary-border);
+  background: var(--primary-soft);
+}
+
+.admin-shipment-suborder-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-shipment-suborder-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.admin-shipment-suborder-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-shipment-suborder-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.admin-shipment-suborder-meta strong {
+  color: var(--ink);
+}
+
+.admin-shipment-suborder-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-shipment-product-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--canvas);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.admin-shipment-product-chip:hover {
+  border-color: var(--primary-border);
+  color: var(--primary);
+}
+
+.admin-shipment-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: 100%;
+}
+
+@media (max-width: 900px) {
+  .ghn-stepper-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .admin-shipment-hierarchy-bar,
+  .admin-shipment-parties-grid,
+  .admin-shipment-facts-grid,
+  .admin-shipment-modal-two-col {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-shipments-lookup-row,
+  .admin-shipments-two-col,
+  .admin-shipment-kv-grid,
+  .ghn-stepper-list {
+    grid-template-columns: 1fr;
+  }
+  .admin-shipments-list-head {
+    padding: 18px 16px 14px;
+  }
+  .admin-shipments-pagination-wrap {
+    padding: 12px 16px 16px;
+  }
+}

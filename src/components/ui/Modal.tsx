@@ -18,6 +18,7 @@ export function Modal({
   title,
   onClose,
   busy = false,
+  panelClassName = "",
   children,
   footer,
 }: {
@@ -25,6 +26,7 @@ export function Modal({
   title: string;
   onClose: () => void;
   busy?: boolean;
+  panelClassName?: string;
   children: ReactNode;
   footer?: ReactNode;
 }) {
@@ -84,7 +86,7 @@ export function Modal({
   if (!open || !mounted) return null;
   return createPortal(
     <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) onClose(); }}>
-      <div ref={panelRef} className="modal-panel" role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}>
+      <div ref={panelRef} className={panelClassName ? `modal-panel ${panelClassName}` : "modal-panel"} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}>
         <h2 id={titleId}>{title}</h2>
         {children}
         {footer && <div className="voucher-dialog-actions">{footer}</div>}
