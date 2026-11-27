@@ -31,6 +31,10 @@ export const fulfillmentService = {
   async getShipmentByTracking(trackingCode: string, signal?: AbortSignal): Promise<ShipmentDetail> {
     return unwrap(await api.get<ApiResponse<ShipmentDetail> | ShipmentDetail>(`/api/v1/shipments/tracking/${encodeURIComponent(trackingCode)}`, { signal }));
   },
+  /** Fetches Fulfillment's shipment record (with items and carrier events) by sub-order or auction-order ID. */
+  async getShipmentBySubOrderId(subOrderId: string, signal?: AbortSignal): Promise<ShipmentDetail> {
+    return unwrap(await api.get<ApiResponse<ShipmentDetail> | ShipmentDetail>(`/api/v1/shipments/sub-orders/${encodeURIComponent(subOrderId)}`, { signal }));
+  },
   /** Pulls the latest carrier status directly from GHN for a shipment (seller/staff/admin). */
   async syncShipmentStatus(shipmentId: string): Promise<ShipmentDetail> {
     return unwrap(await api.post<ApiResponse<ShipmentDetail> | ShipmentDetail>(`/api/v1/shipments/${encodeURIComponent(shipmentId)}/sync-status`, {}));

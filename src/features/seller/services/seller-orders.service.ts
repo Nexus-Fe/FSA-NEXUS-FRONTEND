@@ -19,6 +19,16 @@ export type SubOrderFinancialBreakdown = {
   completedAt: string | null;
 };
 
+export type SellerAcceptOrderResult = {
+  subOrderId: string;
+  subOrderNo?: string;
+  status: string;
+  acceptedAt: string;
+  trackingCode?: string | null;
+  carrierCode?: string | null;
+  labelPrintUrl?: string | null;
+};
+
 export const sellerOrdersService = {
   async list<T>(page: number, signal?: AbortSignal, pageSize = 20, status?: string): Promise<T> {
     const query = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
@@ -46,11 +56,15 @@ export const sellerOrdersService = {
     return unwrap(response);
   },
 
-  async accept(orderId: string, subOrderId: string, pickShiftId?: number | null): Promise<void> {
-    await api.post("/api/v1/orders/" + encodeURIComponent(orderId) + "/accept", {
-      subOrderId,
-      pickShiftId: pickShiftId ?? undefined,
-    });
+  async accept(orderId: string, subOrderId: string, pickShiftId?: number | null): Promise<SellerAcceptOrderResult> {
+    const response = await api.post<ApiResponse<SellerAcceptOrderResult> | SellerAcceptOrderResult>(
+      "/api/v1/orders/" + encodeURIComponent(orderId) + "/accept",
+      {
+        subOrderId,
+        pickShiftId: pickShiftId ?? undefined,
+      },
+    );
+    return unwrap(response);
   },
 
   async reject(orderId: string, subOrderId: string, reasonText: string): Promise<void> {

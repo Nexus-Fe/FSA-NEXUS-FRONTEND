@@ -12,6 +12,7 @@ import { walletService } from "@/features/wallet/services/wallet.service";
 import { GhnLocationSelect } from "@/features/shipping/GhnLocationSelect";
 import { EMPTY_GHN_SELECTION, validateGhnSelection, type GhnSelection } from "@/features/shipping/ghn-address";
 import { describeError, formatError } from "@/lib/errors/error-messages";
+import { fulfillmentService, OrderProgressStepper, ShipmentTimelineList, TrackingCodeBar } from "@/features/fulfillment";
 import { PartnerReviewCard } from "@/features/reviews/PartnerReviewCard";
 import { ProductReviewCard } from "@/features/reviews/ProductReviewCard";
 import { auctionOrderStatusLabel } from "./AuctionResultExtras";
@@ -33,6 +34,13 @@ export function AuctionOrderPayment({ orderId, deadlinePassed, onOrderChanged }:
   const [success, setSuccess] = useState("");
   const status = order.data?.status.replace(/[^a-z]/gi, "").toUpperCase();
   const payable = status === "PENDINGPAYMENT" && !deadlinePassed;
+  const canTrack = ["CONFIRMED", "SELLERACCEPTED", "SHIPPING", "SHIPPED", "DELIVERED", "COMPLETED", "RETURNING", "RETURNED"].includes(status ?? "");
+  const timeline = useApiResource(
+    canTrack ? `buyer-auction-order-timeline:${orderId}` : null,
+    (signal) => fulfillmentService.getAuctionOrderTimeline(orderId, signal),
+  );
+  const effectiveTrackingCode = order.data?.trackingCode ?? timeline.data?.trackingCode ?? null;
+  const effectiveCarrierCode = order.data?.carrierCode ?? timeline.data?.carrierCode ?? null;
   const wallet = useApiResource(payable ? `auction-order-wallet:${orderId}` : null, (signal) => walletService.getBalance(signal));
   const availableBalance = wallet.data?.availableBalance;
   const insufficientWallet = Boolean(payable && order.data?.totalAmount != null && availableBalance !== undefined && availableBalance < order.data.totalAmount);
@@ -81,7 +89,14 @@ export function AuctionOrderPayment({ orderId, deadlinePassed, onOrderChanged }:
     {order.loading && !order.data && <p>Đang tải đơn đấu giá…</p>}
     {order.error && <div role="alert" className="notice">{formatError(describeError(order.error, { operation: "read" }))} <button type="button" className="button button-secondary button-small" onClick={order.reload}>Tải lại</button></div>}
     {order.data && <>
+      {canTrack && (
+        <OrderProgressStepper
+          status={timeline.data?.currentStatus ?? order.data.status}
+          orderNo={order.data.orderNo}
+        />
+      )}
       <div className="info-row"><span>Mã đơn</span><strong>{order.data.orderNo}</strong></div>
+      <div className="info-row"><span>Sản phẩm</span><strong>{order.data.productName}</strong></div>
       {order.data.orderSource === "BUY_NOW" && <p className="notice" role="status">Tiền hàng đã được khóa trong ví. Bạn chỉ cần thanh toán phí giao hàng{order.data.paymentDeadlineAt ? ` trước ${new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(order.data.paymentDeadlineAt))}` : ""}.</p>}
       <div className="info-row"><span>Giá trúng</span><strong>{formatMoney(order.data.winningAmount)}</strong></div>
       <div className="info-row"><span>Cọc áp dụng</span><strong>−{formatMoney(order.data.depositAmount)}</strong></div>
@@ -103,6 +118,25 @@ export function AuctionOrderPayment({ orderId, deadlinePassed, onOrderChanged }:
       </form>}
       {payable && order.data.totalAmount !== null && <><button type="button" className="button button-primary" disabled={busy} onClick={() => void pay()}>{busy ? "Đang xử lý…" : order.data.totalAmount === 0 ? "Xác nhận thanh toán" : "Thanh toán bằng Ví Nexus"}</button>{order.data.totalAmount > 0 && <ButtonLink href={ROUTES.buyer.topUp} variant="secondary">Nạp tiền</ButtonLink>}</>}
       {status === "PAID" && <p role="status">Đã thanh toán phần còn lại. Tiền cọc đang được đối soát trước khi người bán tiếp nhận{order.data.sellerRespondDeadlineAt ? ` trước ${new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(order.data.sellerRespondDeadlineAt))}` : ""}.</p>}
+      {canTrack && (
+        <div style={{ marginTop: 14 }}>
+          <TrackingCodeBar
+            carrierCode={effectiveCarrierCode}
+            carrierName={timeline.data?.carrierName}
+            trackingCode={effectiveTrackingCode}
+          />
+          <ShipmentTimelineList
+            events={timeline.data?.timeline ?? []}
+            loading={timeline.loading}
+            refreshing={timeline.loading}
+            onRefresh={() => {
+              order.reload();
+              timeline.reload();
+            }}
+            title="Hành trình giao hàng đấu giá"
+          />
+        </div>
+      )}
       {["SHIPPED", "DELIVERED"].includes(status ?? "") && <div className="auction-receipt"><p>Chỉ xác nhận sau khi bạn thực sự nhận hàng.</p>{confirmReceipt && <p role="alert">Xác nhận sẽ hoàn tất đơn và bắt đầu giải ngân cho người bán.</p>}<button type="button" className="button button-primary" disabled={busy} onClick={() => confirmReceipt ? void receive() : setConfirmReceipt(true)}>{confirmReceipt ? "Xác nhận đã nhận hàng" : "Tôi đã nhận hàng"}</button>{confirmReceipt && <button type="button" className="button button-secondary" onClick={() => setConfirmReceipt(false)}>Quay lại</button>}</div>}
       {deadlinePassed && status === "PENDINGPAYMENT" && <p role="status">Đã quá hạn thanh toán.</p>}
       {status === "COMPLETED" && <PartnerReviewCard referenceType="Auction" referenceId={orderId} title="Đánh giá người bán" counterpart="người bán" />}

@@ -5,6 +5,7 @@ import { AdminPagination, Badge, Card, NoData, PageHeading } from "@/components/
 import { Icon } from "@/components/ui/Icon";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatError, describeError } from "@/lib/errors/error-messages";
+import { formatMoney } from "@/lib/presentation";
 import {
   fulfillmentService,
   shipmentStatusLabel,
@@ -160,15 +161,21 @@ export function AdminShipmentsScreen() {
     const code = rawCode.trim();
     if (!code) return null;
 
-    // 1. Direct lookup via Fulfillment /tracking/{code} (supports GHN code, SubOrderId GUID, ShipmentId GUID)
+    // 1. Direct lookup via Fulfillment /tracking/{code} (supports GHN code, SubOrderNo SUB-.../AO-..., SubOrderId GUID, ShipmentId GUID)
     try {
       return await fulfillmentService.getShipmentByTracking(code);
     } catch {
       // Continue to fallback lookups
     }
 
-    // 2. If UUID, try Fulfillment list filter by SubOrderId, then Commerce Master Order tracking
+    // 2. If UUID, try Fulfillment /sub-orders/{id}, list filter by SubOrderId, then Commerce Master Order tracking
     if (UUID_REGEX.test(code)) {
+      try {
+        return await fulfillmentService.getShipmentBySubOrderId(code);
+      } catch {
+        // Continue
+      }
+
       try {
         const byOrder = await fulfillmentService.listShipments({ orderId: code, page: 1, pageSize: 1 });
         if (byOrder.items.length > 0) {
@@ -312,7 +319,7 @@ export function AdminShipmentsScreen() {
   }
 
   function selectShipmentFromTable(shipment: ShipmentDetail) {
-    const code = shipment.trackingNumber ?? shipment.orderId ?? shipment.id;
+    const code = shipment.trackingNumber ?? shipment.subOrderNo ?? shipment.orderId ?? shipment.id;
     setInputCode(code);
     setActiveShipment(shipment);
     setMasterOrderShipments([]);
@@ -397,10 +404,10 @@ export function AdminShipmentsScreen() {
           {/* Ô nhập mã & Tra cứu */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 10, alignItems: "end" }}>
             <label className="field-wrap" style={{ margin: 0 }}>
-              <span>Mã vận đơn GHN, SubOrder ID hoặc Order ID (*)</span>
+              <span>Mã vận đơn GHN, mã đơn con (SubOrder) hoặc Order ID (*)</span>
               <input
                 className="field"
-                placeholder="Nhập hoặc dán mã vận đơn (VD: LY9WHT), SubOrder ID hoặc Order ID..."
+                placeholder="Nhập mã vận đơn GHN (VD: LY9WHT), mã SubOrder (VD: SUB-... / AO-...) hoặc ID..."
                 value={inputCode}
                 onChange={(e) => setInputCode(e.target.value)}
                 required
@@ -567,10 +574,14 @@ export function AdminShipmentsScreen() {
             <div>
               <div className="info-row">
                 <span>Mã vận đơn GHN</span>
-                <strong>{activeShipment.trackingNumber ?? "—"}</strong>
+                <strong className="mono">{activeShipment.trackingNumber ?? "—"}</strong>
               </div>
               <div className="info-row">
-                <span>Mã đơn hàng con (SubOrder ID)</span>
+                <span>Mã đơn hàng (SubOrder)</span>
+                <strong>{activeShipment.subOrderNo ?? "—"}</strong>
+              </div>
+              <div className="info-row">
+                <span>SubOrder ID</span>
                 <span className="mono" style={{ fontSize: 13 }}>{activeShipment.orderId}</span>
               </div>
               <div className="info-row">
@@ -601,6 +612,36 @@ export function AdminShipmentsScreen() {
               </div>
             </div>
           </div>
+
+          {activeShipment.items && activeShipment.items.length > 0 && (
+            <div style={{ marginTop: 18 }}>
+              <h4 style={{ margin: "0 0 10px 0", fontSize: 15 }}>Sản phẩm trong đơn ship ({activeShipment.items.length})</h4>
+              <div className="table-scroll">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Sản phẩm</th>
+                      <th>SKU ID</th>
+                      <th>Số lượng</th>
+                      <th>Đơn giá</th>
+                      <th>Khối lượng</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {activeShipment.items.map((item, idx) => (
+                      <tr key={`${item.skuId}-${idx}`}>
+                        <td><strong>{item.name}</strong></td>
+                        <td><span className="mono" style={{ fontSize: 12 }}>{item.skuId}</span></td>
+                        <td className="tabular-nums">{item.quantity}</td>
+                        <td className="tabular-nums">{formatMoney(item.price)}</td>
+                        <td className="tabular-nums">{item.weight ? `${item.weight}g` : "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
           {/* Lịch sử sự kiện (Events timeline) */}
           {activeShipment.events && activeShipment.events.length > 0 && (
@@ -664,7 +705,7 @@ export function AdminShipmentsScreen() {
             <input
               type="search"
               className="field"
-              placeholder="Tìm theo mã vận đơn GHN, SubOrder ID, tên hoặc SĐT người nhận..."
+              placeholder="Tìm theo mã vận đơn GHN, mã SubOrder (SUB-... / AO-...), tên hoặc SĐT người nhận..."
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
             />
@@ -739,7 +780,8 @@ export function AdminShipmentsScreen() {
                 <thead>
                   <tr>
                     <th>Mã vận đơn GHN</th>
-                    <th>SubOrder ID</th>
+                    <th>Đơn hàng (SubOrder)</th>
+                    <th>Sản phẩm</th>
                     <th>Người nhận</th>
                     <th>Trạng thái</th>
                     <th>Thời gian</th>
@@ -751,16 +793,26 @@ export function AdminShipmentsScreen() {
                     const isSelected = activeShipment?.id === s.id;
                     const createdLabel = formatDateTime(s.createdAt);
                     const updatedLabel = formatDateTime(s.updatedAt ?? getLatestEventTime(s));
+                    const itemsPreview = s.items?.length
+                      ? s.items.slice(0, 2).map((i) => `${i.name} ×${i.quantity}`).join(", ") +
+                        (s.items.length > 2 ? ` (+${s.items.length - 2})` : "")
+                      : "—";
                     return (
-                      <tr key={s.id} style={isSelected ? { backgroundColor: "var(--accent-subtle, rgba(59,130,246,0.06))" } : undefined}>
+                      <tr key={s.id} style={isSelected ? { backgroundColor: "var(--primary-soft)" } : undefined}>
                         <td>
-                          <strong>{s.trackingNumber ?? "—"}</strong>
+                          <strong className="mono">{s.trackingNumber ?? "—"}</strong>
                           <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>
                             {s.carrierId}
                           </div>
                         </td>
                         <td>
-                          <span className="mono" style={{ fontSize: 12 }}>{s.orderId}</span>
+                          {s.subOrderNo && <div style={{ fontWeight: 700 }}>{s.subOrderNo}</div>}
+                          <span className="mono" style={{ fontSize: 12, color: "var(--muted)" }}>{s.orderId}</span>
+                        </td>
+                        <td>
+                          <div style={{ fontSize: 13, maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {itemsPreview}
+                          </div>
                         </td>
                         <td>
                           <div><strong>{s.receiverName}</strong> · {s.receiverPhone}</div>

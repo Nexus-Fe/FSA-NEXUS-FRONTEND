@@ -27,9 +27,36 @@ export function AuctionOrderSellerActions({ orderId }: { orderId: string }) {
     (signal) => fulfillmentService.getAuctionOrderTimeline(orderId, signal),
   );
 
+  const effectiveTrackingCode = order.data?.trackingCode ?? timeline.data?.trackingCode ?? null;
+  const effectiveCarrierCode = order.data?.carrierCode ?? timeline.data?.carrierCode ?? null;
+  const effectiveLabelPrintUrl = order.data?.labelPrintUrl ?? timeline.data?.labelPrintUrl ?? null;
+
   const canRetryShipment = Boolean(
-    (status === "CONFIRMED" || status === "SELLERACCEPTED") && timeline.data && !timeline.data.trackingCode,
+    (status === "CONFIRMED" || status === "SELLERACCEPTED") &&
+      !effectiveTrackingCode &&
+      timeline.data !== undefined,
   );
+
+  const parsedShipping = (() => {
+    const raw = order.data?.shippingAddress;
+    if (!raw) return null;
+    try {
+      const obj = JSON.parse(raw) as {
+        fullName?: string;
+        phoneNumber?: string;
+        addressLine?: string;
+        wardName?: string;
+        districtName?: string;
+        provinceName?: string;
+      };
+      return {
+        recipient: [obj.fullName, order.data?.contactPhone ?? obj.phoneNumber].filter(Boolean).join(" · "),
+        address: [obj.addressLine, obj.wardName, obj.districtName, obj.provinceName].filter(Boolean).join(", "),
+      };
+    } catch {
+      return { recipient: order.data?.contactPhone ?? "", address: raw };
+    }
+  })();
 
   async function respond(accept: boolean) {
     if (busy || status !== "PAID") return;
@@ -75,6 +102,8 @@ export function AuctionOrderSellerActions({ orderId }: { orderId: string }) {
       timeline.reload();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Chưa thể tạo lại vận đơn lúc này.");
+      order.reload();
+      timeline.reload();
     } finally {
       setRetryBusy(false);
     }
@@ -105,6 +134,9 @@ export function AuctionOrderSellerActions({ orderId }: { orderId: string }) {
           )}
 
           <div className="info-row"><span>Mã đơn</span><strong>{order.data.orderNo}</strong></div>
+          <div className="info-row"><span>Sản phẩm</span><strong>{order.data.productName}</strong></div>
+          {parsedShipping?.recipient && <div className="info-row"><span>Người nhận</span><strong>{parsedShipping.recipient}</strong></div>}
+          {parsedShipping?.address && <div className="info-row"><span>Địa chỉ giao hàng</span><strong style={{ textAlign: "right" }}>{parsedShipping.address}</strong></div>}
           <div className="info-row"><span>Giá trúng</span><strong className="tabular-nums">{formatMoney(order.data.winningAmount)}</strong></div>
           <div className="info-row"><span>Cọc áp dụng</span><strong className="tabular-nums">{formatMoney(order.data.depositAmount)}</strong></div>
           <div className="info-row"><span>Phí giao hàng</span><strong className="tabular-nums">{formatMoney(order.data.shippingFeeAmount)}</strong></div>
@@ -147,10 +179,10 @@ export function AuctionOrderSellerActions({ orderId }: { orderId: string }) {
           {canTrack && (
             <div style={{ marginTop: 14 }}>
               <TrackingCodeBar
-                carrierCode={timeline.data?.carrierCode}
+                carrierCode={effectiveCarrierCode}
                 carrierName={timeline.data?.carrierName}
-                trackingCode={timeline.data?.trackingCode}
-                labelPrintUrl={timeline.data?.labelPrintUrl}
+                trackingCode={effectiveTrackingCode}
+                labelPrintUrl={effectiveLabelPrintUrl}
                 showPrintLabel
               />
               {canRetryShipment && (

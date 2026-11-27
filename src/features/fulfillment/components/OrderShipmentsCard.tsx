@@ -5,6 +5,7 @@ import { Badge, Card, NoData } from "@/components/ui/Primitives";
 import { Icon } from "@/components/ui/Icon";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { describeError, formatError } from "@/lib/errors/error-messages";
+import { formatMoney } from "@/lib/presentation";
 import { fulfillmentService } from "../services/fulfillment.service";
 import { shipmentStatusLabel } from "../shipment-labels";
 import { TrackingCodeBar } from "./TrackingCodeBar";
@@ -85,6 +86,41 @@ function ShipmentRow({
         carrierCode={shipment.carrierCode}
         trackingCode={shipment.trackingCode}
       />
+
+      {shipment.items && shipment.items.length > 0 && (
+        <div style={{ marginTop: 10 }}>
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--muted)", marginBottom: 6 }}>
+            Sản phẩm trong kiện hàng
+          </div>
+          <div className="table-scroll">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Sản phẩm</th>
+                  <th>SL</th>
+                  <th>Đơn giá</th>
+                  <th>Thành tiền</th>
+                </tr>
+              </thead>
+              <tbody>
+                {shipment.items.map((item, idx) => (
+                  <tr key={item.orderItemId ?? `${item.skuId}-${idx}`}>
+                    <td>
+                      <strong>{item.productName}</strong>
+                      {item.skuCode && (
+                        <div style={{ fontSize: 12, color: "var(--muted)" }}>SKU: {item.skuCode}</div>
+                      )}
+                    </td>
+                    <td className="tabular-nums">{item.quantity}</td>
+                    <td className="tabular-nums">{formatMoney(item.unitPrice)}</td>
+                    <td className="tabular-nums"><strong>{formatMoney(item.lineTotal)}</strong></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {shipment.shippedAt && (
         <div className="info-row">

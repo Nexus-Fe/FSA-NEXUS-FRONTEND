@@ -4,9 +4,32 @@ export type ShippingAddress = {
   address: string;
 };
 
+export type ShipmentItem = {
+  skuId: string;
+  quantity: number;
+  name: string;
+  price: number;
+  weight?: number;
+  length?: number;
+  width?: number;
+  height?: number;
+};
+
+export type SubOrderItemSummary = {
+  orderItemId?: string;
+  productId: string;
+  skuId: string;
+  productName: string;
+  skuCode?: string | null;
+  quantity: number;
+  unitPrice: number;
+  lineTotal: number;
+};
+
 export type Shipment = {
   id: string;
   orderId: string;
+  subOrderNo?: string | null;
   warehouseId: string;
   carrierId: string;
   trackingNumber: string | null;
@@ -28,6 +51,7 @@ export type SubOrderShipment = {
   shippedAt: string | null;
   deliveredAt: string | null;
   labelPrintUrl: string | null;
+  items?: SubOrderItemSummary[] | null;
 };
 
 export type OrderShipmentTracking = {
@@ -56,6 +80,7 @@ export type ShipmentTimeline = {
   currentStatus: string;
   estimatedDeliveryAt: string | null;
   timeline: TimelineEvent[];
+  items?: SubOrderItemSummary[] | null;
 };
 
 export type ShipmentEvent = {
@@ -72,12 +97,13 @@ export type ShipmentEvent = {
   warehouseName: string | null;
 };
 
-/** Fulfillment shipment as returned by `GET /api/v1/shipments/tracking/{code}`, with the carrier's events. */
+/** Fulfillment shipment as returned by `GET /api/v1/shipments/tracking/{code}`, with the carrier's events and items. */
 export type ShipmentDetail = Shipment & {
   estimatedDeliveryAt: string | null;
   deliveredAt: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
+  items?: ShipmentItem[] | null;
   events: ShipmentEvent[] | null;
 };
 

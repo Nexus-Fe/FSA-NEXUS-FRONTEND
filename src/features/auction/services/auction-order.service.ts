@@ -5,8 +5,10 @@ export type AuctionOrderDetail = {
   winningAmount: number; depositAmount: number; shippingFeeAmount: number | null; totalAmount: number | null;
   status: string; orderSource?: string; paymentDeadlineAt: string; sellerRespondDeadlineAt: string | null;
   paidAt: string | null; shippedAt: string | null; deliveredAt: string | null;
+  shippingAddress?: string | null; contactPhone?: string | null;
+  carrierCode?: string | null; trackingCode?: string | null; labelPrintUrl?: string | null; estimatedDeliveryAt?: string | null;
 };
-export type AuctionOrderSummary = Pick<AuctionOrderDetail, "id" | "orderNo" | "auctionId" | "productName" | "winningAmount" | "totalAmount" | "status" | "paymentDeadlineAt"> & {
+export type AuctionOrderSummary = Pick<AuctionOrderDetail, "id" | "orderNo" | "auctionId" | "productName" | "winningAmount" | "totalAmount" | "status" | "paymentDeadlineAt" | "carrierCode" | "trackingCode" | "labelPrintUrl"> & {
   imageUrl?: string | null;
   depositAmount?: number;
   shippingFeeAmount?: number | null;
