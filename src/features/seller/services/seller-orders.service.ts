@@ -1,5 +1,24 @@
 import { api, unwrap, type ApiResponse } from "@/lib/api/client";
 
+export type SubOrderFinancialBreakdown = {
+  subOrderId: string;
+  subOrderNo: string;
+  sellerId: string;
+  buyerId: string;
+  totalAmount: number;
+  itemsAmount: number;
+  productDiscountAmount: number;
+  shopDiscountAmount: number;
+  systemDiscountAmount: number;
+  shippingFeeAmount: number;
+  platformFeeAmount: number;
+  sellerReceiveAmount: number;
+  isEscrowSettled: boolean;
+  status: string;
+  paymentMethod: string;
+  completedAt: string | null;
+};
+
 export const sellerOrdersService = {
   async list<T>(page: number, signal?: AbortSignal, pageSize = 20, status?: string): Promise<T> {
     const query = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
@@ -14,6 +33,14 @@ export const sellerOrdersService = {
   async detail<T>(subOrderId: string, signal?: AbortSignal): Promise<T> {
     const response = await api.get<ApiResponse<T> | T>(
       "/api/v1/sub-orders/" + encodeURIComponent(subOrderId),
+      { signal },
+    );
+    return unwrap(response);
+  },
+
+  async financialBreakdown(subOrderId: string, signal?: AbortSignal): Promise<SubOrderFinancialBreakdown> {
+    const response = await api.get<ApiResponse<SubOrderFinancialBreakdown> | SubOrderFinancialBreakdown>(
+      `/api/v1/sub-orders/${encodeURIComponent(subOrderId)}/financial-breakdown`,
       { signal },
     );
     return unwrap(response);

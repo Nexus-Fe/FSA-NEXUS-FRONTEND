@@ -2646,6 +2646,10 @@ export function SellerOrderDetailScreen() {
     (signal) =>
       sellerOrdersService.detail<SellerSubOrder>(subOrderId, signal),
   );
+  const financial = useApiResource(
+    subOrderId ? `seller-sub-order-breakdown:${subOrderId}` : null,
+    (signal) => sellerOrdersService.financialBreakdown(subOrderId, signal),
+  );
 
   const acceptBlock = acceptOrderBlock(useWarehouseReadiness().readiness);
   const [retryBusy, setRetryBusy] = useState(false);
@@ -2826,6 +2830,26 @@ export function SellerOrderDetailScreen() {
               <span>Tổng tiền đơn hàng</span>
               <strong style={{ color: "var(--sky-dark)" }}>{formatMoney(sub.totalAmount)}</strong>
             </div>
+            {financial.data && (
+              <>
+                <div className="info-row">
+                  <span>Phí nền tảng</span>
+                  <strong>−{formatMoney(financial.data.platformFeeAmount)}</strong>
+                </div>
+                <div className="info-row">
+                  <span>Thực nhận về ví</span>
+                  <strong style={{ color: "var(--emerald-dark, #047857)" }}>
+                    {formatMoney(financial.data.sellerReceiveAmount)}
+                  </strong>
+                </div>
+                <div className="info-row">
+                  <span>Trạng thái giải ngân</span>
+                  <Badge tone={financial.data.isEscrowSettled ? "green" : "amber"}>
+                    {financial.data.isEscrowSettled ? "Đã giải ngân" : "Chờ hoàn tất đơn"}
+                  </Badge>
+                </div>
+              </>
+            )}
             {acceptBlock && canAccept && (
               <p role="alert" className="notice" style={{ marginTop: 12 }}>
                 {acceptBlock.message} <Link href={ROUTES.seller.inventory}>Mở Quản lý kho</Link>

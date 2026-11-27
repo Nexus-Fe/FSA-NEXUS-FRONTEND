@@ -60,15 +60,17 @@ function extractTotalCount(raw: unknown): number {
 
 export function AdminOverviewScreen() {
   const overview = useApiResource("admin-overview-metrics", async (signal) => {
-    const [usersRes, penaltiesRes] = await Promise.allSettled([
+    const [usersRes, auctionsRes, penaltiesRes] = await Promise.allSettled([
       api.get<ApiResponse<any>>("/api/v1/admin/users?page=1&pageSize=1", { signal }),
+      api.get<ApiResponse<any>>("/api/v1/auctions?page=1&pageSize=1", { signal }),
       api.get<ApiResponse<any>>("/api/v1/admin/penalties?page=1&limit=1", { signal }),
     ]);
 
     const snapshot: OverviewSnapshot = {
       usersCount:
         usersRes.status === "fulfilled" ? extractTotalCount(usersRes.value) : null,
-      auctionsCount: null,
+      auctionsCount:
+        auctionsRes.status === "fulfilled" ? extractTotalCount(auctionsRes.value) : null,
       penaltiesCount:
         penaltiesRes.status === "fulfilled" ? extractTotalCount(penaltiesRes.value) : null,
     };
@@ -119,18 +121,27 @@ export function AdminOverviewScreen() {
 
         <Card className="card-pad">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: "13px", color: "var(--muted)" }}>Quy tắc đấu giá</span>
-            <Badge tone="amber">Anti-sniping</Badge>
+            <span style={{ fontSize: "13px", color: "var(--muted)" }}>Phiên đấu giá</span>
+            <Badge tone="amber">Đấu giá</Badge>
           </div>
           <strong style={{ display: "block", fontSize: "24px", margin: "10px 0 4px" }}>
-            Cấu hình sàn
+            {data?.auctionsCount != null
+              ? data.auctionsCount.toLocaleString("vi-VN")
+              : overview.loading
+                ? "Đang tải…"
+                : "—"}
           </strong>
           <small style={{ display: "block", color: "var(--muted)", marginBottom: "10px" }}>
-            Chính sách gia hạn & chống tỉa giá đấu giá
+            Tổng số phiên đấu giá trên toàn sàn
           </small>
-          <Link className="button button-secondary button-small" href={ROUTES.admin.auctionConfigs}>
-            Xem cấu hình
-          </Link>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <Link className="button button-secondary button-small" href={ROUTES.admin.auctions}>
+              Giám sát đấu giá
+            </Link>
+            <Link className="button button-secondary button-small" href={ROUTES.admin.auctionConfigs}>
+              Cấu hình
+            </Link>
+          </div>
         </Card>
 
         <Card className="card-pad">

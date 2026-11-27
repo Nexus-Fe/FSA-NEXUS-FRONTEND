@@ -157,9 +157,12 @@ export const StaffReportsScreenClient = dynamic(
   () => import("@/features/staff/StaffScreens").then((module) => module.StaffReportsScreen),
   { ssr: false, loading: ScreenLoading },
 );
-export const StaffQueueScreenClient = dynamic(() => import("@/features/staff/StaffScreens").then((module) => module.StaffQueueScreen), { ssr: false, loading: ScreenLoading });
 export const StaffProductModerationScreenClient = dynamic(
   () => import("@/features/staff/StaffProductModerationScreen").then((module) => module.StaffProductModerationScreen),
+  { ssr: false, loading: ScreenLoading },
+);
+export const StaffProductReviewsScreenClient = dynamic(
+  () => import("@/features/staff/StaffProductReviewsScreen").then((module) => module.StaffProductReviewsScreen),
   { ssr: false, loading: ScreenLoading },
 );
 export const StaffWithdrawalsScreenClient = dynamic(

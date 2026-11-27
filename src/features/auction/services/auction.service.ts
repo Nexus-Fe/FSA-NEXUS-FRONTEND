@@ -1,5 +1,5 @@
 import { api, unwrap, type ApiResponse } from "@/lib/api/client";
-import type { SellerAuctionPricing, BuyNowResponse, MyDepositItem, MyWatchlistItem, ReserveApprovalResponse, SellerReserveStatus, WatchState, AuctionDetail, AuctionResult, AuctionSaga, AuctionStatus, AuctionSummary, BidItem, BidRequest, CreateAuctionReportRequest, CreateAuctionReportResponse, CreateAuctionRequest, DepositRequirement, MyAuctionDeposit, MyBidItem, MySecondChanceOffer, PagedData, PlaceBidResponse, UpdateAuctionRequest, WinnerOffer } from "../types";
+import type { SellerAuctionPricing, BuyNowResponse, MyDepositItem, MyWatchlistItem, ReserveApprovalResponse, SellerReserveStatus, WatchState, AuctionDetail, AuctionResult, AuctionSaga, AuctionStatus, AuctionSummary, BidItem, BidRequest, CreateAuctionReportRequest, CreateAuctionReportResponse, CreateAuctionRequest, DepositRequirement, MyAuctionDeposit, MyAuctionReportItem, MyBidItem, MySecondChanceOffer, PagedData, PlaceBidResponse, UpdateAuctionRequest, WinnerOffer } from "../types";
 import { parseAuctionList, parseMyDeposits, parseMyWatchlist } from "../contract";
 
 const idPath = (id: string) => encodeURIComponent(id);
@@ -81,5 +81,7 @@ export const auctionService = {
     unwrap(await api.delete<ApiResponse<WatchState> | WatchState>(`/api/v1/auctions/${idPath(id)}/watch`)),
   report: async (id: string, body: CreateAuctionReportRequest): Promise<CreateAuctionReportResponse> =>
     unwrap(await api.post<ApiResponse<CreateAuctionReportResponse> | CreateAuctionReportResponse>(`/api/v1/auctions/${idPath(id)}/reports`, body)),
+  myReports: async (page = 1, pageSize = 20, signal?: AbortSignal): Promise<PagedData<MyAuctionReportItem>> =>
+    unwrap(await api.get<ApiResponse<PagedData<MyAuctionReportItem>> | PagedData<MyAuctionReportItem>>(`/api/v1/me/auction-reports?page=${page}&pageSize=${pageSize}`, { signal })),
   forceCancel: (id: string, reason: string) => api.post(`/api/v1/admin/auctions/${idPath(id)}/force-cancel`, { reason }),
 };

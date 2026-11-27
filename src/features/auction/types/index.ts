@@ -44,3 +44,16 @@ export type CreateAuctionReportResponse = {
   createdAt: string;
 };
 
+export type MyAuctionReportItem = {
+  reportId: string;
+  auctionId: string;
+  auctionTitle?: string | null;
+  auctionStatus?: AuctionStatus | string | null;
+  reason: AuctionReportReason | string;
+  description: string;
+  status: string;
+  adminNote?: string | null;
+  createdAt: string;
+  reviewedAt?: string | null;
+};
+
