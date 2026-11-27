@@ -53,6 +53,8 @@ let refreshInFlight: { token: string; promise: Promise<string | null> } | null =
 let accountCheckInFlight: { token: string; promise: Promise<void> } | null = null;
 let meGetInFlight: { token: string | null; promise: Promise<{ data: unknown; headers: Headers }> } | null = null;
 let lastAccountVerified: { token: string; verifiedAt: number } | null = null;
+let lastAccountCheckFailed: { token: string; failedAt: number } | null = null;
+let lastRefreshedAccessToken: string | null = null;
 export const SESSION_INVALIDATED_EVENT = "nexus:session-invalidated";
 
 function getStoredToken(key: string): string | null {
@@ -64,11 +66,36 @@ function getStoredToken(key: string): string | null {
   }
 }
 
-export function extractRolesFromToken(token?: string | null): string[] {
-  if (!token || typeof token !== "string") return [];
+export function getStoredAccessToken(): string | null {
+  return getStoredToken(SESSION_ACCESS_KEY);
+}
+
+export function isAccountCheckRecent(): boolean {
+  const token = getStoredToken(SESSION_ACCESS_KEY);
+  if (!token) return false;
+  const now = Date.now();
+  if (
+    lastAccountVerified &&
+    lastAccountVerified.token === token &&
+    now - lastAccountVerified.verifiedAt < ACCOUNT_CHECK_TTL_MS
+  ) {
+    return true;
+  }
+  if (
+    lastAccountCheckFailed &&
+    lastAccountCheckFailed.token === token &&
+    now - lastAccountCheckFailed.failedAt < ACCOUNT_CHECK_TTL_MS
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function parseJwtPayload(token?: string | null): Record<string, unknown> | null {
+  if (!token || typeof token !== "string") return null;
   try {
     const parts = token.split(".");
-    if (parts.length < 2) return [];
+    if (parts.length < 2) return null;
     let base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
     while (base64.length % 4 !== 0) {
       base64 += "=";
@@ -79,25 +106,73 @@ export function extractRolesFromToken(token?: string | null): string[] {
       bytes[i] = binary.charCodeAt(i);
     }
     const jsonPayload = new TextDecoder().decode(bytes);
-    const payload = JSON.parse(jsonPayload);
-    const claim =
-      payload.roles ??
-      payload.role ??
-      payload.Roles ??
-      payload.Role ??
-      payload["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] ??
-      payload["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/role"];
-    if (Array.isArray(claim)) return claim.map((r) => String(r).trim()).filter(Boolean);
-    if (typeof claim === "string" && claim.trim()) return [claim.trim()];
-    return [];
+    const parsed = JSON.parse(jsonPayload);
+    return parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : null;
   } catch {
-    return [];
+    return null;
   }
+}
+
+function rolesFromPayload(payload: Record<string, unknown>): string[] {
+  const claim =
+    payload.roles ??
+    payload.role ??
+    payload.Roles ??
+    payload.Role ??
+    payload["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] ??
+    payload["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/role"];
+  if (Array.isArray(claim)) return claim.map((r) => String(r).trim()).filter(Boolean);
+  if (typeof claim === "string" && claim.trim()) return [claim.trim()];
+  return [];
+}
+
+export function extractRolesFromToken(token?: string | null): string[] {
+  const payload = parseJwtPayload(token);
+  return payload ? rolesFromPayload(payload) : [];
+}
+
+export type JwtUserClaims = {
+  id: string;
+  email: string;
+  displayName?: string | null;
+  username?: string | null;
+  roles: string[];
+};
+
+export function extractUserFromToken(token?: string | null): JwtUserClaims | null {
+  const payload = parseJwtPayload(token);
+  if (!payload) return null;
+
+  const exp = typeof payload.exp === "number" ? payload.exp : Number(payload.exp);
+  if (Number.isFinite(exp) && exp * 1000 <= Date.now()) {
+    return null;
+  }
+
+  const rawId = payload.sub ?? payload.userId ?? payload.id;
+  const rawEmail =
+    payload.email ??
+    payload["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress"];
+
+  const id = typeof rawId === "string" ? rawId.trim() : "";
+  const email = typeof rawEmail === "string" ? rawEmail.trim() : "";
+  if (!id || !email) return null;
+
+  const rawName = payload.name ?? payload.displayName ?? payload.unique_name;
+  const rawUsername = payload.username ?? payload.preferred_username;
+  return {
+    id,
+    email,
+    displayName: typeof rawName === "string" && rawName.trim() ? rawName.trim() : null,
+    username: typeof rawUsername === "string" && rawUsername.trim() ? rawUsername.trim() : null,
+    roles: rolesFromPayload(payload),
+  };
 }
 
 
 export function saveSessionTokens(accessToken: string, refreshToken: string, _roles?: string[]): void {
   lastAccountVerified = null;
+  lastAccountCheckFailed = null;
+  lastRefreshedAccessToken = null;
   meGetInFlight = null;
   if (typeof window === "undefined") return;
   window.localStorage.setItem(SESSION_ACCESS_KEY, accessToken);
@@ -119,6 +194,8 @@ export function getStoredRoles(): string[] {
 
 export function clearSessionTokens(): void {
   lastAccountVerified = null;
+  lastAccountCheckFailed = null;
+  lastRefreshedAccessToken = null;
   meGetInFlight = null;
   clearApiResourceCache();
   if (typeof window === "undefined") return;
@@ -261,6 +338,7 @@ async function sendWithMetadata<T>(path: string, method: string, options: ApiReq
         profile && typeof profile === "object" ? (profile.status?.toUpperCase() ?? "") : "";
       if (!["BANNED", "DELETED"].includes(status)) {
         lastAccountVerified = { token: activeToken, verifiedAt: Date.now() };
+        lastAccountCheckFailed = null;
       }
     }
     return { data: payload as T, headers: response.headers };
@@ -312,6 +390,7 @@ async function refreshAccessToken(): Promise<string | null> {
       if (getStoredToken(SESSION_REFRESH_KEY) !== refreshToken) return null;
 
       saveSessionTokens(access, refresh);
+      lastRefreshedAccessToken = access;
 
       return access;
     } catch {
@@ -324,7 +403,7 @@ async function refreshAccessToken(): Promise<string | null> {
   return check.promise;
 }
 
-async function ensureAccountActive(path: string): Promise<void> {
+async function ensureAccountActive(path: string, attemptedTokens: Set<string> = new Set()): Promise<void> {
   if (path === "/api/v1/me" || path.startsWith("/api/v1/auth/")) return;
   const accessToken = getStoredToken(SESSION_ACCESS_KEY);
   if (!accessToken) return;
@@ -335,6 +414,18 @@ async function ensureAccountActive(path: string): Promise<void> {
   ) {
     return;
   }
+  if (
+    lastAccountCheckFailed &&
+    lastAccountCheckFailed.token === accessToken &&
+    Date.now() - lastAccountCheckFailed.failedAt < ACCOUNT_CHECK_TTL_MS
+  ) {
+    return;
+  }
+  if (attemptedTokens.has(accessToken) || attemptedTokens.size >= 2) {
+    return;
+  }
+  attemptedTokens.add(accessToken);
+
   if (accountCheckInFlight?.token !== accessToken) {
     const check = { token: accessToken, promise: Promise.resolve() };
     check.promise = (async () => {
@@ -346,11 +437,17 @@ async function ensureAccountActive(path: string): Promise<void> {
           throw new ApiError("Tài khoản đã bị khóa hoặc xóa. Vui lòng đăng nhập lại.", 403, response, "ACCOUNT_BANNED");
         }
         lastAccountVerified = { token: accessToken, verifiedAt: Date.now() };
+        lastAccountCheckFailed = null;
       } catch (error) {
-        if (getStoredToken(SESSION_ACCESS_KEY) !== accessToken) return;
+        const afterToken = getStoredToken(SESSION_ACCESS_KEY);
+        const tokenFromSelfRefresh = afterToken !== null && afterToken === lastRefreshedAccessToken;
+        if (afterToken !== accessToken && !tokenFromSelfRefresh) return;
         if (error instanceof ApiError && (["ACCOUNT_BANNED", "USER_BANNED"].includes(error.errorCode ?? "") || (error.status === 401 && !hasRefreshToken()))) {
           invalidateSession();
           throw error;
+        }
+        if (afterToken) {
+          lastAccountCheckFailed = { token: afterToken, failedAt: Date.now() };
         }
         // A transient profile failure must not block an unrelated request.
       }
@@ -360,7 +457,14 @@ async function ensureAccountActive(path: string): Promise<void> {
   await accountCheckInFlight.promise;
   const currentToken = getStoredToken(SESSION_ACCESS_KEY);
   if (!currentToken) return;
-  if (currentToken !== accessToken) await ensureAccountActive(path);
+  if (
+    currentToken !== accessToken &&
+    !attemptedTokens.has(currentToken) &&
+    !(lastAccountCheckFailed && lastAccountCheckFailed.token === currentToken && Date.now() - lastAccountCheckFailed.failedAt < ACCOUNT_CHECK_TTL_MS) &&
+    !(lastAccountVerified && lastAccountVerified.token === currentToken && Date.now() - lastAccountVerified.verifiedAt < ACCOUNT_CHECK_TTL_MS)
+  ) {
+    await ensureAccountActive(path, attemptedTokens);
+  }
 }
 
 async function request<T>(path: string, method: string, options: ApiRequestOptions = {}): Promise<T> {

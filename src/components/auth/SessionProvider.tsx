@@ -14,7 +14,10 @@ import {
   ApiError,
   api,
   clearSessionTokens,
+  extractUserFromToken,
+  getStoredAccessToken,
   hasRefreshToken,
+  isAccountCheckRecent,
   saveSessionRoles,
   SESSION_INVALIDATED_EVENT,
   type ApiResponse,
@@ -44,24 +47,45 @@ function rolesFromProfile(profile: AuthUser): string[] {
   return [...new Set(roles)];
 }
 
+function userFromStoredJwt(): AuthUser | null {
+  const claims = extractUserFromToken(getStoredAccessToken());
+  if (!claims) return null;
+  return {
+    id: claims.id,
+    email: claims.email,
+    displayName: claims.displayName ?? undefined,
+    username: claims.username ?? undefined,
+    roles: claims.roles,
+  };
+}
+
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [ready, setReady] = useState(false);
   const [restoreError, setRestoreError] = useState<string | null>(null);
   const sessionVersion = useRef(0);
+  const userRef = useRef<AuthUser | null>(null);
+
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
 
   const setAuthenticatedUser = useCallback((authenticatedUser: AuthUser) => {
     sessionVersion.current += 1;
 
     const roles = rolesFromProfile(authenticatedUser);
     saveSessionRoles(roles);
-    setUser({ ...authenticatedUser, roles });
+    const nextUser = { ...authenticatedUser, roles };
+    userRef.current = nextUser;
+    setUser(nextUser);
     setRestoreError(null);
+    setReady(true);
   }, []);
 
   const clearSession = useCallback(() => {
     sessionVersion.current += 1;
     clearSessionTokens();
+    userRef.current = null;
     setUser(null);
     setRestoreError(null);
     setReady(true);
@@ -69,23 +93,40 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const refreshUser = useCallback(async () => {
     const version = sessionVersion.current;
+    const jwtUser = userFromStoredJwt();
 
     if (!hasRefreshToken()) {
+      if (jwtUser) {
+        userRef.current = userRef.current ?? jwtUser;
+        setUser((current) => current ?? jwtUser);
+        setRestoreError(null);
+        setReady(true);
+        return;
+      }
+      userRef.current = null;
       setUser(null);
       setRestoreError(null);
       setReady(true);
       return;
     }
 
+    if (jwtUser && !userRef.current) {
+      userRef.current = jwtUser;
+      setUser(jwtUser);
+      setRestoreError(null);
+      setReady(true);
+    }
+
     try {
-      const response = await api.get<ApiResponse<AuthUser> | AuthUser>(
+      const response = await api.get<ApiResponse<AuthUser & { userId?: string }> | (AuthUser & { userId?: string })>(
         "/api/v1/me",
       );
 
-      if (version !== sessionVersion.current || !hasRefreshToken()) return;
+      if (version !== sessionVersion.current || (!hasRefreshToken() && !getStoredAccessToken())) return;
 
       const profile = "data" in response ? response.data : response;
-      if (!profile?.id || !profile.email) {
+      const profileId = profile?.id || profile?.userId;
+      if (!profileId || !profile?.email) {
         throw new Error("Phản hồi hồ sơ không hợp lệ.");
       }
 
@@ -96,7 +137,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
       const roles = rolesFromProfile(profile);
       saveSessionRoles(roles);
-      setUser({ ...profile, roles });
+      const nextUser = { ...profile, id: profileId, roles };
+      userRef.current = nextUser;
+      setUser(nextUser);
       setRestoreError(null);
     } catch (error) {
       if (version !== sessionVersion.current) return;
@@ -114,11 +157,20 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         [401, 403].includes(error.status) &&
         !hasRefreshToken()
       ) {
-        setUser(null);
+        clearSession();
+        return;
+      }
+
+      const fallbackUser = userFromStoredJwt();
+      if (fallbackUser || (userRef.current && getStoredAccessToken())) {
+        const preserved = userRef.current ?? fallbackUser;
+        userRef.current = preserved;
+        setUser(preserved);
         setRestoreError(null);
         return;
       }
 
+      userRef.current = null;
       setUser(null);
       setRestoreError(
         "Không tải được phiên từ Gateway. Phiên đăng nhập vẫn được giữ; vui lòng thử lại.",
@@ -136,7 +188,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }, 0);
 
     const refreshWhenVisible = () => {
-      if (document.visibilityState === "visible") void refreshUser();
+      if (document.visibilityState === "visible" && hasRefreshToken() && !isAccountCheckRecent()) {
+        void refreshUser();
+      }
     };
 
     const handleInvalidation = () => clearSession();

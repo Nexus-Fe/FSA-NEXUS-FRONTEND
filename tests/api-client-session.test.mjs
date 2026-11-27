@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { api, clearSessionTokens, extractRolesFromToken, getStoredRoles, saveSessionTokens, SESSION_INVALIDATED_EVENT } from "../src/lib/api/client.ts";
+import { api, clearSessionTokens, extractRolesFromToken, extractUserFromToken, getStoredRoles, isAccountCheckRecent, saveSessionTokens, SESSION_INVALIDATED_EVENT } from "../src/lib/api/client.ts";
 
 function browserSession() {
   const values = new Map();
@@ -190,4 +190,68 @@ test("token refresh removes tampered browser role cache and relies on /me", asyn
   assert.equal(browser.localStorage.getItem("nexus_session_roles"), null);
 });
 
+test("repeated 401 on /api/v1/me with 200 refresh does not cause infinite recursion loop", async () => {
+  const browser = browserSession();
+  saveSessionTokens("initial-access", "initial-refresh");
+
+  let meCalls = 0;
+  let refreshCalls = 0;
+  let productsCalls = 0;
+  globalThis.fetch = async (url) => {
+    if (url.endsWith("/me")) {
+      meCalls += 1;
+      return json({ title: "Unauthorized", errorCode: "UNAUTHORIZED" }, 401);
+    }
+    if (url.endsWith("/auth/refresh")) {
+      refreshCalls += 1;
+      return json({ accessToken: `rotated-access-${refreshCalls}`, refreshToken: `rotated-refresh-${refreshCalls}` });
+    }
+    productsCalls += 1;
+    return json({ items: [] });
+  };
+
+  const first = await api.get("/api/v1/products");
+  assert.deepEqual(first, { items: [] });
+  assert.equal(meCalls, 2);
+  assert.equal(refreshCalls, 1);
+  assert.equal(productsCalls, 1);
+  assert.equal(isAccountCheckRecent(), true);
+
+  const second = await api.get("/api/v1/categories");
+  assert.deepEqual(second, { items: [] });
+  assert.equal(meCalls, 2);
+  assert.equal(refreshCalls, 1);
+  assert.equal(productsCalls, 2);
+  assert.equal(browser.localStorage.getItem("nexus_access_token"), "rotated-access-1");
+});
+
+test("extractUserFromToken parses valid JWT claims and rejects expired tokens", () => {
+  const futureExp = Math.floor(Date.now() / 1000) + 3600;
+  const validPayload = Buffer.from(JSON.stringify({
+    sub: "user-1",
+    email: "buyer@nexus.com",
+    name: "John Buyer",
+    roles: ["buyer"],
+    exp: futureExp,
+  })).toString("base64url");
+  const validToken = `hdr.${validPayload}.sig`;
+
+  assert.deepEqual(extractUserFromToken(validToken), {
+    id: "user-1",
+    email: "buyer@nexus.com",
+    displayName: "John Buyer",
+    username: null,
+    roles: ["buyer"],
+  });
+
+  const pastExp = Math.floor(Date.now() / 1000) - 60;
+  const expiredPayload = Buffer.from(JSON.stringify({
+    sub: "user-1",
+    email: "buyer@nexus.com",
+    roles: ["buyer"],
+    exp: pastExp,
+  })).toString("base64url");
+  assert.equal(extractUserFromToken(`hdr.${expiredPayload}.sig`), null);
+  assert.equal(extractUserFromToken("not-a-jwt"), null);
+});
 
