@@ -1,8 +1,9 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { adminNavigation, sellerNavigation, staffNavigation } from "@/constants/navigation";
+import { adminNavigationSections, sellerNavigationSections, staffNavigationSections } from "@/constants/navigation";
 import { AuthShell, BuyerShell, PortalShell } from "@/components/layout/Shells";
+import { useEnabledNavigationSections } from "@/lib/features/use-enabled-navigation";
 
 export function AuthShellClient({ children }: { children: ReactNode }) {
   return <AuthShell>{children}</AuthShell>;
@@ -13,13 +14,16 @@ export function BuyerShellClient({ children }: { children: ReactNode }) {
 }
 
 export function SellerShellClient({ children }: { children: ReactNode }) {
-  return <PortalShell role="Người bán" subtitle="Kênh người bán" items={sellerNavigation}>{children}</PortalShell>;
+  const sections = useEnabledNavigationSections(sellerNavigationSections);
+  return <PortalShell role="Người bán" subtitle="Kênh người bán" sections={sections}>{children}</PortalShell>;
 }
 
 export function StaffShellClient({ children }: { children: ReactNode }) {
-  return <PortalShell role="Nhân viên" subtitle="Vận hành sàn" items={staffNavigation}>{children}</PortalShell>;
+  const sections = useEnabledNavigationSections(staffNavigationSections);
+  return <PortalShell role="Nhân viên" subtitle="Vận hành sàn" sections={sections}>{children}</PortalShell>;
 }
 
 export function AdminShellClient({ children }: { children: ReactNode }) {
-  return <PortalShell role="Quản trị viên" subtitle="Quản trị hệ thống" items={adminNavigation}>{children}</PortalShell>;
+  const sections = useEnabledNavigationSections(adminNavigationSections);
+  return <PortalShell role="Quản trị viên" subtitle="Quản trị hệ thống" sections={sections}>{children}</PortalShell>;
 }

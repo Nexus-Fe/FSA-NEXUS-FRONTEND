@@ -1,5 +1,5 @@
 import { api, clearSessionTokens, getRefreshToken, saveSessionTokens, type ApiResponse } from "@/lib/api/client";
-import type { AuthResponse, AuthUser, LoginRequest, RegisterRequest } from "../types";
+import type { AuthResponse, AuthUser, GoogleLoginRequest, LoginRequest, RegisterRequest } from "../types";
 
 export type RegistrationResponse = { userId?: string; email?: string; otpExpiresIn?: number };
 
@@ -26,29 +26,44 @@ function profileFromGateway(value: AuthUser & { userId?: string }, login: Gatewa
   return { ...value, id, roles };
 }
 
+async function completeGatewayLogin(
+  login: GatewayLoginData | null | undefined,
+  loadCurrentUser: () => Promise<AuthUser & { userId?: string }>,
+): Promise<AuthResponse> {
+  if (!login?.accessToken || !login.refreshToken) {
+    throw new Error("Phản hồi đăng nhập thiếu thông tin phiên.");
+  }
+  const accessToken = login.accessToken;
+  const refreshToken = login.refreshToken;
+  saveSessionTokens(accessToken, refreshToken);
+  try {
+    const profile = login.user ?? await loadCurrentUser();
+    const user = profileFromGateway(profile, login);
+    return {
+      ...login, accessToken, refreshToken, user,
+    } satisfies AuthResponse;
+  } catch (error) {
+    clearSessionTokens();
+    throw error;
+  }
+}
+
 export const authService = {
   async login(credentials: LoginRequest) {
     const response = await api.post<ApiResponse<GatewayLoginData> | GatewayLoginData>("/api/v1/auth/login", {
       identifier: credentials.identifier.trim(),
       password: credentials.password,
     }, { skipRefresh: true });
-    const login = unwrap(response);
-    if (!login?.accessToken || !login.refreshToken) {
-      throw new Error("Phản hồi đăng nhập thiếu thông tin phiên.");
-    }
-    const accessToken = login.accessToken;
-    const refreshToken = login.refreshToken;
-    saveSessionTokens(accessToken, refreshToken);
-    try {
-      const profile = login.user ?? await this.getCurrentUser();
-      const user = profileFromGateway(profile, login);
-      return {
-        ...login, accessToken, refreshToken, user,
-      } satisfies AuthResponse;
-    } catch (error) {
-      clearSessionTokens();
-      throw error;
-    }
+    return completeGatewayLogin(unwrap(response), () => this.getCurrentUser());
+  },
+
+  async loginWithGoogle(input: GoogleLoginRequest) {
+    const deviceInfo = input.deviceInfo ?? (typeof navigator !== "undefined" ? navigator.userAgent : undefined);
+    const response = await api.post<ApiResponse<GatewayLoginData> | GatewayLoginData>("/api/v1/auth/google", {
+      idToken: input.idToken,
+      ...(deviceInfo ? { deviceInfo } : {}),
+    }, { skipRefresh: true });
+    return completeGatewayLogin(unwrap(response), () => this.getCurrentUser());
   },
 
   register(input: RegisterRequest) {

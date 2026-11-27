@@ -10,6 +10,8 @@ import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatMoney } from "@/lib/presentation";
 import { walletService } from "./services/wallet.service";
 import { clearTopupDraft, getTopupIdempotencyKey, readStripePaymentContext, saveStripePaymentContext } from "./stripe-payment-context";
+import { describeError, formatError } from "@/lib/errors/error-messages";
+import { ErrorState } from "@/components/ui/States";
 
 const subscribeToStorage = () => () => {};
 const getStoredTopupId = () => readStripePaymentContext()?.transactionId ?? "";
@@ -52,14 +54,18 @@ export function WalletTopUpForm() {
       setRetryConflict(cause instanceof ApiError && cause.status === 409);
       setError(cause instanceof ApiError && cause.status === 409
         ? "Yêu cầu đang được đối soát. Hãy kiểm tra lịch sử trước khi thử lại."
-        : cause instanceof Error ? cause.message : "Không thể tạo yêu cầu. Hãy kiểm tra lịch sử trước khi thử lại.");
+        : formatError(describeError(cause, { operation: "write" })));
       setBusy(false);
       setConfirm(false);
     }
   }
 
   return <>
-    <PageHeading title="Nạp tiền vào ví" description="Thanh toán qua Stripe. Số dư chỉ cập nhật sau khi ví xác nhận giao dịch." />
+    <PageHeading
+      title="Nạp tiền vào ví"
+      description="Thanh toán qua Stripe. Số dư chỉ cập nhật sau khi ví xác nhận giao dịch."
+      action={<Link className="button button-secondary button-small" href={ROUTES.buyer.wallet}>Quay lại ví</Link>}
+    />
     <div className="split">
       <Card className="card-pad"><h2>Thông tin nạp tiền</h2>
         <form className="auth-fields" onSubmit={submit}>
@@ -118,7 +124,7 @@ export function WalletTopUpResult({ transactionId, checkout }: { transactionId?:
       if (!validPaymentUrl(session.paymentUrl)) throw new Error("Đường dẫn Stripe không hợp lệ.");
       window.location.assign(session.paymentUrl);
     } catch (cause) {
-      setResumeError(cause instanceof Error ? cause.message : "Không tiếp tục được phiên thanh toán.");
+      setResumeError(formatError(describeError(cause, { operation: "write" })));
       setResuming(false); topup.reload();
     }
   }
@@ -129,7 +135,7 @@ export function WalletTopUpResult({ transactionId, checkout }: { transactionId?:
         : <><h2>{topup.loading && !topup.data ? "Đang kiểm tra…" : topup.error ? "Chưa kiểm tra được giao dịch" : success ? "Nạp tiền thành công" : failed ? "Giao dịch không thành công" : "Đang chờ xác nhận"}</h2>
           {checkout === "cancel" && <p className="notice">Bạn đã rời Stripe. Giao dịch có thể vẫn đang chờ xử lý.</p>}
           {topup.data && <><p>Mã giao dịch: <strong>{topup.data.transactionId}</strong></p><p>Số tiền: <strong className="seller-money-amount">{formatMoney(topup.data.amount)}</strong></p><p>Trạng thái: <TopupBadge status={topup.data.status} /></p></>}
-          {topup.error && <p className="notice" role="alert">{topup.error.message}{topup.error instanceof ApiError && topup.error.status === 401 && <> · <Link href={`${ROUTES.auth.login}?returnTo=${encodeURIComponent(ROUTES.buyer.topUpDetail(id))}`}>Đăng nhập lại</Link></>}</p>}
+          {topup.error && <><ErrorState cause={topup.error} onRetry={topup.reload} />{topup.error instanceof ApiError && topup.error.status === 401 && <p><Link href={`${ROUTES.auth.login}?returnTo=${encodeURIComponent(ROUTES.buyer.topUpDetail(id))}`}>Đăng nhập lại</Link></p>}</>}
           {resumeError && <p className="notice" role="alert">{resumeError}</p>}
           {status === "PENDING" && checks >= 8 && <p role="status">Giao dịch vẫn đang được xử lý. Bạn có thể kiểm tra lại sau.</p>}
           <div className="action-row"><button className="button button-secondary" type="button" disabled={topup.loading} onClick={() => { setChecks(0); topup.reload(); }}>Kiểm tra lại</button>{status === "PENDING" && topup.data?.canResume && <button className="button button-primary" type="button" disabled={resuming} onClick={() => void resume()}>{resuming ? "Đang kiểm tra phiên…" : "Tiếp tục thanh toán"}</button>}<button className="button button-secondary" type="button" onClick={() => setLeaving(true)}>Rời trang thanh toán</button></div>

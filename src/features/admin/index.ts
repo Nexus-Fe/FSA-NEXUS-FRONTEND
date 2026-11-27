@@ -8,6 +8,7 @@ export { AdminNotificationsScreen } from "./AdminNotificationsScreen";
 export { AdminPenaltiesScreen } from "./AdminPenaltiesScreen";
 export { AdminRolesScreen } from "./AdminRolesScreen";
 export { AdminUsersScreen } from "./AdminUsersScreen";
+export { AdminShipmentsScreen } from "./AdminShipmentsScreen";
 export { AdminOverviewScreen, AdminContractScreen } from "./AdminScreens";
 
 // Services

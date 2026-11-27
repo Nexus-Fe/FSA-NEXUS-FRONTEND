@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { EvidenceThumbnailGrid } from "@/components/ui/ImageLightbox";
 import {
   AdminPagination,
   Badge,
@@ -8,10 +9,14 @@ import {
   NoData,
   PageHeading,
 } from "@/components/ui/Primitives";
+import { TableSkeleton } from "@/components/ui/Skeleton";
+import { ErrorState } from "@/components/ui/States";
+import { REPORT_REFUND_STATUS, statusLabel } from "@/lib/status-labels";
 import { ApiError } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import {
   adminReportsService,
+  canRetryReportRefund,
   reportStatusLabel,
   reportStatusTone,
   reportViolationTypeLabel,
@@ -34,6 +39,8 @@ export function StaffReportsScreen() {
   const [violationType, setViolationType] = useState("");
   const [page, setPage] = useState(1);
   const [selectedReport, setSelectedReport] = useState<AdminReportItem | null>(null);
+  const [refundBusy, setRefundBusy] = useState(false);
+  const [refundFailure, setRefundFailure] = useState<unknown>(null);
 
   // Actions
   const [actionType, setActionType] = useState<ActionType>(null);
@@ -174,6 +181,21 @@ export function StaffReportsScreen() {
     }
   }
 
+  async function retryRefund() {
+    if (!selectedReport || refundBusy) return;
+    setRefundBusy(true);
+    setRefundFailure(null);
+    try {
+      await adminReportsService.retryRefund(selectedReport.reportId);
+      setSelectedReport(null);
+      reports.reload();
+    } catch (cause) {
+      setRefundFailure(cause);
+    } finally {
+      setRefundBusy(false);
+    }
+  }
+
   async function submitResolve(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedReport) return;
@@ -235,8 +257,8 @@ export function StaffReportsScreen() {
         description="Tiếp nhận, kiểm tra chứng cứ và ban hành quyết định xử lý báo cáo vi phạm từ người dùng sàn."
       />
 
-      <Card>
-        <div className="toolbar">
+      <Card className="card-pad" style={{ marginBottom: 16 }}>
+        <div className="ops-filters" style={{ margin: 0 }}>
           <label className="field-wrap">
             Trạng thái xử lý
             <select
@@ -274,7 +296,9 @@ export function StaffReportsScreen() {
             </select>
           </label>
         </div>
+      </Card>
 
+      <Card>
         {reports.error && (
           <p role="alert" className="notice">
             {reports.error instanceof ApiError
@@ -283,18 +307,18 @@ export function StaffReportsScreen() {
           </p>
         )}
 
-        {reports.loading ? (
-          <NoData title="Đang nạp danh sách báo cáo…" />
+        {reports.loading && !reports.data ? (
+          <TableSkeleton rows={5} cols={5} label="Đang nạp danh sách báo cáo…" />
         ) : records.length > 0 ? (
           <div className="table-scroll">
             <table className="data-table" style={{ width: "100%", tableLayout: "fixed" }}>
               <thead>
                 <tr>
-                  <th style={{ width: "18%", padding: "12px 10px" }}>Mã báo cáo</th>
-                  <th style={{ width: "28%", padding: "12px 10px" }}>Loại vi phạm</th>
-                  <th style={{ width: "16%", padding: "12px 10px" }}>Đối tượng</th>
-                  <th style={{ width: "18%", padding: "12px 10px" }}>Trạng thái</th>
-                  <th style={{ width: "20%", padding: "12px 10px" }}>Thời gian gửi</th>
+                  <th style={{ width: "18%" }}>Mã báo cáo</th>
+                  <th style={{ width: "28%" }}>Loại vi phạm</th>
+                  <th style={{ width: "16%" }}>Đối tượng</th>
+                  <th style={{ width: "18%" }}>Trạng thái</th>
+                  <th style={{ width: "20%" }}>Thời gian gửi</th>
                 </tr>
               </thead>
               <tbody>
@@ -365,7 +389,7 @@ export function StaffReportsScreen() {
             if (e.key === "Escape" && !busy) closeDetail();
           }}
         >
-          <section className="admin-modal" style={{ maxWidth: "700px" }}>
+          <section className="admin-modal staff-report-detail-dialog" style={{ maxWidth: "700px" }}>
             <div className="admin-modal-heading">
               <div>
                 <h2 id="report-modal-title">Chi tiết báo cáo vi phạm</h2>
@@ -415,6 +439,18 @@ export function StaffReportsScreen() {
                   {reportStatusLabel(selectedReport.status)}
                 </Badge>
               </div>
+              {selectedReport.refundStatus && selectedReport.refundStatus !== "None" && (
+                <div className="info-row" style={{ gridColumn: "span 2" }}>
+                  <span>Hoàn tiền sau xử lý:</span>
+                  <strong>{statusLabel(REPORT_REFUND_STATUS, selectedReport.refundStatus)}</strong>
+                  {canRetryReportRefund(selectedReport.refundStatus) && (
+                    <button type="button" className="button button-secondary button-small" disabled={refundBusy} onClick={() => void retryRefund()}>
+                      {refundBusy ? "Đang thử lại…" : "Thử hoàn tiền lại"}
+                    </button>
+                  )}
+                  {refundFailure != null && <ErrorState cause={refundFailure} operation="write" />}
+                </div>
+              )}
               {selectedReport.referenceId && (
                 <div className="info-row" style={{ gridColumn: "span 2" }}>
                   <span>Tham chiếu liên quan ({selectedReport.referenceType || "Đối tượng"}):</span>
@@ -427,34 +463,22 @@ export function StaffReportsScreen() {
               <span style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600 }}>
                 Nội dung mô tả từ người tố cáo:
               </span>
-              <p style={{ margin: "6px 0 0", padding: "10px", background: "var(--bg-subtle, #f8fafc)", borderRadius: "6px", fontSize: "14px", lineHeight: "1.5" }}>
+              <p style={{ margin: "6px 0 0", padding: "12px 14px", background: "var(--bg-subtle, #f8fafc)", borderRadius: "14px", fontSize: "14px", lineHeight: "1.5" }}>
                 {selectedReport.description}
               </p>
             </div>
 
             {selectedReport.evidenceUrls && selectedReport.evidenceUrls.length > 0 && (
               <div style={{ marginBottom: "16px" }}>
-                <span style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600 }}>
+                <span style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, display: "block", marginBottom: "6px" }}>
                   Bằng chứng đính kèm ({selectedReport.evidenceUrls.length}):
                 </span>
-                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginTop: "6px" }}>
-                  {selectedReport.evidenceUrls.map((url, idx) => (
-                    <a
-                      key={idx}
-                      href={url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="button button-secondary button-small"
-                    >
-                      Bằng chứng #{idx + 1} ↗
-                    </a>
-                  ))}
-                </div>
+                <EvidenceThumbnailGrid urls={selectedReport.evidenceUrls} size={72} title="Bằng chứng khiếu nại" />
               </div>
             )}
 
             {selectedReport.resolutionNote && (
-              <div style={{ marginBottom: "16px", padding: "12px", background: "#f0fdf4", borderRadius: "6px", border: "1px solid #bbf7d0" }}>
+              <div className="form-success" style={{ marginBottom: "16px" }}>
                 <strong style={{ display: "block", color: "#166534", marginBottom: "4px" }}>
                   Biên bản xử lý trước đó:
                 </strong>

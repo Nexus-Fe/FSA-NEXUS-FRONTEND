@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import { Card } from "@/components/ui/Primitives";
+import { FileDropZone, IMAGE_UPLOAD_PRESET } from "@/components/ui/FileDropZone";
+import { EvidenceThumbnailGrid } from "@/components/ui/ImageLightbox";
+import { StarDisplay, StarRatingInput } from "@/components/ui/StarRatingInput";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { reviewErrorText } from "./PartnerReviewCard";
 import { REVIEW_REASON_TEXT, reviewService } from "./services/review.service";
@@ -96,24 +99,33 @@ export function ProductReviewCard({ productId, productName, subOrderId }: { prod
     {notice && <p className="form-success" role="status">{notice}</p>}
     {error && <p className="notice" role="alert">{error}</p>}
 
-    {existing && !editing && <div>
-      <p>Đánh giá của bạn: <strong>{existing.rating}/5 sao</strong>{existing.status !== "Published" && <> · <em>{existing.status === "Hidden" ? "đã bị ẩn bởi quản trị" : existing.status}</em></>}</p>
-      {existing.comment && <p>{existing.comment}</p>}
-      <small>Gửi ngày {DATE.format(new Date(existing.createdAt))}</small>
-      {existing.status !== "Hidden" && <div className="action-row">
-        <button type="button" className="button button-secondary" onClick={startEdit} disabled={busy}>Sửa đánh giá</button>
+    {existing && !editing && <div style={{ display: "grid", gap: "8px", padding: "12px 14px", borderRadius: 12, background: "#f8fafc", border: "1px solid rgba(31,32,36,0.09)" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+          <StarDisplay rating={existing.rating} />
+          <strong>{existing.rating}/5 sao</strong>
+          {existing.status !== "Published" && <em style={{ fontSize: 12, color: "var(--muted)" }}>· {existing.status === "Hidden" ? "đã bị ẩn bởi quản trị" : existing.status}</em>}
+        </span>
+        <small style={{ color: "var(--muted)" }}>Gửi ngày {DATE.format(new Date(existing.createdAt))}</small>
+      </div>
+      {existing.comment && <p style={{ margin: 0, lineHeight: 1.5 }}>{existing.comment}</p>}
+      {existing.reviewImages && existing.reviewImages.length > 0 && (
+        <EvidenceThumbnailGrid urls={existing.reviewImages} size={64} title="Ảnh đánh giá của bạn" />
+      )}
+      {existing.status !== "Hidden" && <div className="action-row" style={{ marginTop: 4 }}>
+        <button type="button" className="button button-secondary button-small" onClick={startEdit} disabled={busy}>Sửa đánh giá</button>
         {confirmDelete
-          ? <><button type="button" className="button button-primary" onClick={() => void remove()} disabled={busy}>Xác nhận xóa</button><button type="button" className="button button-secondary" onClick={() => setConfirmDelete(false)} disabled={busy}>Giữ lại</button></>
-          : <button type="button" className="button button-secondary" onClick={() => setConfirmDelete(true)} disabled={busy}>Xóa đánh giá</button>}
+          ? <><button type="button" className="button button-primary button-small" onClick={() => void remove()} disabled={busy}>Xác nhận xóa</button><button type="button" className="button button-secondary button-small" onClick={() => setConfirmDelete(false)} disabled={busy}>Giữ lại</button></>
+          : <button type="button" className="button button-secondary button-small" onClick={() => setConfirmDelete(true)} disabled={busy}>Xóa đánh giá</button>}
       </div>}
     </div>}
 
     {answer && !answer.canReview && !existing && !notice && <p className="status-note" role="status">{REVIEW_REASON_TEXT[answer.reason ?? ""] ?? "Chưa thể đánh giá sản phẩm này."}</p>}
 
     {showForm && <form className="auth-fields" onSubmit={(event) => void submit(event)}>
-      <label className="field-wrap">Số sao<select className="select-field" value={rating} onChange={(event) => setRating(Number(event.target.value))}>{[5, 4, 3, 2, 1].map((value) => <option key={value} value={value}>{value} sao</option>)}</select></label>
+      <StarRatingInput value={rating} onChange={setRating} />
       <label className="field-wrap">Nhận xét<textarea className="textarea-field" minLength={3} maxLength={2000} required value={comment} onChange={(event) => setComment(event.target.value)} /></label>
-      <label className="field-wrap">{editing ? "Ảnh mới (thay toàn bộ ảnh cũ, tối đa 5)" : "Ảnh đánh giá (tối đa 5)"}<input className="field" type="file" accept={IMAGE_TYPES.join(",")} multiple onChange={(event) => setImages(Array.from(event.target.files ?? []))} /></label>
+      <div className="field-wrap"><span>{editing ? "Ảnh mới (thay toàn bộ ảnh cũ, tối đa 5)" : "Ảnh đánh giá (tối đa 5)"}</span><FileDropZone {...IMAGE_UPLOAD_PRESET} onFilesChange={setImages} /></div>
       {!editing && answer?.expiresAt && <small>Có thể đánh giá đến {DATE.format(new Date(answer.expiresAt))}.</small>}
       <div className="action-row">
         <button className="button button-primary" type="submit" disabled={busy}>{busy ? "Đang gửi…" : editing ? "Lưu thay đổi" : "Gửi đánh giá sản phẩm"}</button>

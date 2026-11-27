@@ -6,9 +6,17 @@ import { ROUTES } from "@/constants/routes";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatMoney } from "@/lib/presentation";
 import { walletService } from "@/features/wallet/services/wallet.service";
+import type { WalletBalance } from "@/features/wallet/types";
 import { describeDepositFailure } from "./auction-outcome";
 import { auctionService } from "./services/auction.service";
 import type { DepositRequirement, MyAuctionDeposit } from "./types";
+
+type WalletState = {
+  data: WalletBalance | null;
+  loading: boolean;
+  error: Error | null;
+  reload: () => void;
+};
 
 type Props = {
   auctionId: string;
@@ -18,6 +26,7 @@ type Props = {
   loading: boolean;
   error: Error | null;
   reload: () => void;
+  wallet?: WalletState;
 };
 
 const depositState = (status: string) => ({
@@ -28,8 +37,9 @@ const depositState = (status: string) => ({
   CAPTURED: "Khoản cọc đã được tính vào đơn đấu giá.",
 }[status.toUpperCase()] ?? "Chưa đặt cọc cho phiên này.");
 
-export function AuctionDepositPanel({ auctionId, userId, requirement, deposit, loading, error, reload }: Props) {
-  const wallet = useApiResource(`auction-wallet:${userId}`, (signal) => walletService.getBalance(signal));
+export function AuctionDepositPanel({ auctionId, userId, requirement, deposit, loading, error, reload, wallet: sharedWallet }: Props) {
+  const localWallet = useApiResource(sharedWallet ? null : `auction-wallet:${userId}`, (signal) => walletService.getBalance(signal));
+  const wallet = sharedWallet ?? localWallet;
   const dialog = useRef<HTMLDialogElement>(null);
   const pendingKey = useRef<string | null>(null);
   const [busy, setBusy] = useState(false);

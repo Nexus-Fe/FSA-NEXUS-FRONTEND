@@ -2,17 +2,18 @@
 
 import Link from "next/link";
 import { Badge, Card, NoData, PageHeading, SectionHeading } from "@/components/ui/Primitives";
+import { ErrorState } from "@/components/ui/States";
 import { ROUTES } from "@/constants/routes";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatMoney } from "@/lib/presentation";
 import { walletService } from "./services/wallet.service";
+import { transactionDirection, transactionTypeLabel } from "./transaction-display";
 import { WalletTopUpForm } from "./WalletTopUpFlow";
 import { SellerWithdrawalForm } from "./SellerWithdrawalForm";
 
 
 function sellerTransactionType(type: string): string {
-  return ({ ESCROWRELEASE: "Doanh thu đơn hàng", WITHDRAWAL: "Rút tiền", WITHDRAWALDEBIT: "Rút tiền",
-    REFUND: "Hoàn tiền", REFUNDCREDIT: "Hoàn tiền", TOPUPSTRIPE: "Nạp tiền" } as Record<string, string>)[type.toUpperCase()] ?? type;
+  return transactionTypeLabel(type);
 }
 
 function sellerTransactionStatus(status: string): string {
@@ -20,13 +21,7 @@ function sellerTransactionStatus(status: string): string {
     CANCELLED: "Đã hủy" } as Record<string, string>)[status.toUpperCase()] ?? status;
 }
 
-function sellerTransactionDirection(type: string, status: string, amount: number): "credit" | "debit" | null {
-  if (!Number.isFinite(amount) || amount === 0 || !["SUCCESS", "COMPLETED"].includes(status.toUpperCase())) return null;
-  const normalizedType = type.toUpperCase();
-  if (["ESCROWRELEASE", "REFUNDCREDIT", "WITHDRAWALREVERSAL", "TRANSFERIN", "ADJUSTMENTCREDIT", "TOPUPVNPAY", "TOPUPSTRIPE"].includes(normalizedType)) return "credit";
-  if (["WITHDRAWALDEBIT", "PURCHASEDEBIT", "DIRECTGATEWAYPAYMENT", "TRANSFEROUT", "ADJUSTMENTDEBIT"].includes(normalizedType)) return "debit";
-  return null;
-}
+const sellerTransactionDirection = transactionDirection;
 
 function SellerTransactionAmount({ type, status, amount }: { type: string; status: string; amount: number }) {
   const direction = sellerTransactionDirection(type, status, amount);
@@ -53,7 +48,7 @@ export function SellerWalletScreen() {
 
     walletService.getTransactions(signal).then((response) => response.items));
   return <><PageHeading overline="Kênh người bán" title="Doanh thu & ví" description="Theo dõi số dư khả dụng, tiền đang giữ và doanh thu sau khi người mua xác nhận nhận hàng." />
-    {balance.error && <p className="notice" role="alert">Không tải được số dư ví: {balance.error.message}</p>}
+    {balance.error && <ErrorState title="Không tải được số dư ví" cause={balance.error} onRetry={balance.reload} />}
     <div className="grid-3 seller-wallet-balances">
       <Card className="card-pad"><h2>Có thể rút</h2>{balance.data ? <strong>{formatMoney(balance.data.availableBalance)}</strong> : <NoData title={balance.loading ? "Đang tải số dư…" : "Chưa có dữ liệu"} />}</Card>
       <Card className="card-pad"><h2>Đang giữ</h2>{balance.data ? <strong>{formatMoney(balance.data.lockedBalance)}</strong> : <NoData title={balance.loading ? "Đang tải số dư…" : "Chưa có dữ liệu"} />}</Card>
@@ -61,7 +56,7 @@ export function SellerWalletScreen() {
     </div>
     {balance.data && <p className="status-note">Trạng thái ví: <Badge>{balance.data.status?.toUpperCase() === "ACTIVE" ? "Đang hoạt động" : balance.data.status}</Badge></p>}
     <SectionHeading title="Lịch sử doanh thu & giao dịch ví" />
-    {transactions.error && <p className="notice" role="alert">Không tải được giao dịch: {transactions.error.message}</p>}
+    {transactions.error && <ErrorState title="Không tải được giao dịch" cause={transactions.error} onRetry={transactions.reload} />}
     {transactions.data?.length ? <Card><div className="table-scroll"><table className="data-table seller-money-table"><thead><tr><th scope="col">Thời gian</th><th scope="col">Loại</th><th scope="col">Nội dung</th><th scope="col" className="seller-money-cell">Số tiền</th><th scope="col">Trạng thái</th></tr></thead><tbody>{transactions.data.map((item) =>
       <tr key={item.id}><td>{sellerTransactionDate(item.createdAt)}</td><td>{sellerTransactionType(item.type)}</td><td>{item.note || "—"}</td><td className="seller-money-cell"><SellerTransactionAmount type={item.type} status={item.status} amount={item.amount} /></td><td>{sellerTransactionStatus(item.status)}</td></tr>)}</tbody></table></div></Card>
       : !transactions.error && <Card><NoData title={transactions.loading ? "Đang tải giao dịch…" : "Chưa có giao dịch"} /></Card>}

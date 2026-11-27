@@ -7,6 +7,7 @@ import {
   Card,
   NoData,
   PageHeading,
+  TruncatedText,
 } from "@/components/ui/Primitives";
 import { ApiError } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
@@ -173,7 +174,7 @@ export function AdminAuctionConfigsScreen() {
                         <code>{cfg.configKey}</code>
                         {cfg.description && (
                           <small style={{ display: "block", color: "var(--muted)" }}>
-                            {cfg.description}
+                            <TruncatedText text={cfg.description} label="Mô tả cấu hình đấu giá" maxWidth={240} />
                           </small>
                         )}
                       </td>

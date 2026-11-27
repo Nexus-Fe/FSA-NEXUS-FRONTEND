@@ -86,11 +86,18 @@ export const reviewService = {
   partnerEligibility: async (referenceType: ReviewReferenceType, referenceId: string, signal?: AbortSignal): Promise<PartnerReviewEligibility> =>
     unwrap(await api.get<Envelope<PartnerReviewEligibility>>(`/api/v1/reviews/eligibility?${query({ referenceType, referenceId })}`, { signal })),
 
+  uploadReviewFiles: async (files: File[]): Promise<string[]> => {
+    const body = new FormData();
+    files.forEach((file) => body.append("files", file));
+    const result = unwrap(await api.post<Envelope<{ fileUrls: string[] }>>("/api/v1/reviews/files/upload", body));
+    return result.fileUrls ?? [];
+  },
+
   /** The reviewed user and the role come from the order, so the form needs only the rating and the comment. */
   createPartnerReview: async (
-    input: { revieweeId: string; reviewerRole: "Buyer" | "Seller"; referenceType: ReviewReferenceType; referenceId: string; rating: number; comment?: string },
+    input: { revieweeId: string; reviewerRole: "Buyer" | "Seller"; referenceType: ReviewReferenceType; referenceId: string; rating: number; comment?: string; mediaUrls?: string[] },
   ): Promise<CreatedPartnerReview> =>
-    unwrap(await api.post<Envelope<CreatedPartnerReview>>("/api/v1/reviews", { ...input, comment: input.comment?.trim() || null, mediaUrls: [] })),
+    unwrap(await api.post<Envelope<CreatedPartnerReview>>("/api/v1/reviews", { ...input, comment: input.comment?.trim() || null, mediaUrls: input.mediaUrls ?? [] })),
 
   productEligibility: async (productId: string, subOrderId: string, signal?: AbortSignal): Promise<ProductReviewEligibility> =>
     unwrap(await api.get<Envelope<ProductReviewEligibility>>(

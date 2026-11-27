@@ -1,0 +1,43 @@
+﻿/* Lucian UX/UI Prompt #261 · MIT License (c) 2026 Seokwoooo · https://lucianlabs.dev/uxui-prompt/#261 */
+.u261{
+  --ux-surface:#FFFFFF;
+  --ux-surface-2:#F5F8F6;
+  --ux-surface-3:#E6EDE8;
+  --ux-ink:var(--ink,#1f2024);
+  --ux-ink-2:#475569;
+  --ux-ink-3:#64748B;
+  --ux-line:rgba(var(--ink-rgb,31,32,36),.09);
+  --ux-accent:var(--primary,#6e1e2b);
+  position:relative;width:100%;color:var(--ux-ink);
+}
+.u261,.u261 *,.u261 *::before,.u261 *::after{box-sizing:border-box}
+.u261-tp{display:flex;flex-wrap:wrap;gap:20px;align-items:center}
+.u261-av{flex:none;min-width:110px;text-align:center}
+.u261-av b{display:block;font-size:36px;line-height:1;font-weight:900;letter-spacing:-.04em;font-variant-numeric:tabular-nums}
+.u261-st{position:relative;display:inline-block;margin-top:6px;font-size:15px;letter-spacing:1.5px;line-height:1;color:var(--ux-line)}
+.u261-st i{position:absolute;left:0;top:0;overflow:hidden;white-space:nowrap;color:#F59E0B;font-style:normal;width:0;transition:width 1s cubic-bezier(.3,.8,.3,1) .2s}
+.u261-av small{display:block;margin-top:6px;font-size:11.5px;font-weight:700;color:var(--ux-ink-3)}
+.u261-bs{flex:1;min-width:200px;display:flex;flex-direction:column;gap:4px}
+.u261-br{display:flex;align-items:center;gap:8px;height:22px;padding:0 8px;margin:0 -8px;border:0;border-radius:8px;background:none;color:var(--ux-ink-2);font:inherit;font-size:12px;font-weight:750;cursor:pointer;transition:opacity .25s,background-color .2s}
+.u261-br:hover{background:var(--ux-surface-2)}
+.u261-br:focus-visible{outline:2px solid var(--ux-accent);outline-offset:1px}
+.u261-br>span:first-child{width:28px;text-align:left;font-variant-numeric:tabular-nums}
+.u261-br em{flex:1;height:8px;border-radius:4px;background:var(--ux-surface-3);overflow:hidden}
+.u261-br em i{display:block;height:100%;border-radius:4px;background:#F59E0B;transform:scaleX(0);transform-origin:0 50%;transition:transform .8s cubic-bezier(.3,1.1,.4,1)}
+.u261-br>span:last-child{width:34px;text-align:right;color:var(--ux-ink-3);font-variant-numeric:tabular-nums}
+.u261.is-f .u261-br{opacity:.38}
+.u261.is-f .u261-br.is-on{opacity:1;background:var(--ux-surface-2)}
+.u261-hd{display:flex;align-items:center;justify-content:space-between;margin-top:18px;padding-top:14px;border-top:1px solid var(--ux-line);font-size:13px;font-weight:800;color:var(--ux-ink)}
+.u261-hd button{border:0;background:none;padding:2px 6px;border-radius:6px;font-size:12px;font-weight:700;color:var(--ux-accent);cursor:pointer}
+.u261-hd button:hover{background:var(--ux-surface-2)}
+.u261-ls{margin-top:10px;display:flex;flex-direction:column;gap:8px}
+.u261-rv{padding:12px 14px;border-radius:14px;background:var(--ux-surface-2);box-shadow:inset 0 0 0 1px var(--ux-line);animation:u261-in .4s cubic-bezier(.3,1.2,.5,1) backwards}
+@keyframes u261-in{from{opacity:0;transform:translateY(10px)}}
+.u261-rv header{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:750;color:var(--ux-ink-3)}
+.u261-rv header i{font-style:normal;color:#F59E0B;letter-spacing:-.5px}
+.u261-rv p{margin:6px 0 0;font-size:13.5px;line-height:1.45;font-weight:500;color:var(--ux-ink)}
+.u261-empty{margin:8px 0 0;font-size:13px;color:var(--ux-ink-3)}
+@media (prefers-reduced-motion:reduce){
+  .u261-st i,.u261-br em i{transition:none}
+  .u261-rv{animation:none}
+}

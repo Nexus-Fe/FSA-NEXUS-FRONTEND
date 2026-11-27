@@ -3,13 +3,13 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
-import { Badge, Card, NoData, PageHeading, SectionHeading } from "@/components/ui/Primitives";
+import { Badge, Card, NoData, PageHeading, SectionHeading, TruncatedText } from "@/components/ui/Primitives";
 import { BackendImage } from "@/components/ui/BackendImage";
 import { useSession } from "@/components/auth/SessionProvider";
 import { ROUTES } from "@/constants/routes";
 import { unwrap } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
-import { formatMoney, resolveImageUrl } from "@/lib/presentation";
+import { describeProductStatus, formatMoney, resolveImageUrl, sellerProductStatusBadge } from "@/lib/presentation";
 import { sellerService } from "./services/seller.service";
 import {
   sellerCatalogService,
@@ -474,15 +474,33 @@ export function SellerProductDetailScreen() {
             <div className="seller-product-summary">
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-                  <Badge>{data.status}</Badge>
+                  {(() => {
+                    const badge = sellerProductStatusBadge(data.status, data.statusReason);
+                    return <Badge tone={badge.tone}>{badge.label}</Badge>;
+                  })()}
                   <span style={{ fontSize: 13, color: "var(--muted)" }}>
                     Danh mục: <strong>{data.categoryName ?? data.categoryId}</strong>
                   </span>
                 </div>
+                {(data.rejectionReason || data.statusReason) && (
+                  <p className="notice" role="status" style={{ margin: "6px 0" }}>
+                    Lý do trạng thái: <strong>{data.rejectionReason || data.statusReason}</strong>
+                  </p>
+                )}
                 <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>Mã sản phẩm: {data.productId}</p>
               </div>
               <div className="action-row" style={{ margin: 0 }}>
-                <Link className="button button-secondary" href={ROUTES.seller.editProduct(data.productId)}>Chỉnh sửa sản phẩm</Link>
+                <Link
+                  className="button button-secondary"
+                  href={`${ROUTES.seller.editProduct(data.productId)}?fromPage=${typeof window !== "undefined" ? sessionStorage.getItem("seller_products_last_page") || "1" : "1"}`}
+                  onClick={() => {
+                    if (typeof window !== "undefined") {
+                      sessionStorage.setItem("seller_products_highlight_id", data.productId);
+                    }
+                  }}
+                >
+                  Chỉnh sửa sản phẩm
+                </Link>
                 <Link className="button button-secondary" href={ROUTES.seller.inventory}>
                   Quản lý kho
                 </Link>
@@ -560,7 +578,7 @@ export function SellerProductDetailScreen() {
                               onChange={(e) => setEditVariantName(e.target.value)}
                             />
                           ) : (
-                            variant.name
+                            <TruncatedText text={variant.name} label="Tên biến thể" maxWidth={200} />
                           )}
                         </td>
                         <td className="seller-product-attributes-cell">
@@ -604,7 +622,7 @@ export function SellerProductDetailScreen() {
                               <span><strong>{inv.reservedQuantity}</strong><small>Đang giữ</small></span>
                             </div>
                           ) : variant.inventoryInitState === "NeedsAttention" ? (
-                            <span className="seller-inventory-init seller-inventory-init-error" role="status">Chưa tạo được kho. Liên hệ hỗ trợ.</span>
+                            <span className="seller-inventory-init seller-inventory-init-error" role="status">Chưa tạo được kho cho SKU này. Mở Quản lý kho để kiểm tra kho của bạn; nếu gian hàng chưa có kho, nhân viên cần khôi phục kho.</span>
                           ) : variant.inventoryInitState === "Pending" ? (
                             <span className="seller-inventory-init" role="status">Đang khởi tạo kho…</span>
                           ) : (

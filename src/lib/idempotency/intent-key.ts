@@ -37,10 +37,18 @@ export function isDefiniteOutcome(status: number | undefined | null): boolean {
   return status >= 200 && status < 500;
 }
 
-function defaultKey(): string {
-  const random =
-    typeof crypto !== "undefined" && "randomUUID" in crypto
-      ? crypto.randomUUID()
-      : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
-  return `wd-${random}`;
+/**
+ * Key generator with a prefix that names the kind of request (for example `buynow`). Use it ONLY for calls whose route reads the
+ * `Idempotency-Key` header; a call without that header is not idempotent however it is sent.
+ */
+export function createKeyGenerator(prefix: string): () => string {
+  return () => {
+    const random =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+    return `${prefix}-${random}`;
+  };
 }
+
+const defaultKey = createKeyGenerator("wd");

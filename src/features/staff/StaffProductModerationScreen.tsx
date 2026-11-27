@@ -9,7 +9,11 @@ import {
   Card,
   NoData,
   PageHeading,
+  TruncatedText,
 } from "@/components/ui/Primitives";
+import { TableSkeleton } from "@/components/ui/Skeleton";
+import { ThumbnailBox } from "@/components/ui/BackendImage";
+import { resolveImageUrl } from "@/lib/presentation";
 import { ApiError } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import {
@@ -17,7 +21,7 @@ import {
   type AdminProductItem,
   type ModerateProductPayload,
 } from "./services/product-moderation.service";
-import { extractAdminError } from "@/features/admin/services/admin-helpers";
+import { describeError, formatError } from "@/lib/errors/error-messages";
 
 const statuses = [
   { value: "", label: "Tất cả trạng thái" },
@@ -130,11 +134,8 @@ export function StaffProductModerationScreen() {
         setSelectedProduct(null);
       }, 1200);
     } catch (cause) {
-      if (cause instanceof ApiError) {
-        setError({ message: cause.message, traceId: cause.traceId });
-      } else {
-        setError(extractAdminError(cause, "Không thể xử lý kiểm duyệt sản phẩm."));
-      }
+      // The dictionary turns codes such as AUCTION_FORCE_CANCEL_REQUIRED into the step the staff member must take.
+      setError({ message: formatError(describeError(cause, { operation: "write" })), traceId: cause instanceof ApiError ? cause.traceId : undefined });
     } finally {
       setBusy(false);
     }
@@ -153,12 +154,8 @@ export function StaffProductModerationScreen() {
       <Card className="card-pad" style={{ marginBottom: "16px" }}>
         <form
           onSubmit={handleSearch}
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr)) auto",
-            gap: "12px",
-            alignItems: "end",
-          }}
+          className="ops-filters"
+          style={{ alignItems: "end", margin: 0 }}
         >
           <label className="field-wrap" style={{ margin: 0 }}>
             <span>Tìm kiếm từ khóa</span>
@@ -216,17 +213,19 @@ export function StaffProductModerationScreen() {
           </p>
         )}
 
-        {products.length ? (
+        {resource.loading && !resource.data ? (
+          <TableSkeleton rows={5} cols={6} label="Đang tải danh sách sản phẩm…" />
+        ) : products.length ? (
           <div className="table-scroll">
             <table className="data-table" style={{ width: "100%", tableLayout: "fixed" }}>
               <thead>
                 <tr>
-                  <th style={{ width: 64, padding: "12px 8px" }}>Ảnh</th>
-                  <th style={{ width: "36%", padding: "12px 10px" }}>Tên sản phẩm</th>
-                  <th style={{ width: "18%", padding: "12px 10px" }}>Danh mục</th>
-                  <th style={{ width: "14%", padding: "12px 10px" }}>Hình thức bán</th>
-                  <th style={{ width: "16%", padding: "12px 10px" }}>Khoảng giá</th>
-                  <th style={{ width: "16%", padding: "12px 10px" }}>Trạng thái</th>
+                  <th style={{ width: 68 }}>Ảnh</th>
+                  <th style={{ width: "34%" }}>Tên sản phẩm</th>
+                  <th style={{ width: "18%" }}>Danh mục</th>
+                  <th style={{ width: "14%" }}>Hình thức bán</th>
+                  <th style={{ width: "16%" }}>Khoảng giá</th>
+                  <th style={{ width: "16%" }}>Trạng thái</th>
                 </tr>
               </thead>
               <tbody>
@@ -271,10 +270,10 @@ export function StaffProductModerationScreen() {
                       )}
                     </td>
                     <td style={{ padding: "12px 10px", wordBreak: "break-word", overflowWrap: "anywhere", lineHeight: 1.45 }}>
-                      <strong style={{ display: "block" }}>{p.name}</strong>
+                      <strong style={{ display: "block" }}><TruncatedText text={p.name} label="Tên sản phẩm" maxWidth={240} /></strong>
                       {p.brand && <div style={{ fontSize: 12, color: "var(--muted)" }}>{p.brand}</div>}
                     </td>
-                    <td style={{ padding: "12px 10px", wordBreak: "break-word" }}>{p.categoryName || "—"}</td>
+                    <td style={{ padding: "12px 10px" }}><TruncatedText text={p.categoryName || "—"} label="Danh mục" maxWidth={180} /></td>
                     <td style={{ padding: "12px 10px" }}>
                       <Badge tone="slate">{p.saleType}</Badge>
                     </td>
@@ -351,6 +350,15 @@ export function StaffProductModerationScreen() {
             </div>
 
             <div style={{ marginBottom: 16 }}>
+              {selectedProduct.primaryImageUrl && (
+                <div style={{ marginBottom: 12, display: "flex", justifyContent: "center" }}>
+                  <ThumbnailBox
+                    src={resolveImageUrl(selectedProduct.primaryImageUrl)}
+                    alt={selectedProduct.name}
+                    size={160}
+                  />
+                </div>
+              )}
               <div className="info-row">
                 <span>Tên sản phẩm</span>
                 <strong>{selectedProduct.name}</strong>

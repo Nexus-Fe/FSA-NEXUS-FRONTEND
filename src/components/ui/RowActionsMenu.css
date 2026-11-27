@@ -1,0 +1,35 @@
+﻿.row-actions-wrap{display:inline-flex;align-items:center;justify-content:flex-end;gap:6px;white-space:nowrap}
+.row-actions-more{
+  width:32px;height:32px;padding:0;border:1px solid var(--line,#e2d9cc);border-radius:8px;
+  display:inline-grid;place-items:center;background:#fff;color:var(--ink,#1f2024);cursor:pointer;
+  transition:background-color .15s ease,border-color .15s ease,transform .15s ease;
+}
+.row-actions-more:hover:not(:disabled){background:var(--primary-soft,#f5e9eb);border-color:var(--primary-border,#c49099)}
+.row-actions-more:active:not(:disabled){transform:scale(.94)}
+.row-actions-more:focus-visible{outline:2px solid var(--primary,#6e1e2b);outline-offset:2px}
+.row-actions-more[aria-expanded="true"]{background:var(--primary-soft,#f5e9eb);border-color:var(--primary,#6e1e2b);color:var(--primary,#6e1e2b)}
+.row-actions-more svg{width:16px;height:16px;fill:currentColor}
+
+.row-actions-menu{
+  position:fixed;z-index:1200;min-width:176px;padding:6px;border-radius:12px;
+  background:#FFFFFF;border:1px solid var(--line,#e2d9cc);
+  box-shadow:0 16px 36px -12px rgba(var(--ink-rgb,31,32,36),.22),0 4px 10px -4px rgba(var(--ink-rgb,31,32,36),.08);
+  display:flex;flex-direction:column;gap:2px;
+  animation:row-actions-in .16s cubic-bezier(.2,.8,.2,1);
+}
+@keyframes row-actions-in{from{opacity:0;transform:translateY(-4px) scale(.96)}to{opacity:1;transform:none}}
+.row-actions-sep{height:1px;margin:4px 4px;background:var(--line,#e2d9cc)}
+.row-actions-item{
+  display:flex;align-items:center;width:100%;padding:8px 10px;border:0;border-radius:8px;
+  background:transparent;color:var(--ink,#1f2024);font:inherit;font-size:13px;font-weight:550;
+  text-align:left;text-decoration:none;cursor:pointer;transition:background-color .12s ease,color .12s ease;
+}
+.row-actions-item:hover:not(:disabled),.row-actions-item:focus-visible{background:var(--primary-soft,#f5e9eb);color:var(--primary,#6e1e2b);outline:none}
+.row-actions-item:disabled{opacity:.45;cursor:not-allowed}
+.row-actions-item.is-danger{color:var(--red,#dc2626)}
+.row-actions-item.is-danger:hover:not(:disabled),.row-actions-item.is-danger:focus-visible{background:#fef2f2;color:var(--red-dark,#b91c1c)}
+
+@media (prefers-reduced-motion:reduce){
+  .row-actions-menu{animation:none}
+  .row-actions-more,.row-actions-item{transition:none}
+}

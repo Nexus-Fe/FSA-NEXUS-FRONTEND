@@ -1,14 +1,17 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { usePathname } from "next/navigation";
 import {
   AdminPagination,
   Badge,
   Card,
   NoData,
   PageHeading,
+  TruncatedText,
 } from "@/components/ui/Primitives";
 import { CopyableId } from "@/components/ui/CopyableId";
+import { EvidenceThumbnailGrid } from "@/components/ui/ImageLightbox";
 import { ApiError } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import {
@@ -24,6 +27,7 @@ import { extractAdminError, formatPolicyClause } from "./services/admin-helpers"
 const GUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function AdminPenaltiesScreen() {
+  const isStaff = usePathname().startsWith("/staff/");
   const [userIdFilter, setUserIdFilter] = useState("");
   const [userIdInput, setUserIdInput] = useState("");
   const [targetRole, setTargetRole] = useState("");
@@ -120,9 +124,9 @@ export function AdminPenaltiesScreen() {
   return (
     <>
       <PageHeading
-        overline="Quản trị hệ thống"
+        overline={isStaff ? "Nhân viên vận hành" : "Quản trị hệ thống"}
         title="Quản lý xử phạt toàn sàn"
-        description="Tra cứu biên bản xử phạt vi phạm của Người mua và Gian hàng. Thu hồi chế tài kỷ luật khi khắc phục vi phạm."
+        description={isStaff ? "Tra cứu biên bản xử phạt vi phạm của Người mua và Gian hàng." : "Tra cứu biên bản xử phạt vi phạm của Người mua và Gian hàng. Thu hồi chế tài kỷ luật khi khắc phục vi phạm."}
         action={
           <button
             type="button"
@@ -138,12 +142,8 @@ export function AdminPenaltiesScreen() {
       <Card className="card-pad" style={{ marginBottom: "16px" }}>
         <form
           onSubmit={handleSearch}
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr)) auto",
-            gap: "12px",
-            alignItems: "end",
-          }}
+          className="ops-filters"
+          style={{ alignItems: "end", margin: 0 }}
         >
           <label className="field-wrap" style={{ margin: 0 }}>
             <span>Tìm theo User ID (GUID)</span>
@@ -232,8 +232,8 @@ export function AdminPenaltiesScreen() {
             <table className="data-table" style={{ width: "100%", tableLayout: "fixed", minWidth: 0 }}>
               <thead>
                 <tr>
-                  <th style={{ width: "21%", padding: "10px 8px", whiteSpace: "normal" }}>Người vi phạm</th>
-                  <th style={{ width: "8%", padding: "10px 8px", whiteSpace: "normal" }}>Vai trò</th>
+                  <th style={{ width: "20%", padding: "10px 8px", whiteSpace: "normal" }}>Người vi phạm</th>
+                  <th style={{ width: "10%", padding: "10px 8px", whiteSpace: "normal" }}>Vai trò</th>
                   <th style={{ width: "15%", padding: "10px 8px", whiteSpace: "normal" }}>Hình thức xử phạt</th>
                   <th style={{ width: "14%", padding: "10px 8px", whiteSpace: "normal" }}>Loại vi phạm</th>
                   <th style={{ width: "16%", padding: "10px 8px", whiteSpace: "normal" }}>Lý do</th>
@@ -271,7 +271,7 @@ export function AdminPenaltiesScreen() {
                     </td>
                     <td style={{ padding: "10px 8px" }}>
                       <Badge tone={targetRoleTone(item.targetRole)}>
-                        {item.targetRole}
+                        {item.targetRole?.toUpperCase() === "ACCOUNT" ? "Tài khoản" : item.targetRole?.toUpperCase() === "SELLER" ? "Người bán" : item.targetRole}
                       </Badge>
                     </td>
                     <td style={{ padding: "10px 8px", wordBreak: "break-word" }}>
@@ -285,8 +285,8 @@ export function AdminPenaltiesScreen() {
                     <td style={{ padding: "10px 8px", fontSize: "13px", wordBreak: "break-word" }}>
                       {penaltyViolationTypeLabel(item.violationType)}
                     </td>
-                    <td style={{ padding: "10px 8px", fontSize: "13px", wordBreak: "break-word", overflowWrap: "anywhere" }} title={item.reason}>
-                      {item.reason || "—"}
+                    <td style={{ padding: "10px 8px", fontSize: "13px" }}>
+                      <TruncatedText text={item.reason || "—"} label="Lý do xử phạt" maxWidth={240} />
                     </td>
                     <td style={{ padding: "10px 8px" }}>
                       <Badge tone={penaltyStatusTone(item.status)}>
@@ -331,7 +331,7 @@ export function AdminPenaltiesScreen() {
           }}
         >
           <section
-            className="admin-modal-dialog admin-modal-wide"
+            className="admin-modal-dialog admin-modal-wide admin-penalty-detail-dialog"
             role="dialog"
             aria-modal="true"
             aria-labelledby="penalty-modal-title"
@@ -463,20 +463,7 @@ export function AdminPenaltiesScreen() {
                     <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--ink)", display: "block", marginBottom: "6px" }}>
                       Tài liệu & Bằng chứng vi phạm:
                     </span>
-                    <ul style={{ margin: 0, paddingLeft: "18px", fontSize: "12px" }}>
-                      {detail.data.evidenceUrls.map((url, idx) => (
-                        <li key={idx} style={{ marginBottom: "4px" }}>
-                          <a
-                            href={url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={{ color: "var(--sky-dark)", textDecoration: "underline", wordBreak: "break-all" }}
-                          >
-                            {url}
-                          </a>
-                        </li>
-                      ))}
-                    </ul>
+                    <EvidenceThumbnailGrid urls={detail.data.evidenceUrls} size={68} title="Bằng chứng xử phạt" />
                   </div>
                 )}
 
@@ -537,7 +524,7 @@ export function AdminPenaltiesScreen() {
                       marginTop: "14px",
                     }}
                   >
-                    {String(detail.data.status).toUpperCase() === "ACTIVE" && (
+                    {!isStaff && String(detail.data.status).toUpperCase() === "ACTIVE" && (
                       <button
                         type="button"
                         className="button button-danger button-small"

@@ -2,24 +2,40 @@
 /* Catalog and fulfillment responses are ungenerated Gateway JSON contracts. */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ROUTES } from "@/constants/routes";
 import { useSession } from "@/components/auth/SessionProvider";
 import { Icon } from "@/components/ui/Icon";
-import { Badge, ButtonLink, Card, NoData, PageHeading, SectionHeading } from "@/components/ui/Primitives";
+import { FluidChoiceBar } from "@/components/ui/FluidChoiceBar";
+import { AdminPagination, Badge, ButtonLink, Card, clickableRowProps, NoData, PageHeading, SectionHeading, TruncatedText } from "@/components/ui/Primitives";
+import { PaginationBar } from "@/components/ui/PaginationBar";
+import { RowActionsMenu } from "@/components/ui/RowActionsMenu";
+import { TableSkeleton } from "@/components/ui/Skeleton";
+import { useToast } from "@/components/ui/Toast";
 import { api, unwrap, type ApiResponse } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
-import { formatMoney, resolveImageUrl } from "@/lib/presentation";
-import { fulfillmentService } from "@/features/fulfillment";
+import { describeProductStatus, formatMoney, resolveImageUrl, sellerProductStatusBadge } from "@/lib/presentation";
+import { countFailedAttempts, fulfillmentService, hasShipmentToTrack, OrderProgressStepper, shipmentStatusLabel, ShipmentTimelineList, TrackingCodeBar } from "@/features/fulfillment";
+import "@/features/fulfillment/components/shipping-tracking.css";
 import { loadSafeRegistrationDraft, sellerService } from "./services/seller.service";
-import { SellerShopAddressFields } from "./components/SellerShopAddressFields";
-import { ghnPresets } from "./ghn-presets";
+import { SavedShopArea, SellerShopAddressFields } from "./components/SellerShopAddressFields";
+import { nextShopFormKey, shopFormSavedKey } from "./shop-form-key";
+import { ghnWriteBlock, type GhnCheck } from "@/features/shipping/ghn-address";
+import { ConfirmReturnButton } from "./components/ConfirmReturnButton";
+import { canConfirmReturn } from "./return-rules";
+import { SellerWarehouseGate } from "./components/SellerWarehouseForm";
+import { describeShipmentRetryFailure, needsShipmentRetry } from "./shipment-retry-outcome";
+import { useWarehouseReadiness } from "./use-warehouse-readiness";
+import { acceptOrderBlock, warehouseReadiness } from "./warehouse-readiness";
 import { isSellerWarehouse, sellerCatalogService, type InventoryBalance, type ProductVariant, type SellerProductDetail } from "./services/catalog.service";
 import { sellerOrdersService } from "./services/seller-orders.service";
 import { SellerBuyerReview } from "./SellerBuyerReview";
 import { MAX_INVENTORY_QUANTITY } from "./services/inventory-quantity";
+import { InventoryAlertsPanel } from "./components/InventoryAlertsPanel";
+import { InventoryLedgerPanel } from "./components/InventoryLedgerPanel";
 import { describeCategoryError, leafCategoryOptions } from "./services/category-options";
+import { canSellerAccept, describeSellerOrderStatus, isCodPayment, paymentMethodLabel, sellerOrderStatusTone } from "./seller-order-rules";
 
 export { BecomeSellerScreen } from "./BecomeSellerScreen";
 
@@ -47,8 +63,19 @@ type DraftVariantItem = {
   weightGrams: string;
   currency: string;
   isActive: boolean;
+  hasOrder?: boolean;
   attributes: Array<{ attrName: string; attrValue: string }>;
 };
+
+function canEditProductSku(product?: SellerProductDetail): boolean {
+  if (!product) return true;
+  const status = product.status.toUpperCase();
+  if (status === "DRAFT") return true;
+  if (status === "INACTIVE") {
+    return product.statusReason?.toUpperCase() === "REJECTED" || Boolean(product.rejectionReason);
+  }
+  return false;
+}
 
 function buildAutoSku(productName: string, variantName: string, index: number): string {
   const clean = (text: string) =>
@@ -67,14 +94,186 @@ function buildAutoSku(productName: string, variantName: string, index: number): 
 }
 
 export function SellerProductsScreen() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Resolve current active page: URL parameter has highest priority, then persistent sessionStorage
+  const rawPage = searchParams.get("page");
+  const page = useMemo(() => {
+    if (rawPage && !isNaN(Number(rawPage)) && Number(rawPage) >= 1) {
+      return Number(rawPage);
+    }
+    if (typeof window !== "undefined") {
+      const saved = sessionStorage.getItem("seller_products_last_page");
+      if (saved && !isNaN(Number(saved)) && Number(saved) >= 1) {
+        return Number(saved);
+      }
+    }
+    return 1;
+  }, [rawPage]);
+
+  const pageSize = useMemo(() => {
+    const ps = searchParams.get("pageSize");
+    if (ps && !isNaN(Number(ps)) && Number(ps) >= 1) return Number(ps);
+    return 10;
+  }, [searchParams]);
+
+  const highlightParam = searchParams.get("highlight");
+  const [clearedHighlightId, setClearedHighlightId] = useState<string | null>(null);
+
+  const highlightedId = useMemo(() => {
+    const rawId = highlightParam || (typeof window !== "undefined" ? sessionStorage.getItem("seller_products_highlight_id") : null);
+    if (!rawId || rawId === clearedHighlightId) return null;
+    return rawId;
+  }, [highlightParam, clearedHighlightId]);
+
   const [q, setQ] = useState("");
   const [keyword, setKeyword] = useState("");
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [statusFilter, setStatusFilter] = useState("");
+
+  const prevQRef = useRef(q);
+  const rowRefs = useRef<Map<string, HTMLTableRowElement>>(new Map());
+
   const resource = useApiResource(
-    `seller-products:${page}:${pageSize}:${keyword}`,
-    (signal) => sellerCatalogService.list(page, keyword, signal, pageSize),
+    `seller-products:${page}:${pageSize}:${keyword}:${statusFilter}`,
+    (signal) => sellerCatalogService.list(page, keyword, signal, pageSize, statusFilter || undefined),
   );
+
+  // Sync URL when page is restored from sessionStorage and not yet present in URL query
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!rawPage && page > 1) {
+      const currentParams = new URLSearchParams(searchParams.toString());
+      currentParams.set("page", String(page));
+      router.replace(`${ROUTES.seller.products}?${currentParams.toString()}`);
+    }
+  }, [rawPage, page, searchParams, router]);
+
+  // Keep sessionStorage in sync with current page
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("seller_products_last_page", String(page));
+      sessionStorage.setItem("seller_products_page_size", String(pageSize));
+    }
+  }, [page, pageSize]);
+
+  // Handle explicit page change (pushes history entry so browser Back goes to previous page)
+  const handlePageChange = useCallback((newPage: number) => {
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("seller_products_last_page", String(newPage));
+    }
+    const currentParams = new URLSearchParams(searchParams.toString());
+    currentParams.set("page", String(newPage));
+    currentParams.delete("highlight");
+    router.push(`${ROUTES.seller.products}?${currentParams.toString()}`);
+  }, [searchParams, router]);
+
+  // Live auto-search with debounce; only trigger when search query actually changes
+  useEffect(() => {
+    if (prevQRef.current === q) return;
+    prevQRef.current = q;
+
+    const timer = setTimeout(() => {
+      const trimmed = q.trim();
+      setKeyword(trimmed);
+      handlePageChange(1);
+    }, q.trim() ? 300 : 0);
+    return () => clearTimeout(timer);
+  }, [q, handlePageChange]);
+
+  // Auto-scroll and flash green highlight effect on target product row (1.5s duration)
+  useEffect(() => {
+    if (!highlightedId || !resource.data?.items?.length) return;
+
+    const targetId = highlightedId;
+    const hasItem = resource.data.items.some((item) => item.productId === targetId);
+    if (hasItem) {
+      const scrollTimer = setTimeout(() => {
+        const el = rowRefs.current.get(targetId);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 80);
+
+      // Cleanup highlight animation after 1.5s so it only flashes once
+      const clearTimer = setTimeout(() => {
+        setClearedHighlightId(targetId);
+        if (typeof window !== "undefined") {
+          sessionStorage.removeItem("seller_products_highlight_id");
+          const url = new URL(window.location.href);
+          if (url.searchParams.has("highlight")) {
+            url.searchParams.delete("highlight");
+            window.history.replaceState(null, "", url.pathname + url.search);
+          }
+        }
+      }, 1500);
+
+      return () => {
+        clearTimeout(scrollTimer);
+        clearTimeout(clearTimer);
+      };
+    }
+  }, [highlightedId, resource.data]);
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = q.trim();
+    setKeyword(trimmed);
+    if (page !== 1) {
+      handlePageChange(1);
+    } else {
+      resource.reload();
+    }
+  };
+
+  const handleClear = () => {
+    setQ("");
+    setKeyword("");
+    if (page !== 1) {
+      handlePageChange(1);
+    }
+  };
+
+  // Sort items prioritizing matches starting with keyword (prefix) then word prefix then contains
+  const sortedItems = useMemo(() => {
+    if (!resource.data?.items) return [];
+    const items = [...resource.data.items];
+    const kw = keyword.trim().toLowerCase();
+    if (!kw) return items;
+
+    const normalize = (str: string) =>
+      str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/Đ/g, "d");
+    const normKw = normalize(kw);
+
+    return items.sort((a, b) => {
+      const aName = (a.name || "").trim().toLowerCase();
+      const bName = (b.name || "").trim().toLowerCase();
+      const aNorm = normalize(aName);
+      const bNorm = normalize(bName);
+
+      // Ưu tiên 1: Tên sản phẩm bắt đầu bằng từ khóa (ví dụ "t" ở đầu tên)
+      const aStarts = aName.startsWith(kw) || aNorm.startsWith(normKw);
+      const bStarts = bName.startsWith(kw) || bNorm.startsWith(normKw);
+      if (aStarts && !bStarts) return -1;
+      if (!aStarts && bStarts) return 1;
+
+      // Ưu tiên 2: Có từ trong tên bắt đầu bằng từ khóa (ví dụ: "Áo Thun" có từ "Thun" bắt đầu bằng "t")
+      const aWordStarts = aNorm.split(/\s+/).some((w) => w.startsWith(normKw));
+      const bWordStarts = bNorm.split(/\s+/).some((w) => w.startsWith(normKw));
+      if (aWordStarts && !bWordStarts) return -1;
+      if (!aWordStarts && bWordStarts) return 1;
+
+      // Ưu tiên 3: Từ khóa xuất hiện càng sớm trong tên càng tốt
+      const aIdx = aNorm.indexOf(normKw);
+      const bIdx = bNorm.indexOf(normKw);
+      if (aIdx !== -1 && bIdx !== -1 && aIdx !== bIdx) {
+        return aIdx - bIdx;
+      }
+
+      return aName.localeCompare(bName, "vi");
+    });
+  }, [resource.data, keyword]);
+
   return (
     <>
       <PageHeading
@@ -93,19 +292,56 @@ export function SellerProductsScreen() {
       <Card className="seller-products-list">
         <form
           className="toolbar seller-products-search"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setPage(1);
-            setKeyword(q.trim());
-            if (keyword === q.trim() && page === 1) resource.reload();
-          }}
+          onSubmit={handleSearchSubmit}
         >
-          <input
-            className="field"
-            placeholder="Tìm theo tên sản phẩm"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
+          <div style={{ position: "relative", flex: 1, display: "flex", alignItems: "center" }}>
+            <input
+              className="field"
+              placeholder="Tìm theo tên sản phẩm"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              style={{ width: "100%", paddingRight: q ? 32 : undefined }}
+            />
+            {q && (
+              <button
+                type="button"
+                onClick={handleClear}
+                style={{
+                  position: "absolute",
+                  right: 8,
+                  background: "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "var(--muted)",
+                  padding: "4px 8px",
+                  display: "flex",
+                  alignItems: "center",
+                  fontSize: 14,
+                  lineHeight: 1,
+                }}
+                title="Xóa tìm kiếm"
+                aria-label="Xóa tìm kiếm"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+          <select
+            className="select-field"
+            aria-label="Lọc theo trạng thái sản phẩm"
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              handlePageChange(1);
+            }}
+            style={{ width: "auto", minWidth: 170 }}
+          >
+            <option value="">Tất cả trạng thái</option>
+            <option value="Active">Đang bán</option>
+            <option value="PendingApproval">Chờ duyệt</option>
+            <option value="Draft">Bản nháp / Bị từ chối</option>
+            <option value="Inactive">Tạm ngưng / Bị đình chỉ</option>
+          </select>
           <button type="submit" className="button button-secondary">Tìm kiếm</button>
         </form>
         {resource.error && (
@@ -113,7 +349,7 @@ export function SellerProductsScreen() {
             {msg(resource.error)}
           </p>
         )}
-        {resource.data?.items.length ? (
+        {sortedItems.length ? (
           <div className="table-scroll">
             <table className="data-table seller-products-table">
               <thead>
@@ -127,44 +363,92 @@ export function SellerProductsScreen() {
                 </tr>
               </thead>
               <tbody>
-                {resource.data.items.map((p) => (
-                  <tr key={p.productId}>
-                    <td>
-                      <Link href={ROUTES.seller.product(p.productId)}>
-                        <strong>{p.name}</strong>
-                      </Link>
-                      {p.brand && <div style={{ fontSize: 12, color: "var(--muted)" }}>{p.brand}</div>}
-                    </td>
-                    <td>{p.categoryName || "—"}</td>
-                    <td className="seller-product-price">
-                      <strong>{formatMoney(p.minPrice ?? null)}</strong>
-                    </td>
-                    <td>{p.variantCount} SKU</td>
-                    <td>
-                      <Badge>{p.status ?? ""}</Badge>
-                    </td>
-                    <td>
-                      <ButtonLink href={ROUTES.seller.editProduct(p.productId)} variant="secondary">Điều chỉnh</ButtonLink>
-                    </td>
-                  </tr>
-                ))}
+                {sortedItems.map((p) => {
+                  const isTarget = highlightedId === p.productId;
+                  return (
+                    <tr
+                      key={p.productId}
+                      ref={(el) => {
+                        if (el) rowRefs.current.set(p.productId, el);
+                        else rowRefs.current.delete(p.productId);
+                      }}
+                      className={isTarget ? "seller-product-row-highlight" : undefined}
+                    >
+                      <td>
+                        <Link
+                          href={`${ROUTES.seller.product(p.productId)}?fromPage=${page}`}
+                          onClick={() => {
+                            if (typeof window !== "undefined") {
+                              sessionStorage.setItem("seller_products_last_page", String(page));
+                              sessionStorage.setItem("seller_products_highlight_id", p.productId);
+                            }
+                          }}
+                        >
+                          <strong><TruncatedText text={p.name} label="Tên sản phẩm" maxWidth={260} /></strong>
+                        </Link>
+                        {p.brand && <div style={{ fontSize: 12, color: "var(--muted)" }}><TruncatedText text={p.brand} label="Thương hiệu" maxWidth={220} /></div>}
+                      </td>
+                      <td>{p.categoryName || "—"}</td>
+                      <td className="seller-product-price">
+                        <strong>{formatMoney(p.minPrice ?? null)}</strong>
+                      </td>
+                      <td>{p.variantCount} SKU</td>
+                      <td>
+                        {(() => {
+                          const badge = sellerProductStatusBadge(p.status, p.statusReason);
+                          const reason = p.rejectionReason ?? (p.statusReason && !["REJECTED", "ADMINLOCKED"].includes(p.statusReason.toUpperCase()) ? p.statusReason : null);
+                          return (
+                            <>
+                              <Badge tone={badge.tone}>{badge.label}</Badge>
+                              {reason && <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>{reason}</div>}
+                            </>
+                          );
+                        })()}
+                      </td>
+                      <td>
+                        <ButtonLink
+                          href={`${ROUTES.seller.editProduct(p.productId)}?fromPage=${page}`}
+                          variant="secondary"
+                          onClick={() => {
+                            if (typeof window !== "undefined") {
+                              sessionStorage.setItem("seller_products_last_page", String(page));
+                              sessionStorage.setItem("seller_products_highlight_id", p.productId);
+                            }
+                          }}
+                        >
+                          Điều chỉnh
+                        </ButtonLink>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
+        ) : resource.loading ? (
+          <TableSkeleton rows={6} cols={6} label="Đang tải sản phẩm…" />
         ) : (
           <NoData
             title={
-              resource.loading
-                ? "Đang tải sản phẩm…"
-                : resource.error
-                  ? "Không tải được sản phẩm"
-                  : "Chưa có sản phẩm"
+              resource.error
+                ? "Không tải được sản phẩm"
+                : "Chưa có sản phẩm"
             }
           />
         )}
         {resource.data && <div className="seller-products-pagination">
           <label className="seller-products-page-size">Hiển thị
-            <select className="select-field" value={pageSize} onChange={(event) => { setPageSize(Number(event.target.value)); setPage(1); }}>
+            <select
+              className="select-field"
+              value={pageSize}
+              onChange={(event) => {
+                const newSize = Number(event.target.value);
+                const currentParams = new URLSearchParams(searchParams.toString());
+                currentParams.set("page", "1");
+                currentParams.set("pageSize", String(newSize));
+                router.push(`${ROUTES.seller.products}?${currentParams.toString()}`);
+              }}
+            >
               <option value={10}>10</option>
               <option value={30}>30</option>
               <option value={50}>50</option>
@@ -172,9 +456,7 @@ export function SellerProductsScreen() {
             sản phẩm/trang
           </label>
           <nav className="seller-products-page-controls" aria-label="Phân trang sản phẩm">
-            <button type="button" className="button button-secondary" disabled={page <= 1 || resource.loading} onClick={() => setPage((value) => value - 1)}>Trang trước</button>
-            <span>Trang {page}/{Math.max(1, resource.data.pagination.totalPages)}</span>
-            <button type="button" className="button button-secondary" disabled={!resource.data.pagination.hasNextPage || resource.loading} onClick={() => setPage((value) => value + 1)}>Trang sau</button>
+            <PaginationBar page={page} totalPages={Math.max(1, resource.data.pagination.totalPages)} onPageChange={handlePageChange} disabled={resource.loading} />
           </nav>
         </div>}
       </Card>
@@ -194,12 +476,45 @@ export function SellerProductEditScreen() {
 export function SellerProductEditorScreen({ initialProduct }: { initialProduct?: SellerProductDetail }) {
   const { user } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [name, setName] = useState(initialProduct?.name ?? "");
   const [categoryId, setCategoryId] = useState(initialProduct?.categoryId ?? "");
   const [brand, setBrand] = useState(initialProduct?.brand ?? "");
   const [description, setDescription] = useState(initialProduct?.description ?? "");
   const [weightGrams, setWeightGrams] = useState(String(initialProduct?.weightGrams ?? ""));
+
+  // Track session for back navigation and row flash highlight
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const fromPage = searchParams?.get("fromPage");
+      if (fromPage && !isNaN(Number(fromPage)) && Number(fromPage) >= 1) {
+        sessionStorage.setItem("seller_products_last_page", fromPage);
+      }
+      if (initialProduct?.productId) {
+        sessionStorage.setItem("seller_products_highlight_id", initialProduct.productId);
+      }
+    }
+  }, [searchParams, initialProduct?.productId]);
+
+  const handleBackToList = () => {
+    let targetPage = 1;
+    if (typeof window !== "undefined") {
+      const fromPage = searchParams?.get("fromPage");
+      const savedPage = sessionStorage.getItem("seller_products_last_page");
+      if (fromPage && !isNaN(Number(fromPage)) && Number(fromPage) >= 1) {
+        targetPage = Number(fromPage);
+      } else if (savedPage && !isNaN(Number(savedPage)) && Number(savedPage) >= 1) {
+        targetPage = Number(savedPage);
+      }
+      if (initialProduct?.productId) {
+        sessionStorage.setItem("seller_products_highlight_id", initialProduct.productId);
+      }
+      sessionStorage.setItem("seller_products_last_page", String(targetPage));
+    }
+    const highlightQuery = initialProduct?.productId ? `&highlight=${encodeURIComponent(initialProduct.productId)}` : "";
+    router.push(`${ROUTES.seller.products}?page=${targetPage}${highlightQuery}`);
+  };
 
   // Dynamic specifications (JSON object per R105_POST_PRODUCTS.md)
   const [specs, setSpecs] = useState<Array<{ key: string; value: string }>>(() => initialProduct
@@ -224,6 +539,7 @@ export function SellerProductEditorScreen({ initialProduct }: { initialProduct?:
         weightGrams: variant.weightGrams == null ? "" : String(variant.weightGrams),
         currency: variant.currency || "VND",
         isActive: variant.isActive,
+        hasOrder: variant.hasOrder,
         attributes: variant.attributes ?? [],
       }))
     : [{
@@ -305,7 +621,7 @@ export function SellerProductEditorScreen({ initialProduct }: { initialProduct?:
       ...prev,
       {
         id: `var-${Date.now()}-${nextIdx}`,
-        skuCode: buildAutoSku(name, `Phien-ban-${nextIdx}`, nextIdx - 1),
+        skuCode: "",
         name: `Phiên bản #${nextIdx}`,
         price: prev[0]?.price || "",
         weightGrams: "",
@@ -399,7 +715,10 @@ export function SellerProductEditorScreen({ initialProduct }: { initialProduct?:
         .filter((row) => row.name && row.value);
       // Validate and normalize variants
       const preparedVariants = variants.map((v, idx) => {
-        const sku = v.skuCode.trim() || buildAutoSku(name, v.name, idx);
+        const sku = v.skuCode.trim();
+        if (!sku) {
+          throw new Error(`Biến thể #${idx + 1}: Vui lòng nhập mã SKU của shop (hoặc bấm nút gợi ý).`);
+        }
         const parsedPrice = Number(v.price);
         if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) {
           throw new Error(`Biến thể #${idx + 1} (${sku}): Giá bán phải lớn hơn 0 ₫.`);
@@ -419,6 +738,7 @@ export function SellerProductEditorScreen({ initialProduct }: { initialProduct?:
           price: parsedPrice,
           currency: v.currency || "VND",
           isActive: v.isActive,
+          hasOrder: v.hasOrder,
           weightGrams: variantWeight,
           attributes: cleanAttrs,
         };
@@ -430,9 +750,11 @@ export function SellerProductEditorScreen({ initialProduct }: { initialProduct?:
           name: name.trim(), description: description.trim(), brand: brand.trim(), categoryId, specifications, weightGrams: shippingWeight,
         });
         let defaultVariantId = "";
+        const canEditExistingSku = canEditProductSku(initialProduct);
         for (const variant of preparedVariants) {
           if (variant.variantId) {
             await sellerCatalogService.updateVariant(variant.variantId, {
+              ...(canEditExistingSku && !variant.hasOrder ? { skuCode: variant.skuCode } : {}),
               name: variant.name, price: variant.price, currency: variant.currency, attributes: variant.attributes, weightGrams: variant.weightGrams,
             });
             if (variant.isActive) defaultVariantId = variant.variantId;
@@ -457,7 +779,20 @@ export function SellerProductEditorScreen({ initialProduct }: { initialProduct?:
         if (publishImmediately && initialProduct.status.toUpperCase() !== "ACTIVE") {
           await sellerCatalogService.changeStatus(initialProduct.productId, "PENDING_APPROVAL");
         }
-        router.push(ROUTES.seller.product(initialProduct.productId));
+        let targetPage = 1;
+        if (typeof window !== "undefined") {
+          const fromPage = searchParams?.get("fromPage");
+          const savedPage = sessionStorage.getItem("seller_products_last_page");
+          if (fromPage && !isNaN(Number(fromPage)) && Number(fromPage) >= 1) {
+            targetPage = Number(fromPage);
+          } else if (savedPage && !isNaN(Number(savedPage)) && Number(savedPage) >= 1) {
+            targetPage = Number(savedPage);
+          }
+          sessionStorage.setItem("seller_products_last_page", String(targetPage));
+          sessionStorage.setItem("seller_products_highlight_id", initialProduct.productId);
+        }
+        const targetUrl = `${ROUTES.seller.products}?page=${targetPage}&highlight=${encodeURIComponent(initialProduct.productId)}`;
+        router.push(targetUrl);
         return;
       }
 
@@ -664,9 +999,33 @@ export function SellerProductEditorScreen({ initialProduct }: { initialProduct?:
                     key={img.id}
                     className={`seller-image-preview-card${img.isPrimary ? " is-primary" : ""}`}
                   >
-                    <div className="seller-image-preview-thumb">
+                    <div
+                      className="seller-image-preview-thumb"
+                      style={{
+                        position: "relative",
+                        width: "100%",
+                        aspectRatio: "1",
+                        background: "#f8fafc",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        padding: 4,
+                        overflow: "hidden",
+                      }}
+                    >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={img.previewUrl} alt={img.altText || `Ảnh ${index + 1}`} />
+                      <img
+                        src={img.previewUrl}
+                        alt={img.altText || `Ảnh ${index + 1}`}
+                        style={{
+                          maxWidth: "100%",
+                          maxHeight: "100%",
+                          width: "auto",
+                          height: "auto",
+                          objectFit: "contain",
+                          display: "block",
+                        }}
+                      />
                       {img.isPrimary && <span className="seller-image-cover-pill">★ Ảnh bìa chính</span>}
                     </div>
                     <input
@@ -839,16 +1198,17 @@ export function SellerProductEditorScreen({ initialProduct }: { initialProduct?:
                         <input
                           className="field"
                           required
-                          placeholder="Để trống sẽ tự sinh mã SKU"
+                          placeholder="VD: TENSHOP-SANPHAM-MAU (duy nhất trong shop)"
                           value={variant.skuCode}
-                          disabled={Boolean(variant.variantId)}
+                          disabled={Boolean(variant.variantId) && (Boolean(variant.hasOrder) || !canEditProductSku(initialProduct))}
                           onChange={(e) => updateVariantField(vIdx, "skuCode", e.target.value)}
                         />
                         <button
                           type="button"
                           className="button button-secondary button-small seller-sku-generate"
-                          aria-label="Tự sinh mã SKU"
-                          disabled={Boolean(variant.variantId)}
+                          aria-label="Gợi ý mã SKU"
+                          title="Gợi ý mã SKU"
+                          disabled={Boolean(variant.variantId) && (Boolean(variant.hasOrder) || !canEditProductSku(initialProduct))}
                           onClick={() => updateVariantField(vIdx, "skuCode", buildAutoSku(name, variant.name, vIdx))}
                         >
                           +
@@ -970,10 +1330,33 @@ export function SellerProductEditorScreen({ initialProduct }: { initialProduct?:
           <Card className="card-pad">
             <SectionHeading title="Xem trước" />
             <div className="seller-preview-card">
-              <div className="seller-preview-media">
+              <div
+                className="seller-preview-media"
+                style={{
+                  minHeight: 180,
+                  maxHeight: 360,
+                  height: "auto",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: "#f8fafc",
+                  padding: 8,
+                }}
+              >
                 {primaryPreviewImage ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={primaryPreviewImage.previewUrl} alt={name || "Preview"} />
+                  <img
+                    src={primaryPreviewImage.previewUrl}
+                    alt={name || "Preview"}
+                    style={{
+                      maxWidth: "100%",
+                      maxHeight: 340,
+                      width: "auto",
+                      height: "auto",
+                      objectFit: "contain",
+                      display: "block",
+                    }}
+                  />
                 ) : (
                   <span style={{ color: "var(--muted)", fontSize: 12 }}>Chưa chọn ảnh bìa</span>
                 )}
@@ -1050,9 +1433,13 @@ export function SellerProductEditorScreen({ initialProduct }: { initialProduct?:
                 {busy ? "Đang lưu…" : initialProduct ? "Lưu thay đổi" : "Lưu bản nháp"}
               </button>
 
-              <ButtonLink href={ROUTES.seller.products} variant="secondary">
+              <button
+                type="button"
+                className="button button-secondary"
+                onClick={handleBackToList}
+              >
                 Quay lại danh sách
-              </ButtonLink>
+              </button>
             </div>
           </Card>
         </aside>
@@ -1060,6 +1447,14 @@ export function SellerProductEditorScreen({ initialProduct }: { initialProduct?:
     </>
   );
 }
+
+const SELLER_INVENTORY_TABS = [
+  { value: "stock", label: "Sản phẩm & SKU trong kho" },
+  { value: "alerts", label: "Cảnh báo tồn kho" },
+  { value: "ledger", label: "Sổ kho" },
+] as const;
+
+type SellerInventoryTabKey = (typeof SELLER_INVENTORY_TABS)[number]["value"];
 
 export function SellerInventoryScreen() {
   const { user } = useSession();
@@ -1094,6 +1489,7 @@ export function SellerInventoryScreen() {
     (signal) => sellerCatalogService.listAllProductDetails(signal),
   );
 
+  const [activeTab, setActiveTab] = useState<SellerInventoryTabKey>("stock");
   const [productId, setProductId] = useState("");
   const [searchKeyword, setSearchKeyword] = useState("");
   const [stockFilter, setStockFilter] = useState<"ALL" | "IN_STOCK" | "OUT_OF_STOCK" | "UNDECLARED">("ALL");
@@ -1341,10 +1737,19 @@ export function SellerInventoryScreen() {
           Không tải được hồ sơ Seller: {sellerProfile.error.message}
         </p>
       )}
-      {!warehouses.loading && !sellerProfile.loading && !sellerProfile.error && !personalWarehouse && (
-        <p className="notice" role="status" style={{ marginBottom: 16 }}>
-          Kho riêng chưa được đồng bộ sau khi duyệt hồ sơ. Vui lòng tải lại trang hoặc kiểm tra hồ sơ Shop.
-        </p>
+      {!warehouses.loading && !warehouses.error && !sellerProfile.loading && !sellerProfile.error && (
+        <SellerWarehouseGate
+          readiness={warehouseReadiness(personalWarehouse)}
+          warehouse={personalWarehouse}
+          profile={{
+            provinceId: String(sellerProfile.data?.provinceId ?? ""),
+            districtId: String(sellerProfile.data?.districtId ?? ""),
+            wardCode: String(sellerProfile.data?.wardCode ?? ""),
+            streetAddress: pickupAddress,
+            phone: String(sellerProfile.data?.hotline ?? ""),
+          }}
+          onSaved={warehouses.reload}
+        />
       )}
       {intakeSuccess && !intakeModalOpen && (
         <p className="form-success" role="status" style={{ marginBottom: 16 }}>
@@ -1383,8 +1788,21 @@ export function SellerInventoryScreen() {
         </Card>
       </div>
 
+      <div style={{ marginBottom: 16 }}>
+        <FluidChoiceBar
+          options={SELLER_INVENTORY_TABS}
+          value={activeTab}
+          onChange={setActiveTab}
+          ariaLabel="Chuyển đổi mục quản lý kho"
+        />
+      </div>
+
+      {activeTab === "alerts" && <InventoryAlertsPanel />}
+      {activeTab === "ledger" && <InventoryLedgerPanel />}
+
       {/* Full Warehouse Product & SKU Inventory Management */}
-      <Card className="card-pad seller-inventory-selector" style={{ marginBottom: 20 }}>
+      {activeTab === "stock" && (
+        <Card className="card-pad seller-inventory-selector" style={{ marginBottom: 20 }}>
         <SectionHeading
           title={`Danh sách toàn bộ Sản phẩm & SKU trong kho (${filteredRows.length}/${totalSkusCount} SKU)`}
         />
@@ -1469,10 +1887,10 @@ export function SellerInventoryScreen() {
                   return (
                     <tr
                       key={variant.variantId}
-                      style={isSelected ? { background: "#f0f9ff" } : undefined}
+                      style={isSelected ? { background: "var(--primary-soft)" } : undefined}
                     >
                       <td>
-                        <strong>{product.name}</strong>
+                        <strong><TruncatedText text={product.name} label="Tên sản phẩm" maxWidth={240} /></strong>
                         <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>
                           Trạng thái SP: {product.status}
                         </div>
@@ -1481,10 +1899,10 @@ export function SellerInventoryScreen() {
                         <strong>{variant.skuCode}</strong>
                       </td>
                       <td>
-                        <div>{variant.name}</div>
+                        <div><TruncatedText text={variant.name} label="Tên biến thể" maxWidth={200} /></div>
                         {attrSummary && (
                           <small style={{ color: "var(--muted)", display: "block", marginTop: 2 }}>
-                            {attrSummary}
+                            <TruncatedText text={attrSummary} label="Thuộc tính" maxWidth={200} />
                           </small>
                         )}
                       </td>
@@ -1532,7 +1950,8 @@ export function SellerInventoryScreen() {
             </p>
           )
         )}
-      </Card>
+        </Card>
+      )}
 
       {/* Stock Intake Modal */}
       {intakeModalOpen && (
@@ -1827,45 +2246,143 @@ export function SellerInventoryScreen() {
   );
 }
 
+const SELLER_SHIPMENT_TABS = [
+  { key: "all", label: "Tất cả" },
+  { key: "ready", label: "Chờ lấy hàng" },
+  { key: "shipping", label: "Đang giao" },
+  { key: "delivered", label: "Đã giao" },
+  { key: "completed", label: "Hoàn tất" },
+  { key: "returned", label: "Hoàn hàng / Hoàn tiền" },
+] as const;
+
+type SellerShipmentTabKey = (typeof SELLER_SHIPMENT_TABS)[number]["key"];
+
+function matchesSellerShipmentTab(status: string, tab: SellerShipmentTabKey): boolean {
+  if (tab === "all") return true;
+  const key = status.replace(/[^a-z]/gi, "").toUpperCase();
+  if (tab === "ready") return key === "CONFIRMED" || key === "SELLERACCEPTED";
+  if (tab === "shipping") return key === "SHIPPING" || key === "SHIPPED";
+  if (tab === "delivered") return key === "DELIVERED";
+  if (tab === "completed") return key === "COMPLETED";
+  if (tab === "returned") return ["RETURNING", "RETURNED", "REFUNDED"].includes(key);
+  return true;
+}
+
 export function SellerShipmentsScreen() {
-  const [orderId, setOrderId] = useState("");
+  const router = useRouter();
+  const [page, setPage] = useState(1);
+  const [activeTab, setActiveTab] = useState<SellerShipmentTabKey>("all");
+  const resource = useApiResource(
+    `seller-shipments-list:${page}`,
+    (signal) => sellerOrdersService.list<SellerPaged<SellerSubOrderSummary>>(page, signal, 20),
+  );
+  const trackableRows = (resource.data?.items ?? []).filter((sub) => hasShipmentToTrack(sub.status));
+  const rows = trackableRows.filter((sub) => matchesSellerShipmentTab(sub.status, activeTab));
   return (
     <>
       <PageHeading
         overline="Kênh người bán"
         title="Vận đơn & giao nhận"
-        description="Tra cứu vận đơn theo mã đơn hàng qua Fulfillment API."
+        description="Quản lý vận đơn GHN cho các đơn bạn đã tiếp nhận. Chọn đơn để xem hành trình và in phiếu giao hàng."
       />
-      <Card className="card-pad">
-        <form
-          className="toolbar"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (orderId.trim()) window.location.assign(ROUTES.seller.shipment(orderId.trim()));
-          }}
-        >
-          <label className="field-wrap">
-            Mã đơn hàng
-            <input
-              className="field"
-              required
-              value={orderId}
-              onChange={(event) => setOrderId(event.target.value)}
-              placeholder="UUID đơn hàng"
-            />
-          </label>
-          <button className="button button-secondary">Tra cứu vận đơn</button>
-        </form>
-        <p className="status-note">
-          Fulfillment chưa có API danh sách vận đơn theo Seller. Bạn có thể tra cứu bằng mã đơn hàng đã biết.
-        </p>
-      </Card>
-      <Card className="card-pad">
-        <h2>Tạo vận đơn GHN</h2>
-        <p>Đơn hàng có thể tạo vận đơn sau khi Seller chấp nhận. Tạo vận đơn tạm chưa mở trong bản demo này.</p>
-        <button className="button button-disabled" disabled>
-          Tạo vận đơn
-        </button>
+      <FluidChoiceBar
+        mode="filter"
+        ariaLabel="Lọc trạng thái vận đơn"
+        options={SELLER_SHIPMENT_TABS.map((tab) => {
+          const count = tab.key === "all"
+            ? trackableRows.length
+            : trackableRows.filter((item) => matchesSellerShipmentTab(item.status, tab.key)).length;
+          return { value: tab.key, label: count > 0 ? `${tab.label} (${count})` : tab.label };
+        })}
+        value={activeTab}
+        onChange={setActiveTab}
+      />
+      {resource.error && <p className="notice" role="alert">{msg(resource.error)}</p>}
+      <Card>
+        {rows.length ? (
+          <div className="table-scroll">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Mã đơn gian hàng</th>
+                  <th>Mã vận đơn GHN</th>
+                  <th>Sản phẩm</th>
+                  <th>Tổng tiền</th>
+                  <th>Trạng thái</th>
+                  <th>Thao tác</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((sub) => {
+                  const shipmentHref = ROUTES.seller.shipment(sub.subOrderId);
+                  const itemsPreview = sub.items?.length
+                    ? sub.items.slice(0, 2).map((item) => `${item.productName} ×${item.quantity}`).join(", ") +
+                      (sub.items.length > 2 ? ` (+${sub.items.length - 2})` : "")
+                    : `${sub.itemCount} mặt hàng`;
+                  return (
+                    <tr key={sub.subOrderId} {...clickableRowProps(() => router.push(shipmentHref), "Nhấn để theo dõi vận đơn")}>
+                      <td>
+                        <Link href={shipmentHref} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                          <Icon name="truck" size={15} />
+                          <strong>{sub.subOrderNo}</strong>
+                        </Link>
+                        <div style={{ fontSize: 12, color: "var(--muted)" }}>{new Date(sub.createdAt).toLocaleString("vi-VN")}</div>
+                      </td>
+                      <td>
+                        {sub.trackingCode ? (
+                          <strong className="mono">{sub.trackingCode}</strong>
+                        ) : (
+                          <span style={{ color: "var(--muted)", fontSize: 12 }}>Chưa có mã vận đơn</span>
+                        )}
+                      </td>
+                      <td>
+                        <div style={{ fontSize: 13 }}>{itemsPreview}</div>
+                      </td>
+                      <td style={{ fontVariantNumeric: "tabular-nums" }}>
+                        <strong>{formatMoney(sub.totalAmount)}</strong>
+                      </td>
+                      <td><Badge tone={sellerOrderStatusTone(sub.status, sub.paymentMethod)}>{describeSellerOrderStatus(sub.status, sub.paymentMethod)}</Badge></td>
+                      <td>
+                        <div style={{ display: "inline-flex", gap: 8, flexWrap: "wrap" }} onClick={(event) => event.stopPropagation()}>
+                          <Link className="tracking-icon-btn" href={shipmentHref}>
+                            <Icon name="mapPin" size={14} />
+                            Xem hành trình
+                          </Link>
+                          <Link className="tracking-icon-btn" href={ROUTES.seller.order(sub.subOrderId)}>
+                            Chi tiết đơn
+                          </Link>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : resource.loading ? (
+          <TableSkeleton rows={5} cols={6} label="Đang tải danh sách vận đơn…" />
+        ) : (
+          <NoData
+            title={
+              resource.error
+                ? "Không tải được danh sách vận đơn"
+                : activeTab === "all"
+                  ? "Chưa có vận đơn nào trong trang này"
+                  : "Không có vận đơn ở trạng thái này"
+            }
+          />
+        )}
+        {resource.data && resource.data.pagination.totalPages > 1 && (
+          <AdminPagination
+            page={page}
+            pageSize={resource.data.pagination.pageSize}
+            totalItems={resource.data.pagination.totalCount}
+            totalPages={resource.data.pagination.totalPages}
+            loading={resource.loading}
+            onPageChange={setPage}
+            itemLabel="đơn hàng"
+          />
+        )}
       </Card>
     </>
   );
@@ -1905,58 +2422,43 @@ type SellerSubOrder = {
   itemsAmount: number;
   shippingFeeAmount: number;
   totalAmount: number;
+  productDiscountAmount?: number;
+  shopDiscountAmount?: number;
+  systemDiscountAmount?: number;
+  discountAmount?: number;
   createdAt: string;
+  carrierCode?: string | null;
+  trackingCode?: string | null;
+  labelPrintUrl?: string | null;
+  shipmentPendingCreation?: boolean;
+  sellerAcceptedAt?: string | null;
+  shippedAt?: string | null;
+  deliveredAt?: string | null;
   items: SellerSubOrderItem[];
 };
 
 type SellerSubOrderSummary = Pick<
   SellerSubOrder,
   "subOrderId" | "subOrderNo" | "orderId" | "buyerId" | "sellerId" | "status" | "paymentMethod" |
-  "itemsAmount" | "shippingFeeAmount" | "totalAmount" | "createdAt"
-> & { itemCount: number };
+  "itemsAmount" | "shippingFeeAmount" | "totalAmount" | "createdAt" |
+  "carrierCode" | "trackingCode" | "labelPrintUrl" | "shipmentPendingCreation"
+> & { itemCount: number; items?: SellerSubOrderItem[] | null };
 
 type SellerPaged<T> = {
   items: T[];
   pagination: { pageIndex: number; pageSize: number; totalCount: number; totalPages: number; hasNextPage: boolean };
 };
 
-function describeSellerOrderStatus(status: string): string {
-  const key = status.replace(/[^a-z]/gi, "").toUpperCase();
-  return (
-    (
-      {
-        PENDINGPAYMENT: "Chờ thanh toán",
-        PAID: "Đã thanh toán · Chờ bạn xác nhận",
-        PENDINGCONFIRMATION: "Chờ bạn xác nhận",
-        PROCESSING: "Đang chuẩn bị hàng",
-        CONFIRMED: "Đã xác nhận · Đã khởi tạo đơn hàng",
-        SELLERACCEPTED: "Đã xác nhận · Đã khởi tạo đơn hàng",
-        SHIPPING: "Đang giao hàng",
-        SHIPPED: "Đang giao hàng",
-        DELIVERED: "Đã giao · Chờ người mua xác nhận",
-        COMPLETED: "Hoàn tất · Đã cộng tiền vào ví",
-        SELLERREJECTED: "Đã từ chối · Đã hoàn tiền cho người mua",
-        CANCELLED: "Đã hủy",
-      } as Record<string, string>
-    )[key] ?? status
-  );
-}
-
-function sellerOrderStatusTone(status: string): "sky" | "amber" | "green" | "red" {
-  const key = status.replace(/[^a-z]/gi, "").toUpperCase();
-  if (key === "CONFIRMED" || key === "SELLERACCEPTED" || key === "PROCESSING") return "amber";
-  if (key === "COMPLETED") return "green";
-  if (key === "CANCELLED" || key === "SELLERREJECTED") return "red";
-  return "sky";
-}
-
 export function SellerOrdersScreen() {
+  const router = useRouter();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [statusFilter, setStatusFilter] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState("");
   const [actionError, setActionError] = useState("");
+  const { showToast } = useToast();
+  const acceptBlock = acceptOrderBlock(useWarehouseReadiness().readiness);
   const resource = useApiResource(
     `seller-sub-orders:${page}:${pageSize}:${statusFilter}`,
     (signal) =>
@@ -1968,10 +2470,11 @@ export function SellerOrdersScreen() {
     setFeedback("");
     setActionError("");
     try {
-      await sellerOrdersService.accept(sub.orderId, sub.subOrderId);
-      setFeedback(
-        `Đã chấp nhận đơn ${sub.subOrderNo}. Thông tin vận đơn sẽ cập nhật khi có dữ liệu từ hệ thống giao nhận.`,
-      );
+      const result = await sellerOrdersService.accept(sub.orderId, sub.subOrderId);
+      const trackingInfo = result?.trackingCode ? ` · Mã vận đơn GHN: ${result.trackingCode}` : "";
+      const okMsg = `Đã chấp nhận đơn ${sub.subOrderNo}${trackingInfo}.`;
+      setFeedback(okMsg);
+      showToast(okMsg, "success");
       resource.reload();
     } catch (reason) {
       setActionError(msg(reason as Error));
@@ -1985,7 +2488,7 @@ export function SellerOrdersScreen() {
       <PageHeading
         overline="Kênh người bán"
         title="Đơn cần xử lý"
-        description="Các đơn hàng người mua đã thanh toán bằng Ví Nexus và chuyển tới gian hàng của bạn."
+        description="Các đơn hàng người mua đã đặt (thanh toán bằng Ví Nexus hoặc COD) và chuyển tới gian hàng của bạn."
       />
       {(resource.error || actionError) && (
         <p role="alert" className="notice">
@@ -1999,23 +2502,36 @@ export function SellerOrdersScreen() {
           {feedback}
         </p>
       )}
-      <div className="seller-orders-filter">
-        <label className="field-wrap">
-          Trạng thái đơn
-          <select className="select-field" value={statusFilter} onChange={(event) => { setPage(1); setStatusFilter(event.target.value); }}>
-            <option value="">Tất cả trạng thái</option>
-            <option value="PendingConfirmation">Chờ xác nhận</option>
-            <option value="Processing">Đang chuẩn bị hàng</option>
-            <option value="Shipped">Đang giao hàng</option>
-            <option value="Delivered">Đã giao</option>
-            <option value="Completed">Hoàn tất</option>
-            <option value="Cancelled">Đã hủy</option>
-          </select>
-        </label>
-      </div>
-      <Card className="card-pad seller-orders-card">
+      {acceptBlock && (
+        <p role="alert" className="notice">
+          {acceptBlock.message} <Link href={ROUTES.seller.inventory}>Mở Quản lý kho</Link>
+        </p>
+      )}
+      <Card className="card-pad" style={{ marginBottom: 16 }}>
+        <div className="ops-filters" style={{ margin: 0 }}>
+          <label className="field-wrap">
+            <span>Trạng thái đơn</span>
+            <select className="select-field" value={statusFilter} onChange={(event) => { setPage(1); setStatusFilter(event.target.value); }}>
+              <option value="">Tất cả trạng thái</option>
+              <option value="PendingPayment">Chờ xác nhận (COD) / Chờ thanh toán</option>
+              <option value="PendingConfirmation">Chờ người bán xác nhận</option>
+              <option value="Paid">Đã thanh toán · Chờ xác nhận</option>
+              <option value="Confirmed">Đã xác nhận</option>
+              <option value="Shipped">Đang giao hàng</option>
+              <option value="Delivered">Đã giao</option>
+              <option value="Completed">Hoàn tất</option>
+              <option value="SellerRejected">Người bán từ chối</option>
+              <option value="Returning">Đang hoàn hàng</option>
+              <option value="Returned">Đã hoàn hàng</option>
+              <option value="Refunded">Đã hoàn tiền</option>
+              <option value="Cancelled">Đã hủy</option>
+            </select>
+          </label>
+        </div>
+      </Card>
+      <Card className="seller-orders-card">
         {resource.data?.items.length ? (
-          <div className="table-scroll seller-orders-table-scroll">
+          <div className="table-scroll">
             <table className="data-table">
               <thead>
                 <tr>
@@ -2029,14 +2545,21 @@ export function SellerOrdersScreen() {
               </thead>
               <tbody>
                 {resource.data.items.map((sub) => {
-                  const normalizedStatus = sub.status.replace(/[^a-z]/gi, "").toUpperCase();
-                  const canAccept = ["PAID", "PENDINGCONFIRMATION"].includes(normalizedStatus);
+                  const canAccept = canSellerAccept(sub);
                   return (
-                    <tr key={sub.subOrderId}>
+                    <tr
+                      key={sub.subOrderId}
+                      {...clickableRowProps(() => router.push(ROUTES.seller.order(sub.subOrderId)), "Nhấn để xem chi tiết đơn bán")}
+                    >
                       <td>
                         <Link href={ROUTES.seller.order(sub.subOrderId)}>
                           <strong>{sub.subOrderNo}</strong>
                         </Link>
+                        {sub.trackingCode && (
+                          <div style={{ fontSize: 12, color: "var(--primary)", marginTop: 2 }}>
+                            GHN: <strong className="mono">{sub.trackingCode}</strong>
+                          </div>
+                        )}
                         <div style={{ fontSize: 12, color: "var(--muted)" }}>
                           {new Date(sub.createdAt).toLocaleString("vi-VN")}
                         </div>
@@ -2044,34 +2567,62 @@ export function SellerOrdersScreen() {
                       <td>
                         <strong>{sub.buyerId}</strong>
                       </td>
-                      <td>{sub.itemCount} mặt hàng</td>
+                      <td>
+                        <strong>{sub.itemCount} mặt hàng</strong>
+                        {sub.items && sub.items.length > 0 && (
+                          <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>
+                            <TruncatedText
+                              text={sub.items.map((item) => `${item.productName} ×${item.quantity}`).join(", ")}
+                              label="Sản phẩm trong đơn"
+                              maxWidth={220}
+                            />
+                          </div>
+                        )}
+                      </td>
                       <td>
                         <strong>{formatMoney(sub.totalAmount)}</strong>
                         <div style={{ fontSize: 11, color: "var(--muted)" }}>
                           Ship: {formatMoney(sub.shippingFeeAmount)}
                         </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
+                          <Badge tone={isCodPayment(sub.paymentMethod) ? "amber" : "slate"}>{paymentMethodLabel(sub.paymentMethod)}</Badge>
+                          {isCodPayment(sub.paymentMethod) && (
+                            <span style={{ fontSize: 11, color: "var(--muted)" }}>Thu hộ: {formatMoney(sub.totalAmount)}</span>
+                          )}
+                        </div>
                       </td>
                       <td>
-                        <Badge tone={sellerOrderStatusTone(sub.status)}>
-                          {describeSellerOrderStatus(sub.status)}
+                        <Badge tone={sellerOrderStatusTone(sub.status, sub.paymentMethod)}>
+                          {describeSellerOrderStatus(sub.status, sub.paymentMethod)}
                         </Badge>
                       </td>
                       <td>
-                        <div className="action-row seller-orders-actions">
-                          {canAccept && (
-                            <button
-                              type="button"
-                              className="button button-primary"
-                              disabled={busyId === sub.subOrderId}
-                              onClick={() => void acceptOrder(sub)}
-                            >
-                              {busyId === sub.subOrderId ? "Đang xác nhận…" : "Chấp nhận đơn"}
-                            </button>
-                          )}
-                          <ButtonLink href={ROUTES.seller.order(sub.subOrderId)} variant="secondary">
-                            Chi tiết
-                          </ButtonLink>
-                        </div>
+                        {canAccept || hasShipmentToTrack(sub.status) ? (
+                          <RowActionsMenu
+                            ariaLabel={`Thao tác đơn ${sub.subOrderNo}`}
+                            primary={
+                              canAccept
+                                ? {
+                                    label: busyId === sub.subOrderId ? "Đang xác nhận…" : "Chấp nhận đơn",
+                                    variant: "primary",
+                                    disabled: busyId === sub.subOrderId || Boolean(acceptBlock),
+                                    onClick: () => void acceptOrder(sub),
+                                  }
+                                : {
+                                    label: "Theo dõi vận đơn",
+                                    href: ROUTES.seller.shipment(sub.subOrderId),
+                                    variant: "secondary",
+                                  }
+                            }
+                            items={
+                              canAccept && hasShipmentToTrack(sub.status)
+                                ? [{ label: "Theo dõi vận đơn", href: ROUTES.seller.shipment(sub.subOrderId) }]
+                                : []
+                            }
+                          />
+                        ) : (
+                          <span style={{ color: "var(--muted)" }}>—</span>
+                        )}
                       </td>
                     </tr>
                   );
@@ -2079,14 +2630,14 @@ export function SellerOrdersScreen() {
               </tbody>
             </table>
           </div>
+        ) : resource.loading ? (
+          <TableSkeleton rows={5} cols={6} label="Đang tải danh sách đơn bán…" />
         ) : (
           <NoData
             title={
-              resource.loading
-                ? "Đang tải danh sách đơn bán…"
-                : resource.error
-                  ? "Không tải được danh sách đơn bán"
-                  : statusFilter ? "Không có đơn ở trạng thái đã chọn" : "Chưa có đơn hàng nào được chuyển đến shop"
+              resource.error
+                ? "Không tải được danh sách đơn bán"
+                : statusFilter ? "Không có đơn ở trạng thái đã chọn" : "Chưa có đơn hàng nào được chuyển đến shop"
             }
           />
         )}
@@ -2108,25 +2659,12 @@ export function SellerOrdersScreen() {
                 ))}
               </select>
             </label>
-            <button
-              type="button"
-              className="button button-secondary"
-              disabled={page <= 1 || resource.loading}
-              onClick={() => setPage((value) => value - 1)}
-            >
-              Trang trước
-            </button>
-            <span>
-              Trang {page}/{resource.data.pagination.totalPages}
-            </span>
-            <button
-              type="button"
-              className="button button-secondary"
-              disabled={!resource.data.pagination.hasNextPage || resource.loading}
-              onClick={() => setPage((value) => value + 1)}
-            >
-              Trang sau
-            </button>
+            <PaginationBar
+              page={page}
+              totalPages={resource.data.pagination.totalPages}
+              onPageChange={setPage}
+              disabled={resource.loading}
+            />
           </div>
         )}
       </Card>
@@ -2140,14 +2678,38 @@ export function SellerOrderDetailScreen() {
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [actionError, setActionError] = useState("");
+  const [rejecting, setRejecting] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
   const resource = useApiResource(
     subOrderId ? `seller-sub-order-detail:${subOrderId}` : null,
     (signal) =>
       sellerOrdersService.detail<SellerSubOrder>(subOrderId, signal),
   );
+  const financial = useApiResource(
+    subOrderId ? `seller-sub-order-breakdown:${subOrderId}` : null,
+    (signal) => sellerOrdersService.financialBreakdown(subOrderId, signal),
+  );
 
+  const acceptBlock = acceptOrderBlock(useWarehouseReadiness().readiness);
+  const [retryBusy, setRetryBusy] = useState(false);
+  const [retryFailure, setRetryFailure] = useState<ReturnType<typeof describeShipmentRetryFailure> | null>(null);
   const sub = resource.data;
-  const canAccept = Boolean(sub && ["PAID", "PENDINGCONFIRMATION"].includes(sub.status.replace(/[^a-z]/gi, "").toUpperCase()));
+  const accepted = Boolean(sub && hasShipmentToTrack(sub.status));
+  const shipmentInfo = useApiResource(
+    sub && accepted ? `seller-order-shipment:${sub.subOrderId}` : null,
+    (signal) => fulfillmentService.getSubOrderTimeline(subOrderId, signal),
+  );
+  const effectiveTrackingCode = sub?.trackingCode ?? shipmentInfo.data?.trackingCode ?? null;
+  const effectiveCarrierCode = sub?.carrierCode ?? shipmentInfo.data?.carrierCode ?? null;
+  const effectiveLabelPrintUrl = sub?.labelPrintUrl ?? shipmentInfo.data?.labelPrintUrl ?? null;
+  const canRetryShipment = Boolean(
+    sub &&
+      needsShipmentRetry(sub.status, effectiveTrackingCode) &&
+      (!accepted || shipmentInfo.data !== undefined),
+  );
+  const canAccept = Boolean(sub && canSellerAccept(sub));
+  const pickShifts = useApiResource(canAccept ? "shipping-pick-shifts" : null, (signal) => fulfillmentService.getPickShifts(signal));
+  const [selectedPickShiftId, setSelectedPickShiftId] = useState<number | null>(null);
 
   async function handleAccept() {
     if (!sub) return;
@@ -2155,28 +2717,55 @@ export function SellerOrderDetailScreen() {
     setFeedback("");
     setActionError("");
     try {
-      await sellerOrdersService.accept(sub.orderId, sub.subOrderId);
+      const result = await sellerOrdersService.accept(sub.orderId, sub.subOrderId, selectedPickShiftId);
+      const trackingNotice = result?.trackingCode ? ` Mã vận đơn GHN: ${result.trackingCode}.` : "";
       setFeedback(
-        "Đã chấp nhận đơn hàng. Vận đơn sẽ cập nhật khi hệ thống giao nhận tạo thành công.",
+        `Đã chấp nhận đơn hàng và đăng ký bưu tá GHN lấy hàng.${trackingNotice} Bạn có thể in phiếu giao hàng dán lên kiện hàng dưới đây.`,
       );
       resource.reload();
+      shipmentInfo.reload();
     } catch (reason) {
       setActionError(msg(reason as Error));
+      resource.reload();
+      shipmentInfo.reload();
     } finally {
       setBusy(false);
     }
   }
 
+  async function handleRetryShipment() {
+    if (!sub || retryBusy) return;
+    setRetryBusy(true);
+    setRetryFailure(null);
+    setFeedback("");
+    try {
+      const result = await fulfillmentService.retrySubOrderShipment(sub.subOrderId);
+      setFeedback(`Đã tạo lại vận đơn ${result.trackingCode}.`);
+      resource.reload();
+      shipmentInfo.reload();
+    } catch (reason) {
+      setRetryFailure(describeShipmentRetryFailure(reason));
+      resource.reload();
+      shipmentInfo.reload();
+    } finally {
+      setRetryBusy(false);
+    }
+  }
+
   async function handleReject() {
-    if (!sub) return;
+    if (!sub || !canAccept || busy || !rejectReason.trim()) return;
     setBusy(true);
     setFeedback("");
     setActionError("");
     try {
-      await sellerOrdersService.reject(sub.orderId, sub.subOrderId, "Gian hàng tạm hết tồn kho cho đơn hàng này.");
+      await sellerOrdersService.reject(sub.orderId, sub.subOrderId, rejectReason.trim());
       setFeedback(
-        "Đã từ chối đơn hàng. Vui lòng kiểm tra trạng thái hoàn tiền trên ví của người mua.",
+        isCodPayment(sub.paymentMethod)
+          ? "Đã từ chối đơn hàng COD."
+          : "Đã từ chối đơn hàng. Vui lòng kiểm tra trạng thái hoàn tiền trên ví của người mua.",
       );
+      setRejecting(false);
+      setRejectReason("");
       resource.reload();
     } catch (reason) {
       setActionError(msg(reason as Error));
@@ -2216,15 +2805,21 @@ export function SellerOrderDetailScreen() {
               }}
             >
               <h2 style={{ margin: 0 }}>Đơn hàng {sub.subOrderNo}</h2>
-              <Badge tone={sellerOrderStatusTone(sub.status)}>{describeSellerOrderStatus(sub.status)}</Badge>
+              <Badge tone={sellerOrderStatusTone(sub.status, sub.paymentMethod)}>{describeSellerOrderStatus(sub.status, sub.paymentMethod)}</Badge>
             </div>
             <div className="seller-order-detail-columns">
               <div className="seller-order-detail-main">
             <div className="seller-order-detail-facts">
             <div className="info-row">
               <span>Phương thức thanh toán</span>
-              <strong>Ví Nexus ({sub.paymentMethod})</strong>
+              <Badge tone={isCodPayment(sub.paymentMethod) ? "amber" : "slate"}>{paymentMethodLabel(sub.paymentMethod)}</Badge>
             </div>
+            {isCodPayment(sub.paymentMethod) && (
+              <div className="info-row">
+                <span>Thu hộ (COD)</span>
+                <strong>{formatMoney(sub.totalAmount)}</strong>
+              </div>
+            )}
             <div className="info-row">
               <span>Người nhận</span>
               <strong>
@@ -2281,17 +2876,95 @@ export function SellerOrderDetailScreen() {
               <span>Phí giao hàng</span>
               <strong>{formatMoney(sub.shippingFeeAmount)}</strong>
             </div>
+            {([ ["Giảm sản phẩm", sub.productDiscountAmount], ["Giảm từ shop", sub.shopDiscountAmount], ["Giảm từ sàn", sub.systemDiscountAmount] ] as const).filter(([, amount]) => typeof amount === "number" && amount > 0).map(([label, amount]) => <div className="info-row" key={label}><span>{label}</span><strong>−{formatMoney(amount ?? 0)}</strong></div>)}
             <div className="info-row">
               <span>Tổng tiền đơn hàng</span>
               <strong style={{ color: "var(--sky-dark)" }}>{formatMoney(sub.totalAmount)}</strong>
             </div>
+            {financial.data && (
+              <>
+                <div className="info-row">
+                  <span>Phí nền tảng</span>
+                  <strong>−{formatMoney(financial.data.platformFeeAmount)}</strong>
+                </div>
+                <div className="info-row">
+                  <span>Thực nhận về ví</span>
+                  <strong style={{ color: "var(--emerald-dark, #047857)" }}>
+                    {formatMoney(financial.data.sellerReceiveAmount)}
+                  </strong>
+                </div>
+                <div className="info-row">
+                  <span>Trạng thái giải ngân</span>
+                  <Badge tone={financial.data.isEscrowSettled ? "green" : "amber"}>
+                    {financial.data.isEscrowSettled ? "Đã giải ngân" : "Chờ hoàn tất đơn"}
+                  </Badge>
+                </div>
+              </>
+            )}
+            {acceptBlock && canAccept && (
+              <p role="alert" className="notice" style={{ marginTop: 12 }}>
+                {acceptBlock.message} <Link href={ROUTES.seller.inventory}>Mở Quản lý kho</Link>
+              </p>
+            )}
+            {canAccept && (
+              <div style={{ marginTop: 14, padding: "12px 14px", background: "var(--primary-soft)", borderRadius: 10, border: "1px solid var(--primary-border)" }}>
+                <label style={{ display: "block", fontSize: 13, fontWeight: 700, color: "var(--ink)", marginBottom: 6 }}>
+                  Hẹn ca bưu tá GHN đến lấy hàng:
+                </label>
+                <select
+                  className="field"
+                  style={{ width: "100%", background: "#fff" }}
+                  value={selectedPickShiftId ?? ""}
+                  onChange={(e) => setSelectedPickShiftId(e.target.value ? Number(e.target.value) : null)}
+                  disabled={busy}
+                  aria-label="Ca lấy hàng GHN"
+                >
+                  <option value="">Ca sớm nhất của bưu tá GHN (Mặc định)</option>
+                  {pickShifts.data?.map((shift) => (
+                    <option key={shift.id} value={shift.id}>
+                      {shift.title}
+                    </option>
+                  ))}
+                </select>
+                <span style={{ display: "block", fontSize: 11.5, color: "var(--muted)", marginTop: 4 }}>
+                  Shipper GHN sẽ đến địa chỉ kho của bạn để nhận kiện hàng theo ca hẹn này.
+                </span>
+              </div>
+            )}
+            {sub && ["CONFIRMED", "SELLERACCEPTED", "SHIPPING", "SHIPPED"].includes(sub.status.replace(/[^a-z]/gi, "").toUpperCase()) && (
+              <div style={{ marginTop: 16, padding: "14px 16px", borderRadius: 12, border: "1px solid var(--primary-border)", background: "var(--surface)" }}>
+                <h4 style={{ margin: "0 0 6px", fontSize: 13.5, display: "flex", alignItems: "center", gap: 6, color: "var(--ink)" }}>
+                  <Icon name="package" size={15} />
+                  Chuẩn bị kiện hàng & Bàn giao bưu tá GHN
+                </h4>
+                <div style={{ fontSize: 12.5, color: "var(--muted)", lineHeight: 1.45, marginBottom: 10 }}>
+                  Đóng gói đúng {sub.items.reduce((sum, item) => sum + item.quantity, 0)} sản phẩm trong đơn, in phiếu giao hàng dán lên bọc hàng và giao cho shipper khi tới lấy hàng.
+                </div>
+                {effectiveTrackingCode && (
+                  <TrackingCodeBar
+                    carrierCode={effectiveCarrierCode}
+                    carrierName={shipmentInfo.data?.carrierName}
+                    trackingCode={effectiveTrackingCode}
+                    labelPrintUrl={effectiveLabelPrintUrl}
+                    showPrintLabel
+                  />
+                )}
+              </div>
+            )}
+            {retryFailure && (
+              <p role="alert" className="notice" style={{ marginTop: 12 }}>
+                {retryFailure.message}{" "}
+                {retryFailure.fix === "warehouse-form" && <Link href={ROUTES.seller.inventory}>Mở Quản lý kho</Link>}
+              </p>
+            )}
             <div className="action-row" style={{ marginTop: 18 }}>
               {canAccept && (
                 <>
                   <button
                     type="button"
                     className="button button-primary"
-                    disabled={busy}
+                    disabled={busy || Boolean(acceptBlock)}
+                    title={acceptBlock?.message}
                     onClick={() => void handleAccept()}
                   >
                     {busy ? "Đang xử lý…" : "Chấp nhận đơn"}
@@ -2300,16 +2973,69 @@ export function SellerOrderDetailScreen() {
                     type="button"
                     className="button button-secondary"
                     disabled={busy}
-                    onClick={() => void handleReject()}
+                    aria-expanded={rejecting}
+                    aria-controls="seller-order-reject-form"
+                    onClick={() => {
+                      setRejecting((value) => !value);
+                      setActionError("");
+                    }}
                   >
                     Từ chối đơn
                   </button>
                 </>
               )}
+              {canRetryShipment && (
+                <button type="button" className="button button-primary" disabled={retryBusy} onClick={() => void handleRetryShipment()}>
+                  {retryBusy ? "Đang tạo…" : "Tạo lại vận đơn"}
+                </button>
+              )}
+              {hasShipmentToTrack(sub.status) && (
+                <ButtonLink href={ROUTES.seller.shipment(sub.subOrderId)} variant="secondary">
+                  Theo dõi vận đơn
+                </ButtonLink>
+              )}
               <ButtonLink href={ROUTES.seller.orders} variant="secondary">
                 Quay lại đơn hàng
               </ButtonLink>
             </div>
+            {canAccept && rejecting && (
+              <div id="seller-order-reject-form" className="seller-order-reject-form">
+                <label className="field-wrap">
+                  <span>Lý do từ chối đơn</span>
+                  <textarea
+                    className="textarea-field"
+                    value={rejectReason}
+                    onChange={(event) => setRejectReason(event.target.value)}
+                    placeholder="Nêu rõ lý do để người mua biết vì sao đơn bị từ chối"
+                    disabled={busy}
+                    required
+                  />
+                </label>
+                <p>Đơn sẽ bị hủy. Nếu đã thanh toán, hệ thống sẽ xử lý hoàn tiền cho người mua.</p>
+                <div className="action-row">
+                  <button
+                    type="button"
+                    className="button auction-danger-button"
+                    disabled={busy || !rejectReason.trim()}
+                    onClick={() => void handleReject()}
+                  >
+                    {busy ? "Đang xử lý…" : "Xác nhận từ chối"}
+                  </button>
+                  <button
+                    type="button"
+                    className="button button-secondary"
+                    disabled={busy}
+                    onClick={() => {
+                      setRejecting(false);
+                      setRejectReason("");
+                      setActionError("");
+                    }}
+                  >
+                    Hủy
+                  </button>
+                </div>
+              </div>
+            )}
               </aside>
             </div>
           </>
@@ -2332,50 +3058,186 @@ export function SellerOrderDetailScreen() {
 
 export function SellerShipmentDetailScreen() {
   const params = useParams<{ id: string }>();
-  const orderId = String(params.id ?? "");
+  const subOrderId = String(params.id ?? "");
+  const [syncBusy, setSyncBusy] = useState(false);
+  const [syncNotice, setSyncNotice] = useState("");
+  const [syncError, setSyncError] = useState("");
+
   const resource = useApiResource(
-    orderId ? `seller-shipment-order:${orderId}` : null,
-    (signal) => fulfillmentService.getShipmentByOrderId(orderId, signal),
+    subOrderId ? `seller-shipment-timeline:${subOrderId}` : null,
+    (signal) => fulfillmentService.getSubOrderTimeline(subOrderId, signal),
   );
+  const data = resource.data;
+  // Fetch the carrier's own record whenever a tracking code exists so we have shipment id (for sync-status), shipper info, items, and failed attempts.
+  const carrier = useApiResource(
+    data?.trackingCode ? `seller-shipment-carrier:${data.trackingCode}` : null,
+    (signal) => fulfillmentService.getShipmentByTracking(data?.trackingCode ?? "", signal),
+  );
+  const failedAttempts = countFailedAttempts(carrier.data?.events);
+  const lastReason = [...(carrier.data?.events ?? [])].reverse().find((event) => event.status === "DeliveryAttemptFailed" && event.reason)?.reason;
+  const shipmentItems = data?.items?.length
+    ? data.items.map((item) => ({
+        key: item.orderItemId ?? item.skuId,
+        name: item.productName,
+        skuCode: item.skuCode ?? null,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        lineTotal: item.lineTotal,
+      }))
+    : (carrier.data?.items ?? []).map((item, idx) => ({
+        key: `${item.skuId}-${idx}`,
+        name: item.name,
+        skuCode: item.skuId,
+        quantity: item.quantity,
+        unitPrice: item.price,
+        lineTotal: item.price * item.quantity,
+      }));
+
+  async function handleSyncFromCarrier() {
+    if (!carrier.data?.id || syncBusy) return;
+    setSyncBusy(true);
+    setSyncNotice("");
+    setSyncError("");
+    try {
+      await fulfillmentService.syncShipmentStatus(carrier.data.id);
+      setSyncNotice("Đã đồng bộ trạng thái mới nhất từ GHN.");
+      resource.reload();
+      carrier.reload();
+    } catch (cause) {
+      setSyncError(cause instanceof Error ? msg(cause) : "Không thể đồng bộ trạng thái từ GHN lúc này.");
+    } finally {
+      setSyncBusy(false);
+    }
+  }
+
   return (
     <>
       <PageHeading
         overline="Kênh người bán"
         title="Theo dõi vận đơn"
-        description="Trạng thái giao nhận của đơn hàng từ Fulfillment API."
+        description="Hành trình giao hàng và trạng thái cập nhật từ đơn vị vận chuyển GHN."
+        action={
+          carrier.data?.id ? (
+            <button
+              type="button"
+              className="button button-secondary"
+              disabled={syncBusy}
+              onClick={() => void handleSyncFromCarrier()}
+              style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+            >
+              <Icon name="refreshCw" size={15} />
+              {syncBusy ? "Đang đồng bộ…" : "Đồng bộ từ GHN"}
+            </button>
+          ) : undefined
+        }
       />
       {resource.error && (
         <p className="notice" role="alert">
           {msg(resource.error)}
         </p>
       )}
+      {syncError && <p className="notice" role="alert">{syncError}</p>}
+      {syncNotice && <p className="form-success" role="status">{syncNotice}</p>}
+
+      {data && (
+        <OrderProgressStepper
+          status={data.currentStatus}
+          deliveredAt={carrier.data?.deliveredAt}
+          orderNo={data.subOrderNo}
+        />
+      )}
+
       <Card className="card-pad">
-        {resource.data ? (
+        {data ? (
           <>
             <div className="info-row">
-              <span>Mã đơn hàng</span>
-              <strong className="seller-wrap-value">{resource.data.orderId}</strong>
+              <span>Mã đơn gian hàng</span>
+              <strong className="seller-wrap-value">{data.subOrderNo}</strong>
             </div>
             <div className="info-row">
-              <span>Mã vận đơn</span>
-              <strong>{resource.data.trackingNumber ?? "Chưa cấp"}</strong>
+              <span>Trạng thái hiện tại</span>
+              <Badge>{shipmentStatusLabel(data.currentStatus)}</Badge>
             </div>
-            <div className="info-row">
-              <span>Trạng thái</span>
-              <Badge>{resource.data.status}</Badge>
-            </div>
-            <div className="info-row">
-              <span>Người nhận</span>
-              <strong>{resource.data.receiverName}</strong>
-            </div>
-            <div className="info-row">
-              <span>Số điện thoại</span>
-              <strong>{resource.data.receiverPhone}</strong>
-            </div>
-            <div className="info-row">
-              <span>Địa chỉ</span>
-              <strong className="seller-wrap-value">{resource.data.receiverAddress}</strong>
-            </div>
+            {data.estimatedDeliveryAt && (
+              <div className="info-row">
+                <span>Dự kiến giao</span>
+                <strong>{new Date(data.estimatedDeliveryAt).toLocaleString("vi-VN")}</strong>
+              </div>
+            )}
+            {carrier.data && (
+              <>
+                <div className="info-row">
+                  <span>Người nhận</span>
+                  <strong>{carrier.data.receiverName} · {carrier.data.receiverPhone}</strong>
+                </div>
+                <div className="info-row">
+                  <span>Địa chỉ nhận</span>
+                  <span style={{ textAlign: "right" }}>{carrier.data.receiverAddress}</span>
+                </div>
+              </>
+            )}
+
+            <TrackingCodeBar
+              carrierCode={data.carrierCode}
+              carrierName={data.carrierName}
+              trackingCode={data.trackingCode}
+              labelPrintUrl={data.labelPrintUrl}
+              shipmentId={carrier.data?.id}
+              showPrintLabel
+            />
+
+            {shipmentItems.length > 0 && (
+              <div style={{ marginTop: 14, marginBottom: 14 }}>
+                <h3 style={{ margin: "0 0 8px", fontSize: 15 }}>Sản phẩm trong đơn vận chuyển</h3>
+                <div className="table-scroll">
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Sản phẩm</th>
+                        <th>Số lượng</th>
+                        <th>Đơn giá</th>
+                        <th>Thành tiền</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {shipmentItems.map((item) => (
+                        <tr key={item.key}>
+                          <td>
+                            <strong>{item.name}</strong>
+                            {item.skuCode && (
+                              <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>
+                                SKU: {item.skuCode}
+                              </div>
+                            )}
+                          </td>
+                          <td className="tabular-nums">{item.quantity}</td>
+                          <td className="tabular-nums">{formatMoney(item.unitPrice)}</td>
+                          <td className="tabular-nums"><strong>{formatMoney(item.lineTotal)}</strong></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {failedAttempts > 0 && !lastReason && (
+              <div className="shipment-alert-strip is-danger" role="status" style={{ marginBottom: 12 }}>
+                <Icon name="alertTriangle" size={16} />
+                <span>Đã có {failedAttempts} lần giao không thành công.</span>
+              </div>
+            )}
+
+            <ShipmentTimelineList
+              events={data.timeline}
+              carrierEvents={carrier.data?.events}
+              loading={resource.loading}
+              refreshing={resource.loading || carrier.loading}
+              onRefresh={() => {
+                resource.reload();
+                if (data.trackingCode) carrier.reload();
+              }}
+            />
           </>
         ) : (
           <NoData
@@ -2389,9 +3251,15 @@ export function SellerShipmentDetailScreen() {
           />
         )}
       </Card>
-      <p className="status-note">
-        Xác nhận hàng hoàn và cộng lại tồn đang tạm khóa. Fulfillment cần chặn xác nhận lặp và kiểm tra quyền với đơn ở kho chung trước khi thao tác này được mở.
-      </p>
+      <div className="action-row">
+        {data && canConfirmReturn(data.timeline) && <ConfirmReturnButton subOrderId={subOrderId} onDone={() => { resource.reload(); }} />}
+        <ButtonLink href={ROUTES.seller.order(subOrderId)} variant="secondary">
+          Xem chi tiết đơn bán
+        </ButtonLink>
+        <ButtonLink href={ROUTES.seller.shipments} variant="secondary">
+          Quay lại danh sách vận đơn
+        </ButtonLink>
+      </div>
     </>
   );
 }
@@ -2404,6 +3272,9 @@ export function SellerShopScreen() {
   const [error, setError] = useState("");
   const [saved, setSaved] = useState("");
   const [busy, setBusy] = useState(false);
+  // Once the seller changes anything, a reload of the profile must not replace the form; a successful save hands the form back to the saved data.
+  const [dirty, setDirty] = useState(false);
+  const [locationCheck, setLocationCheck] = useState<GhnCheck>({ state: "empty" });
 
   useEffect(() => {
     if (!saved) return;
@@ -2416,18 +3287,23 @@ export function SellerShopScreen() {
     const values = new FormData(event.currentTarget);
     setError("");
     setSaved("");
+    const locationBlock = ghnWriteBlock(locationCheck);
+    if (locationBlock) {
+      setError(locationBlock);
+      return;
+    }
     setBusy(true);
     try {
       await api.patch("/api/v1/sellers/profile", {
         shopName: String(values.get("shopName") ?? ""),
         hotline: String(values.get("hotline") ?? ""),
-        description: String(values.get("description") ?? ""),
         pickupAddress: String(values.get("streetAddress") ?? ""),
         provinceId: Number(values.get("provinceId")),
         districtId: Number(values.get("districtId")),
         wardCode: String(values.get("wardCode") ?? ""),
       });
       setSaved("Đã cập nhật hồ sơ gian hàng.");
+      setDirty(false);
       shop.reload();
     } catch (reason) {
       setError(msg(reason as Error));
@@ -2457,8 +3333,12 @@ export function SellerShopScreen() {
       draft?.warehouseAddress.streetAddress ??
       "",
   );
-  const selectedArea = ghnPresets.find((place) => place.provinceId === resolvedProvinceId &&
-    place.districtId === resolvedDistrictId && place.wardCode === resolvedWardCode);
+
+  // The form keeps its key while the seller edits (see nextShopFormKey): changing it would re-create the form and lose what was just typed.
+  const savedKey = shopFormSavedKey({ shopName: resolvedShopName, hotline: resolvedHotline, provinceId: resolvedProvinceId, districtId: resolvedDistrictId, wardCode: resolvedWardCode, streetAddress: resolvedStreetAddress });
+  const [formKey, setFormKey] = useState(savedKey);
+  const nextKey = nextShopFormKey(formKey, savedKey, dirty);
+  if (nextKey !== formKey) setFormKey(nextKey);
 
   return (
     <>
@@ -2480,7 +3360,7 @@ export function SellerShopScreen() {
             <div><dt>Tên gian hàng</dt><dd>{resolvedShopName || "—"}</dd></div>
             <div><dt>Hotline</dt><dd>{resolvedHotline || "—"}</dd></div>
             <div><dt>Địa chỉ lấy hàng</dt><dd>{resolvedStreetAddress || "—"}</dd></div>
-            <div><dt>Khu vực lấy hàng</dt><dd>{selectedArea ? `${selectedArea.city} · ${selectedArea.district} · ${selectedArea.ward}` : resolvedProvinceId ? "Địa chỉ đã lưu" : "Chưa khai báo"}</dd></div>
+            <div><dt>Khu vực lấy hàng</dt><dd>{resolvedProvinceId ? <SavedShopArea provinceId={resolvedProvinceId} districtId={resolvedDistrictId} wardCode={resolvedWardCode} /> : "Chưa khai báo"}</dd></div>
           </dl>
           <p className="status-note">Trạng thái hồ sơ UserService không chứng minh kho đã được tạo ở Fulfillment. Chỉ xác nhận đồng bộ khi backend cung cấp mã kho hoặc truy vấn kho theo Seller.</p>
         </Card>
@@ -2489,14 +3369,8 @@ export function SellerShopScreen() {
         <h2>Chỉnh sửa gian hàng</h2>
         <form
           className="auth-fields"
-          key={JSON.stringify([
-            resolvedShopName,
-            resolvedHotline,
-            resolvedProvinceId,
-            resolvedDistrictId,
-            resolvedWardCode,
-            resolvedStreetAddress,
-          ])}
+          onChange={() => setDirty(true)}
+          key={formKey}
           onSubmit={(e) => void submit(e)}
         >
           <label className="field-wrap">
@@ -2507,12 +3381,8 @@ export function SellerShopScreen() {
             Hotline
             <input className="field" name="hotline" required defaultValue={resolvedHotline} />
           </label>
-          <label className="field-wrap">
-            Mô tả
-            <textarea className="textarea-field" name="description" defaultValue={String(data.description ?? "")} />
-          </label>
           <SellerShopAddressFields provinceId={resolvedProvinceId} districtId={resolvedDistrictId}
-            wardCode={resolvedWardCode} streetAddress={resolvedStreetAddress} />
+            wardCode={resolvedWardCode} streetAddress={resolvedStreetAddress} onCheck={setLocationCheck} />
           {error && (
             <p role="alert" className="notice">
               {error}

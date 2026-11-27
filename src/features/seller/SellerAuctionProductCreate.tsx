@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { Card, PageHeading } from "@/components/ui/Primitives";
+import { FileDropZone } from "@/components/ui/FileDropZone";
 import { ROUTES } from "@/constants/routes";
 import { api, unwrap, type ApiResponse } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
@@ -56,9 +57,9 @@ export function SellerAuctionProductCreate() {
       <div className="form-grid"><label className="field-wrap">Danh mục<select className="select-field" required value={categoryId} onChange={(event) => setCategoryId(event.target.value)}><option value="">Chọn danh mục</option>{leafCategoryOptions(categories.data ?? []).map((category) => <option key={category.categoryId} value={category.categoryId}>{category.label}</option>)}</select></label>
         <label className="field-wrap">Khối lượng vận chuyển (gram)<input className="field" type="number" min="1" step="1" required value={weightGrams} onChange={(event) => setWeightGrams(event.target.value)} /></label>
         <label className="field-wrap">Thương hiệu<input className="field" value={brand} onChange={(event) => setBrand(event.target.value)} /></label>
-        <label className="field-wrap">Mã SKU (có thể để trống)<input className="field" value={skuCode} onChange={(event) => setSkuCode(event.target.value)} /></label></div>
+        <label className="field-wrap">Mã SKU (tùy chọn — khuyên dùng mã shop)<input className="field" placeholder="VD: TENSHOP-DG-01 (để trống hệ thống tạo mã AUC-...)" value={skuCode} onChange={(event) => setSkuCode(event.target.value)} /></label></div>
       <label className="field-wrap">Mô tả<textarea className="textarea-field" value={description} onChange={(event) => setDescription(event.target.value)} /></label>
-      <label className="field-wrap">Ảnh sản phẩm<input className="field" type="file" accept="image/jpeg,image/png,image/webp" required onChange={(event) => setImage(event.target.files?.[0] ?? null)} /></label>
+      <div className="field-wrap"><span>Ảnh sản phẩm</span><FileDropZone accept="image/jpeg,image/png,image/webp" required hint="JPG, PNG hoặc WEBP · tối đa 10 MB" onFilesChange={(files) => setImage(files[0] ?? null)} /></div>
       {categories.error && <p className="notice" role="alert">{categories.error.message}</p>}{error && <p className="notice" role="alert">{error}</p>}
       {created && <p className="form-success" role="status">Đã tạo SKU {created.skuCode}. Nếu bước tải ảnh hoặc gửi duyệt lỗi, sản phẩm vẫn tồn tại với mã {created.productId}.</p>}
       <div className="action-row"><button className="button button-primary" type="submit" disabled={busy || submitted}>{busy ? "Đang xử lý…" : submitted ? "Đã gửi duyệt" : created ? "Tiếp tục gửi duyệt" : "Tạo và gửi duyệt"}</button><Link className="button button-secondary" href={ROUTES.seller.auctions}>Về danh sách phiên</Link></div>

@@ -1,5 +1,6 @@
 import { api, unwrap, type ApiResponse } from "@/lib/api/client";
 import type { BadgeTone } from "@/components/ui/Primitives";
+import { REPORT_STATUS, statusLabel } from "@/lib/status-labels";
 
 export type ReportStatus = "Pending" | "UnderReview" | "Resolved" | "Rejected";
 export type ReportViolationType = "Fraud" | "Harassment" | "Counterfeit" | "Spam" | "Other";
@@ -19,6 +20,10 @@ export type AdminReportItem = {
   resolvedAt?: string | null;
   resolutionNote?: string | null;
   createdAt: string;
+  /** None, Pending, Refunded, ManualProcessingRequired or Failed (User service). */
+  refundStatus?: string | null;
+  refundAmount?: number | null;
+  refundMessage?: string | null;
 };
 
 export type ResolveReportPayload = {
@@ -98,6 +103,10 @@ export const adminReportsService = {
     });
   },
 
+  async retryRefund(reportId: string): Promise<void> {
+    await api.post(`${basePath}/${encodeURIComponent(reportId)}/refund/retry`, {});
+  },
+
   async hideReview(reviewId: string, reason: string): Promise<void> {
     await api.put(`/api/v1/admin/reviews/${encodeURIComponent(reviewId)}/hide`, { reason });
   },
@@ -112,13 +121,15 @@ export function reportStatusTone(status?: string): BadgeTone {
   return "sky";
 }
 
+/** One table for every report screen (see `REPORT_STATUS`). */
 export function reportStatusLabel(status?: string): string {
-  const s = (status ?? "").toUpperCase();
-  if (s === "PENDING") return "Chờ xử lý";
-  if (s === "UNDERREVIEW") return "Đang xem xét";
-  if (s === "RESOLVED") return "Đã giải quyết";
-  if (s === "REJECTED" || s === "DISMISSED") return "Đã bác bỏ";
-  return status ?? "—";
+  return statusLabel(REPORT_STATUS, status);
+}
+
+/** The refund of a resolved report can be retried only while it is pending or failed. */
+export function canRetryReportRefund(refundStatus?: string | null): boolean {
+  const s = (refundStatus ?? "").toUpperCase();
+  return s === "PENDING" || s === "FAILED";
 }
 
 export function reportViolationTypeLabel(type?: string): string {

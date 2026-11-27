@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { Badge, Card, NoData, PageHeading } from "@/components/ui/Primitives";
+import { Badge, Card, NoData, PageHeading, TruncatedText } from "@/components/ui/Primitives";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import {
   adminCategoriesService,
@@ -191,10 +191,10 @@ export function AdminCategoriesScreen() {
                     title="Nhấn để chỉnh sửa danh mục này"
                   >
                     <td>
-                      <strong>{category.name}</strong>
+                      <strong><TruncatedText text={category.name} label="Tên danh mục" maxWidth={240} /></strong>
                       {category.description && (
                         <small style={{ display: "block", color: "var(--muted)" }}>
-                          {category.description}
+                          <TruncatedText text={category.description} label="Mô tả danh mục" maxWidth={260} />
                         </small>
                       )}
                     </td>

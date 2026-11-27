@@ -33,6 +33,8 @@ export type SellerProduct = {
   categoryName?: string | null;
   saleType: string;
   status: string;
+  statusReason?: string | null;
+  rejectionReason?: string | null;
   minPrice?: number | null;
   primaryImageUrl?: string | null;
   variantCount: number;
@@ -94,6 +96,11 @@ export type WarehouseInfo = {
   name: string;
   type?: string;
   address?: string | null;
+  contactPhone?: string | null;
+  provinceName?: string | null;
+  provinceId?: number | null;
+  districtId?: number | null;
+  wardCode?: string | null;
   isDisabled?: boolean;
   sellerId?: string | null;
 };
@@ -151,9 +158,10 @@ export const sellerCatalogService = {
     }
     return categories;
   },
-  async list(page: number, keyword: string, signal?: AbortSignal, pageSize = 20) {
+  async list(page: number, keyword: string, signal?: AbortSignal, pageSize = 20, status?: string) {
     const query = new URLSearchParams({ page: String(page), pageSize: String(pageSize), saleType: "REGULAR" });
     if (keyword) query.set("keyword", keyword);
+    if (status) query.set("status", status);
     return unwrap(
       await api.get<ApiResponse<Paged<SellerProduct>> | Paged<SellerProduct>>(
         `/api/v1/seller/products?${query}`,
@@ -290,6 +298,7 @@ export const sellerCatalogService = {
   async updateVariant(
     variantId: string,
     input: {
+      skuCode?: string;
       name: string;
       price: number;
       currency?: string;
@@ -384,6 +393,23 @@ export const sellerCatalogService = {
     );
   },
 
+  async lowStockAlerts(warehouseId?: string, signal?: AbortSignal): Promise<unknown> {
+    const query = warehouseId ? `?warehouseId=${encodeURIComponent(warehouseId)}` : "";
+    return unwrap(await api.get<unknown>(`/api/v1/inventories/alerts/low-stock${query}`, { signal }));
+  },
+
+  async deadStockAlerts(days: number, warehouseId?: string, signal?: AbortSignal): Promise<unknown> {
+    const query = `?days=${days}${warehouseId ? `&warehouseId=${encodeURIComponent(warehouseId)}` : ""}`;
+    return unwrap(await api.get<unknown>(`/api/v1/inventories/alerts/dead-stock${query}`, { signal }));
+  },
+
+  async updateThreshold(skuId: string, minStockThreshold: number, isLowStockAlertEnabled?: boolean) {
+    return api.put<unknown>(`/api/v1/inventories/${encodeURIComponent(skuId)}/threshold`, {
+      minStockThreshold,
+      ...(isLowStockAlertEnabled === undefined ? {} : { isLowStockAlertEnabled }),
+    });
+  },
+
   async declareInventory(input: {
     skuId: string;
     warehouseId?: string;
@@ -467,15 +493,13 @@ export const sellerCatalogService = {
     return [];
   },
 
-  async createWarehouse(input: { code: string; name: string; address: string; sellerId?: string }) {
+  /** Completes the seller's own warehouse. The server needs only the name; the other fields are updated when sent. */
+  async updateWarehouse(
+    id: string,
+    input: { name: string; address?: string; contactPhone?: string; provinceName?: string; provinceId?: number; districtId?: number; wardCode?: string },
+  ) {
     return unwrap(
-      await api.post<ApiResponse<WarehouseInfo> | WarehouseInfo>("/api/v1/warehouses", {
-        code: input.code.trim().toUpperCase(),
-        name: input.name.trim(),
-        type: "SellerWarehouse",
-        address: input.address.trim(),
-        sellerId: input.sellerId,
-      }),
+      await api.put<ApiResponse<WarehouseInfo> | WarehouseInfo>(`/api/v1/warehouses/${encodeURIComponent(id)}`, input),
     );
   },
 };

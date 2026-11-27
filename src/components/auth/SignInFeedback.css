@@ -1,0 +1,31 @@
+/* Lucian UX/UI Prompt #062 · MIT License (c) 2026 Seokwoooo · https://lucianlabs.dev/uxui-prompt/#062 */
+.u062-go{
+  --ux-ease:cubic-bezier(.2,.8,.2,1);
+  --ux-spring:cubic-bezier(.34,1.45,.64,1);
+  --ux-mint:#119C72;
+  position:relative;align-self:center;width:100%;height:54px;overflow:hidden;
+  transition:width .45s var(--ux-spring),border-radius .45s var(--ux-spring),background-color .4s,transform .3s var(--ux-spring);
+}
+.u062-go.is-morph{width:54px!important;min-width:54px;padding:0;border-radius:27px;margin-inline:auto}
+.u062-go .u062-label{display:inline-flex;align-items:center;gap:8px;transition:opacity .2s}
+.u062-go.is-morph .u062-label{opacity:0}
+.u062-go .u062-spin{position:absolute;left:50%;top:50%;width:22px;height:22px;margin:-11px 0 0 -11px;border-radius:50%;border:2.5px solid currentColor;border-right-color:transparent;opacity:0;animation:u062-spin .7s linear infinite}
+.u062-go.is-busy .u062-spin{opacity:1}
+.u062-go .u062-check{position:absolute;left:50%;top:50%;width:26px;height:26px;margin:-13px 0 0 -13px;fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.u062-go .u062-check path{stroke-dasharray:26;stroke-dashoffset:26;transition:stroke-dashoffset .4s var(--ux-ease) .1s}
+.u062-go.is-ok{background:var(--ux-mint)!important;color:#fff}
+.u062-go.is-ok .u062-check path{stroke-dashoffset:0}
+@keyframes u062-spin{to{transform:rotate(360deg)}}
+
+.u062-shake{animation:u062-no .5s cubic-bezier(.36,.07,.19,.97)}
+@keyframes u062-no{15%{transform:translateX(-9px) rotate(-.6deg)}30%{transform:translateX(8px) rotate(.5deg)}45%{transform:translateX(-6px)}60%{transform:translateX(4px)}75%{transform:translateX(-2px)}}
+
+.u062-eye .u062-lid{transform-origin:12px 12px;transition:transform .35s var(--ux-spring,cubic-bezier(.34,1.45,.64,1))}
+.u062-eye[aria-pressed="false"] .u062-lid{transform:scaleY(.5)}
+.u062-eye .u062-slash{stroke-dasharray:24;stroke-dashoffset:0;transition:stroke-dashoffset .35s cubic-bezier(.2,.8,.2,1)}
+.u062-eye[aria-pressed="true"] .u062-slash{stroke-dashoffset:24}
+.u062-caps{margin-left:auto;font-size:11.5px;font-weight:800;color:#D6731E}
+
+@media (prefers-reduced-motion:reduce){
+  .u062-go,.u062-go *,.u062-shake,.u062-eye *{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
+}

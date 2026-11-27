@@ -5,7 +5,10 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useSession } from "@/components/auth/SessionProvider";
 import { BackendImage } from "@/components/ui/BackendImage";
-import { Badge, Card, NoData, PageHeading, SectionHeading } from "@/components/ui/Primitives";
+import { Badge, Card, PageHeading, SectionHeading, TruncatedText } from "@/components/ui/Primitives";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { ErrorState } from "@/components/ui/States";
+import { SkeletonPage } from "@/components/ui/Skeletons";
 import { ROUTES } from "@/constants/routes";
 import { commerceService } from "@/features/commerce";
 import { ApiError, api, unwrap, type ApiResponse } from "@/lib/api/client";
@@ -13,6 +16,7 @@ import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatMoney, resolveImageUrl } from "@/lib/presentation";
 import type { ProductSpecification } from "./types/product-specification";
 import { ProductFeedback } from "./ProductFeedback";
+import { describeError, formatError } from "@/lib/errors/error-messages";
 
 type ProductImage = {
   url: string;
@@ -52,7 +56,6 @@ type ProductDetail = {
 type SellerProfile = {
   shopName: string;
   logoUrl?: string | null;
-  description?: string | null;
   ratingAvg?: number;
   totalProducts?: number;
 };
@@ -178,12 +181,13 @@ export function ProductDetailScreen() {
   }, [cartNotice]);
 
   if (!product) {
+    if (productResource.loading) return <SkeletonPage variant="detail" label="Đang tải sản phẩm…" />;
+    const missing = !productResource.error || (productResource.error instanceof ApiError && productResource.error.status === 404);
     return <>
       <PageHeading title="Chi tiết sản phẩm" />
-      {productResource.error ? <div className="notice" role="alert">
-        <p>{productResource.error.message}</p>
-        <button type="button" className="button button-secondary button-small" onClick={productResource.reload}>Tải lại sản phẩm</button>
-      </div> : <NoData title={productResource.loading ? "Đang tải sản phẩm…" : "Không tìm thấy sản phẩm"} />}
+      {missing
+        ? <EmptyState title="Không tìm thấy sản phẩm" description="Sản phẩm có thể đã bị gỡ hoặc đường dẫn không đúng." actionLabel="Xem danh mục sản phẩm" actionHref={ROUTES.catalog.index} />
+        : <ErrorState cause={productResource.error} onRetry={productResource.reload} retryLabel="Tải lại sản phẩm" />}
     </>;
   }
 
@@ -238,7 +242,7 @@ export function ProductDetailScreen() {
         ? "Kho hiện không đủ số lượng bạn chọn. Hãy giảm số lượng và thử lại."
         : cause instanceof ApiError && cause.status >= 500
           ? "Giỏ hàng đang gặp lỗi hệ thống. Vui lòng thử lại sau."
-        : cause instanceof Error ? cause.message : "Không thêm được sản phẩm vào giỏ hàng.");
+        : formatError(describeError(cause, { operation: "write" })));
     } finally {
       setAdding(false);
     }
@@ -264,7 +268,7 @@ export function ProductDetailScreen() {
     <div className="product-detail-hero">
       <div className="product-detail-heading">
         {product.category?.name && <Badge>{product.category.name}</Badge>}
-        <h1>{product.name}</h1>
+        <h1><TruncatedText text={product.name} label="Tên sản phẩm" block /></h1>
         {product.brand && <p className="product-detail-brand">Thương hiệu: {product.brand}</p>}
         <p className="product-detail-rating">
           {reviewCount > 0
@@ -341,10 +345,37 @@ export function ProductDetailScreen() {
             ? "Sản phẩm hiện chưa thể mua." : selectedVariant ? "Phiên bản này chưa thể mua." : canChooseAttributes
               ? "Chọn màu sắc và kích cỡ để thêm vào giỏ." : "Chọn phiên bản để thêm vào giỏ."}
         </p>
-        <label className="field-wrap" htmlFor="product-detail-quantity">Số lượng
-          <input id="product-detail-quantity" className="field product-detail-quantity" type="number" min="1" step="1"
-            inputMode="numeric" value={quantity} onChange={(event) => setQuantity(event.target.value)} aria-invalid={!validQuantity} />
-        </label>
+        <div className="field-wrap">
+          <label htmlFor="product-detail-quantity">Số lượng</label>
+          <div className="cart-quantity-control" style={{ width: "fit-content" }} role="group" aria-label="Chọn số lượng">
+            <button
+              type="button"
+              disabled={adding || !validQuantity || parsedQuantity <= 1}
+              aria-label="Giảm số lượng"
+              onClick={() => setQuantity(String(Math.max(1, parsedQuantity - 1)))}
+            >
+              <span aria-hidden="true">−</span>
+            </button>
+            <input
+              id="product-detail-quantity"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={quantity}
+              disabled={adding}
+              onChange={(event) => setQuantity(event.target.value)}
+              aria-invalid={!validQuantity}
+            />
+            <button
+              type="button"
+              disabled={adding}
+              aria-label="Tăng số lượng"
+              onClick={() => setQuantity(String(validQuantity ? parsedQuantity + 1 : 1))}
+            >
+              <span aria-hidden="true">+</span>
+            </button>
+          </div>
+        </div>
         {!validQuantity && <p className="product-detail-field-error" role="alert">Nhập số lượng nguyên lớn hơn 0.</p>}
         <div className="product-detail-actions">
           <button type="button" className="button button-primary" disabled={!canAdd || adding} onClick={() => void addToCart()}>
@@ -357,7 +388,7 @@ export function ProductDetailScreen() {
     </div>
 
     <div className="product-detail-content">
-      <ProductFeedback productId={product.productId} canReport={Boolean(user && (user.roles?.some((role) => /^(buyer|seller)$/i.test(role)) || /^(buyer|seller)$/i.test(user.role ?? "")))} />
+      <div className="product-detail-main">
       <section className="product-detail-section" aria-labelledby="product-description-title">
         <SectionHeading id="product-description-title" title="Mô tả sản phẩm" />
         <Card className="card-pad"><p className="product-detail-copy">{product.description?.trim() || "Người bán chưa cung cấp mô tả sản phẩm."}</p></Card>
@@ -369,13 +400,15 @@ export function ProductDetailScreen() {
             <div key={`${label}-${index}`}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
           : <p className="product-detail-copy">{specifications.text || "Người bán chưa cung cấp thông số sản phẩm."}</p>}</Card>
       </section>
+      <ProductFeedback productId={product.productId} canReport={Boolean(user && (user.roles?.some((role) => /^(buyer|seller)$/i.test(role)) || /^(buyer|seller)$/i.test(user.role ?? "")))} />
+      </div>
+      <aside className="product-detail-side" aria-label="Thông tin gian hàng">
       {product.sellerId && <section className="product-detail-section" aria-labelledby="product-seller-title">
         <SectionHeading id="product-seller-title" title="Gian hàng" />
         <Card className="card-pad product-detail-seller">
           {sellerResource.data ? <>
             {sellerResource.data.logoUrl && <div className="product-detail-seller-logo"><BackendImage src={resolveImageUrl(sellerResource.data.logoUrl)} alt={`Logo ${sellerResource.data.shopName}`} compact /></div>}
-            <div><h3>{sellerResource.data.shopName}</h3>
-              {sellerResource.data.description && <p>{sellerResource.data.description}</p>}
+            <div style={{ minWidth: 0 }}><h3><Link href={ROUTES.catalog.shop(product.sellerId)}><TruncatedText text={sellerResource.data.shopName} label="Tên gian hàng" block /></Link></h3>
               <div className="product-detail-seller-facts">
                 {typeof sellerResource.data.ratingAvg === "number" && sellerResource.data.ratingAvg > 0 && <span>★ {sellerResource.data.ratingAvg.toFixed(1)}/5</span>}
                 {typeof sellerResource.data.totalProducts === "number" && sellerResource.data.totalProducts > 0 && <span>{sellerResource.data.totalProducts} sản phẩm</span>}
@@ -383,19 +416,20 @@ export function ProductDetailScreen() {
               <Link className="button button-secondary button-small product-detail-shop-link" href={ROUTES.catalog.shop(product.sellerId)}>Xem gian hàng và sản phẩm khác</Link>
             </div>
           </> : <div>
-            <p>{sellerResource.loading ? "Đang tải thông tin gian hàng…" : "Chưa tải được thông tin gian hàng."}</p>
+            <p role={sellerResource.error ? "alert" : "status"}>{sellerResource.loading ? "Đang tải thông tin gian hàng…" : "Tên gian hàng tạm thời chưa tải được. Bạn vẫn có thể xem các sản phẩm của gian hàng."}</p>
             {sellerResource.error && <button type="button" className="button button-secondary button-small" onClick={sellerResource.reload}>Thử lại</button>}
             <Link className="button button-secondary button-small product-detail-shop-link" href={ROUTES.catalog.shop(product.sellerId)}>Xem gian hàng</Link>
           </div>}
         </Card>
       </section>}
-      {product.category?.categoryId && <section className="product-detail-section" aria-labelledby="related-products-title">
-        <SectionHeading id="related-products-title" title="Sản phẩm cùng danh mục" />
+      </aside>
+      {product.category?.categoryId && <section className="product-detail-section product-detail-related-section" aria-labelledby="related-products-title">
+        <SectionHeading id="related-products-title" title="Sản phẩm cùng danh mục" hint="Gợi ý từ các gian hàng trên Nexus" />
         {relatedResource.error && <p className="notice" role="alert">Không tải được sản phẩm cùng danh mục.</p>}
         {relatedProducts.length > 0 ? <div className="product-detail-related">
           {relatedProducts.map((item) => <Link className="product-detail-related-item" href={ROUTES.catalog.product(item.productId)} key={item.productId}>
             <div className="product-detail-related-image"><BackendImage src={resolveImageUrl(item.primaryImageUrl)} alt="" compact /></div>
-            <span>{item.name}</span><strong>{formatMoney(item.minPrice)}</strong>
+            <span><TruncatedText text={item.name} label="Sản phẩm liên quan" block /></span><strong>{formatMoney(item.minPrice)}</strong>
           </Link>)}
         </div> : !relatedResource.error && <p className="product-detail-muted">{relatedResource.loading ? "Đang tìm sản phẩm cùng danh mục…" : "Chưa có sản phẩm cùng danh mục."}</p>}
       </section>}

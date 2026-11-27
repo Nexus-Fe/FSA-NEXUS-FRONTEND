@@ -1,6 +1,8 @@
+/* Lucian UX/UI Prompt #062 · MIT License (c) 2026 Seokwoooo · https://lucianlabs.dev/uxui-prompt/#062 */
 "use client";
 
-import { useState, type InputHTMLAttributes, type ReactNode } from "react";
+import { useState, type InputHTMLAttributes, type KeyboardEvent, type ReactNode } from "react";
+import "@/components/ui/PasswordInput.css";
 
 export interface PasswordInputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "type"> {
   id: string;
@@ -14,14 +16,23 @@ export function PasswordInput({
   headerAction,
   className = "",
   placeholder = "••••••••",
+  onKeyUp,
+  onKeyDown,
+  onBlur,
   ...props
 }: PasswordInputProps) {
   const [visible, setVisible] = useState(false);
+  const [capsOn, setCapsOn] = useState(false);
+
+  function trackCaps(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.getModifierState) setCapsOn(event.getModifierState("CapsLock"));
+  }
 
   return (
     <div className="field-wrap">
       <div className="field-header-row">
         <label htmlFor={id}>{label}</label>
+        {capsOn && <span className="u062-caps" role="status">Đang bật Caps Lock</span>}
         {headerAction}
       </div>
       <div className="input-icon-wrap">
@@ -36,25 +47,25 @@ export function PasswordInput({
           className={`field field-with-icon field-with-toggle ${className}`.trim()}
           type={visible ? "text" : "password"}
           placeholder={placeholder}
+          onKeyUp={(event) => { trackCaps(event); onKeyUp?.(event); }}
+          onKeyDown={(event) => { trackCaps(event); onKeyDown?.(event); }}
+          onBlur={(event) => { setCapsOn(false); onBlur?.(event); }}
           {...props}
         />
         <button
           type="button"
-          className="input-toggle-btn"
+          className="input-toggle-btn u062-eye"
           onClick={() => setVisible((prev) => !prev)}
+          aria-pressed={visible}
           aria-label={visible ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
         >
-          {visible ? (
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
-              <line x1="1" y1="1" x2="23" y2="23" />
-            </svg>
-          ) : (
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <g className="u062-lid">
+              <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" />
               <circle cx="12" cy="12" r="3" />
-            </svg>
-          )}
+            </g>
+            <path className="u062-slash" d="M4 4l16 16" />
+          </svg>
         </button>
       </div>
     </div>

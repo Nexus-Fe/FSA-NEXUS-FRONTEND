@@ -1,8 +1,11 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { AdminPagination, Badge, Card, NoData, PageHeading, SectionHeading } from "@/components/ui/Primitives";
+import { AdminPagination, Badge, Card, NoData, PageHeading, SectionHeading, TruncatedText } from "@/components/ui/Primitives";
 import { CopyableId } from "@/components/ui/CopyableId";
+import { FluidChoiceBar } from "@/components/ui/FluidChoiceBar";
+import { EmailInput } from "@/components/ui/EmailInput";
+import { TableSkeleton } from "@/components/ui/Skeleton";
 import { ApiError } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { adminUsersService, type AdminUserReputationLog } from "./services/admin-users.service";
@@ -405,57 +408,7 @@ export function AdminUsersScreen() {
         }
       />
 
-      {/* Thanh Tabs chuẩn phân tách giao diện */}
-      <div
-        role="tablist"
-        aria-label="Phân hệ người dùng và phân quyền"
-        style={{
-          display: "flex",
-          gap: "24px",
-          borderBottom: "1px solid var(--line, #e2e8f0)",
-          marginBottom: "20px",
-          marginTop: "-8px",
-        }}
-      >
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === "users"}
-          onClick={() => setActiveTab("users")}
-          style={{
-            background: "none",
-            border: "none",
-            borderBottom: activeTab === "users" ? "2px solid var(--primary, #0284c7)" : "2px solid transparent",
-            padding: "8px 4px 12px",
-            fontSize: "14px",
-            fontWeight: 600,
-            color: activeTab === "users" ? "var(--primary, #0284c7)" : "var(--muted, #64748b)",
-            cursor: "pointer",
-            transition: "border-color 0.12s ease, color 0.12s ease",
-          }}
-        >
-          Danh sách tài khoản
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === "roles"}
-          onClick={() => setActiveTab("roles")}
-          style={{
-            background: "none",
-            border: "none",
-            borderBottom: activeTab === "roles" ? "2px solid var(--primary, #0284c7)" : "2px solid transparent",
-            padding: "8px 4px 12px",
-            fontSize: "14px",
-            fontWeight: 600,
-            color: activeTab === "roles" ? "var(--primary, #0284c7)" : "var(--muted, #64748b)",
-            cursor: "pointer",
-            transition: "border-color 0.12s ease, color 0.12s ease",
-          }}
-        >
-          Vai trò & Bổ nhiệm
-        </button>
-      </div>
+      <FluidChoiceBar ariaLabel="Phân hệ người dùng và phân quyền" options={[{ value: "users", label: "Danh sách tài khoản" }, { value: "roles", label: "Vai trò & Bổ nhiệm" }]} value={activeTab} onChange={setActiveTab} />
 
       {activeTab === "roles" ? (
         <AdminRolesScreen embedded />
@@ -574,14 +527,14 @@ export function AdminUsersScreen() {
                           select(userId(user));
                         }}
                       >
-                        <strong>{userName(user)}</strong>
-                        {user.username && <small>@{user.username}</small>}
+                        <strong><TruncatedText text={userName(user)} label="Tên người dùng" maxWidth={200} /></strong>
+                        {user.username && <small><TruncatedText text={`@${user.username}`} label="Tên đăng nhập" maxWidth={180} /></small>}
                       </button>
                       <div style={{ marginTop: "4px" }} onClick={(e) => e.stopPropagation()}>
                         <CopyableId id={userId(user)} />
                       </div>
                     </td>
-                    <td>{user.email}</td>
+                    <td><TruncatedText text={user.email} label="Email" maxWidth={220} /></td>
                     <td>
                       <Badge tone={roleTone(getPrimaryRole(user))}>
                         {getPrimaryRole(user)}
@@ -619,14 +572,14 @@ export function AdminUsersScreen() {
               </tbody>
             </table>
           </div>
+        ) : users.loading ? (
+          <TableSkeleton rows={6} cols={5} label="Đang tải tài khoản…" />
         ) : (
           <NoData
             title={
-              users.loading
-                ? "Đang tải tài khoản…"
-                : users.error
-                  ? "Không tải được tài khoản"
-                  : "Không có tài khoản phù hợp"
+              users.error
+                ? "Không tải được tài khoản"
+                : "Không có tài khoản phù hợp"
             }
           />
         )}
@@ -1040,8 +993,8 @@ export function AdminUsersScreen() {
                             setAction("unban");
                           }}
                           style={{
-                            backgroundColor: action === "unban" ? "#0369a1" : "#0284c7",
-                            borderColor: "#0284c7",
+                            backgroundColor: action === "unban" ? "var(--primary-hover)" : "var(--primary)",
+                            borderColor: "var(--primary)",
                             color: "#fff",
                           }}
                         >
@@ -1257,7 +1210,7 @@ export function AdminUsersScreen() {
                     onSubmit={(event) => void submitAction(event)}
                     style={{ marginTop: "14px" }}
                   >
-                    <div style={{ padding: "10px 12px", background: "#fef3c7", borderRadius: "8px", border: "1px solid #fde68a", fontSize: "13px", color: "#92400e" }}>
+                    <div style={{ padding: "12px 16px", background: "#fef3c7", borderRadius: "16px", border: "1px solid #fde68a", fontSize: "13px", color: "#92400e" }}>
                       Đình chỉ Shop sẽ đóng quyền bán hàng (ShopStatus = Suspended), nhưng vẫn bảo toàn quyền mua sắm cá nhân của người dùng.
                     </div>
                     <label className="field-wrap">
@@ -1357,7 +1310,7 @@ export function AdminUsersScreen() {
                     onSubmit={(event) => void submitAction(event)}
                     style={{ marginTop: "14px" }}
                   >
-                    <div style={{ padding: "10px 12px", background: "#f0fdf4", borderRadius: "8px", border: "1px solid #bbf7d0", fontSize: "13px", color: "#166534" }}>
+                    <div className="form-success" style={{ fontSize: "13px" }}>
                       Mở lại gian hàng sẽ khôi phục trạng thái hoạt động của Shop (ShopStatus = Active) và thu hồi các án phạt hạn chế bán hàng.
                     </div>
                     <label className="field-wrap">
@@ -1529,7 +1482,7 @@ export function AdminUsersScreen() {
                           backgroundColor: delta > 0 ? "#f0fdf4" : delta < 0 ? "#fef2f2" : "#f8fafc",
                           border: `1px solid ${delta > 0 ? "#bbf7d0" : delta < 0 ? "#fecaca" : "#e2e8f0"}`,
                           display: "grid",
-                          gridTemplateColumns: "1fr auto 1fr",
+                          gridTemplateColumns: "repeat(auto-fit, minmax(90px, 1fr))",
                           alignItems: "center",
                           gap: "12px",
                         }}
@@ -1746,17 +1699,13 @@ export function AdminUsersScreen() {
 
             <form className="auth-fields" onSubmit={(e) => void submitCreateUser(e)}>
               <div className="form-grid">
-                <label className="field-wrap">
-                  Email đăng nhập <span style={{ color: "var(--red)" }}>*</span>
-                  <input
-                    className="field"
-                    type="email"
-                    required
-                    placeholder="staff.new@nexus.local"
-                    value={createForm.email}
-                    onChange={(e) => setCreateForm((prev) => ({ ...prev, email: e.target.value }))}
-                  />
-                </label>
+                <EmailInput
+                  label={<>Email đăng nhập <span style={{ color: "var(--red)" }}>*</span></>}
+                  required
+                  placeholder="staff.new@nexus.local"
+                  value={createForm.email}
+                  onChange={(next) => setCreateForm((prev) => ({ ...prev, email: next }))}
+                />
 
                 <label className="field-wrap">
                   Mật khẩu khởi tạo (8 – 72 ký tự) <span style={{ color: "var(--red)" }}>*</span>

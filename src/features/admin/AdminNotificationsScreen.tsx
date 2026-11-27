@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { FluidChoiceBar } from "@/components/ui/FluidChoiceBar";
 import {
   AdminPagination,
   Badge,
   Card,
   NoData,
   PageHeading,
+  TruncatedText,
 } from "@/components/ui/Primitives";
 import { ApiError } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
@@ -138,57 +140,7 @@ export function AdminNotificationsScreen() {
         }
       />
 
-      {/* Thanh Tabs chuẩn phân tách giao diện */}
-      <div
-        role="tablist"
-        aria-label="Phân hệ thông báo và nhật ký sự kiện"
-        style={{
-          display: "flex",
-          gap: "24px",
-          borderBottom: "1px solid var(--line, #e2e8f0)",
-          marginBottom: "20px",
-          marginTop: "-8px",
-        }}
-      >
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === "notifications"}
-          onClick={() => setActiveTab("notifications")}
-          style={{
-            background: "none",
-            border: "none",
-            borderBottom: activeTab === "notifications" ? "2px solid var(--primary, #0284c7)" : "2px solid transparent",
-            padding: "8px 4px 12px",
-            fontSize: "14px",
-            fontWeight: 600,
-            color: activeTab === "notifications" ? "var(--primary, #0284c7)" : "var(--muted, #64748b)",
-            cursor: "pointer",
-            transition: "border-color 0.12s ease, color 0.12s ease",
-          }}
-        >
-          Lịch sử thông báo
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === "event-logs"}
-          onClick={() => setActiveTab("event-logs")}
-          style={{
-            background: "none",
-            border: "none",
-            borderBottom: activeTab === "event-logs" ? "2px solid var(--primary, #0284c7)" : "2px solid transparent",
-            padding: "8px 4px 12px",
-            fontSize: "14px",
-            fontWeight: 600,
-            color: activeTab === "event-logs" ? "var(--primary, #0284c7)" : "var(--muted, #64748b)",
-            cursor: "pointer",
-            transition: "border-color 0.12s ease, color 0.12s ease",
-          }}
-        >
-          Nhật ký sự kiện (Event Logs)
-        </button>
-      </div>
+      <FluidChoiceBar ariaLabel="Phân hệ thông báo và nhật ký sự kiện" options={[{ value: "notifications", label: "Lịch sử thông báo" }, { value: "event-logs", label: "Nhật ký sự kiện (Event Logs)" }]} value={activeTab} onChange={setActiveTab} />
 
       {/* TAB 1: LỊCH SỬ THÔNG BÁO */}
       {activeTab === "notifications" && (
@@ -284,9 +236,9 @@ export function AdminNotificationsScreen() {
                         <Badge tone="indigo">{item.notificationType || "Chung"}</Badge>
                       </td>
                       <td>
-                        <strong>{item.title || "—"}</strong>
-                        <p style={{ margin: "2px 0 0", fontSize: "13px", color: "var(--muted)", maxWidth: 360, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {item.body || "—"}
+                        <strong><TruncatedText text={item.title || "—"} label="Tiêu đề thông báo" maxWidth={240} /></strong>
+                        <p style={{ margin: "2px 0 0", fontSize: "13px", color: "var(--muted)" }}>
+                          <TruncatedText text={item.body || "—"} label="Nội dung thông báo" maxWidth={340} />
                         </p>
                       </td>
                       <td>
@@ -503,7 +455,7 @@ export function AdminNotificationsScreen() {
             {selectedNotif.payload && (
               <div>
                 <span style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600 }}>Dữ liệu Payload:</span>
-                <pre style={{ margin: "4px 0 0", padding: "10px", background: "#1e293b", color: "#f8fafc", borderRadius: "6px", fontSize: "12px", overflowX: "auto" }}>
+                <pre style={{ margin: "4px 0 0", padding: "10px", background: "var(--hero-bg-deep)", color: "var(--primary-accent-light)", borderRadius: "8px", fontSize: "12px", overflowX: "auto" }}>
                   {(() => {
                     try {
                       return JSON.stringify(JSON.parse(selectedNotif.payload), null, 2);
@@ -575,7 +527,7 @@ export function AdminNotificationsScreen() {
 
                 <div style={{ marginBottom: "14px" }}>
                   <span style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600 }}>Message Payload (JSON):</span>
-                  <pre style={{ margin: "4px 0 0", padding: "10px", background: "#1e293b", color: "#f8fafc", borderRadius: "6px", fontSize: "12px", overflowX: "auto", maxHeight: "250px" }}>
+                  <pre style={{ margin: "4px 0 0", padding: "10px", background: "var(--hero-bg-deep)", color: "var(--primary-accent-light)", borderRadius: "8px", fontSize: "12px", overflowX: "auto", maxHeight: "250px" }}>
                     {JSON.stringify(eventDetailResource.data.payload, null, 2)}
                   </pre>
                 </div>
@@ -583,7 +535,7 @@ export function AdminNotificationsScreen() {
                 {eventDetailResource.data.headers && (
                   <div>
                     <span style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600 }}>Correlation Headers:</span>
-                    <pre style={{ margin: "4px 0 0", padding: "10px", background: "#1e293b", color: "#f8fafc", borderRadius: "6px", fontSize: "12px", overflowX: "auto" }}>
+                    <pre style={{ margin: "4px 0 0", padding: "10px", background: "var(--hero-bg-deep)", color: "var(--primary-accent-light)", borderRadius: "8px", fontSize: "12px", overflowX: "auto" }}>
                       {JSON.stringify(eventDetailResource.data.headers, null, 2)}
                     </pre>
                   </div>

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from "react"
 import { ROUTES } from "@/constants/routes";
 import { useSession } from "@/components/auth/SessionProvider";
 import { Icon } from "@/components/ui/Icon";
+import { OtpCodeInput } from "@/components/ui/OtpCodeInput";
 import { Badge, ButtonLink, Card, PageHeading, SectionHeading } from "@/components/ui/Primitives";
 import { ApiError, api, type ApiResponse } from "@/lib/api/client";
 import {
@@ -20,6 +21,7 @@ import {
   type SellerRegistrationStatus,
   type SellerRegistrationStatusRecord,
 } from "./services/seller.service";
+import { ghnWriteBlock, type GhnCheck } from "@/features/shipping/ghn-address";
 import { ShopRegistrationForm, validateShopRegistrationFields, type ShopRegistrationFields, type ShopRegistrationErrors } from "./components/ShopRegistrationForm";
 import { takeSellerRegistrationHandoff } from "./services/seller-registration-handoff";
 
@@ -122,13 +124,14 @@ export function BecomeSellerScreen() {
   const [identityCardNumber, setIdentityCardNumber] = useState("");
 
   // Shop & GHN Warehouse fields
+  const [locationCheck, setLocationCheck] = useState<GhnCheck>({ state: "empty" });
   const [shopForm, setShopForm] = useState<Omit<ShopRegistrationFields, "identityCardNumber">>({
     shopName: "",
     businessEmail: "",
     hotline: "",
-    provinceId: "202",
-    districtId: "1442",
-    wardCode: "20101",
+    provinceId: "",
+    districtId: "",
+    wardCode: "",
     streetAddress: "",
   });
 
@@ -143,6 +146,8 @@ export function BecomeSellerScreen() {
   const [otpEmail, setOtpEmail] = useState("");
   const [otpBusy, setOtpBusy] = useState(false);
   const [otpError, setOtpError] = useState("");
+  const [otpSignal, setOtpSignal] = useState(0);
+  const [otpSuccess, setOtpSuccess] = useState(false);
   const [otpNotice, setOtpNotice] = useState("");
   const otpInputRef = useRef<HTMLInputElement>(null);
 
@@ -249,9 +254,9 @@ export function BecomeSellerScreen() {
             shopName: prev.shopName || savedDraft.shopName,
             businessEmail: prev.businessEmail || savedDraft.businessEmail,
             hotline: prev.hotline || savedDraft.hotline,
-            provinceId: String(savedDraft.warehouseAddress.provinceId || prev.provinceId || "202"),
-            districtId: String(savedDraft.warehouseAddress.districtId || prev.districtId || "1442"),
-            wardCode: savedDraft.warehouseAddress.wardCode || prev.wardCode || "20101",
+            provinceId: String(savedDraft.warehouseAddress.provinceId || prev.provinceId || ""),
+            districtId: String(savedDraft.warehouseAddress.districtId || prev.districtId || ""),
+            wardCode: savedDraft.warehouseAddress.wardCode || prev.wardCode || "",
             streetAddress: prev.streetAddress || savedDraft.warehouseAddress.streetAddress,
           }));
         } else if (meShopName) {
@@ -378,6 +383,9 @@ export function BecomeSellerScreen() {
 
   function validateRegistrationForm(): ClassifiedSellerError | null {
     const errors = validateShopRegistrationFields({ ...shopForm, identityCardNumber });
+    // The codes must also be confirmed by the GHN lists now, not only look like codes (a restored draft may carry codes GHN no longer lists).
+    const locationBlock = ghnWriteBlock(locationCheck);
+    if (locationBlock && !errors.provinceId && !errors.districtId && !errors.wardCode) errors.wardCode = locationBlock;
     if (!Object.keys(errors).length) return null;
     const fieldErrors = Object.fromEntries(Object.entries(errors).map(([key, value]) => [key, [value ?? ""]]));
     const ghnKeys: Array<keyof ShopRegistrationErrors> = ["provinceId", "districtId", "wardCode", "streetAddress"];
@@ -447,6 +455,10 @@ export function BecomeSellerScreen() {
     try {
       const result = unwrap(await sellerService.verifyOtp(otpEmail, otpCode));
       if (result.status.toUpperCase() !== "PENDING") throw new Error("Chưa xác nhận được trạng thái hồ sơ. Vui lòng kiểm tra lại.");
+      setOtpSuccess(true);
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (!reduceMotion) await new Promise((resolve) => window.setTimeout(resolve, 650));
+      setOtpSuccess(false);
       setCurrentStatus("PENDING_APPROVAL");
       setRegistrationId(result.sellerId);
       setNextStep("AWAITING_STAFF_APPROVAL");
@@ -482,6 +494,8 @@ export function BecomeSellerScreen() {
         setClassifiedError({ category: "BUSINESS_RULE", categoryLabel: "Xác thực email", title: "Cần gửi lại hồ sơ", detail: message });
       } else {
         setOtpError(message);
+        setOtpCode("");
+        setOtpSignal((value) => value + 1);
       }
     } finally {
       setOtpBusy(false);
@@ -538,7 +552,7 @@ export function BecomeSellerScreen() {
 
   return (
     <>
-      <PageHeading title="Đăng kí mở gian hàng" />
+      <PageHeading title="Đăng ký mở gian hàng" />
 
       {statusNotice && (
         <p role="status" className="form-success" style={{ marginBottom: 18 }}>
@@ -550,7 +564,7 @@ export function BecomeSellerScreen() {
       {classifiedError && (
         <div style={{ marginBottom: 22 }}>
           <Card className="card-pad">
-            <div role="alert" style={{ padding: "14px 16px", borderRadius: 10, border: "1px solid #f1c8c6", background: "#fff1f0" }}>
+            <div role="alert" className="form-error">
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 8 }}>
                 <strong style={{ color: "#9f2f2c", fontSize: 15 }}>{classifiedError.title}</strong>
                 <Badge tone="red">
@@ -741,6 +755,10 @@ export function BecomeSellerScreen() {
                 <strong>{registrationId || "Đã ghi nhận"}</strong>
               </div>
               <div className="info-row">
+                <span>Giấy tờ (căn cước, giấy phép)</span>
+                <strong><ButtonLink href={ROUTES.auth.sellerDocuments} variant="secondary">Tải giấy tờ lên</ButtonLink></strong>
+              </div>
+              <div className="info-row">
                 <span>Tên gian hàng</span>
                 <strong>{shopForm.shopName || "—"}</strong>
               </div>
@@ -788,6 +806,7 @@ export function BecomeSellerScreen() {
                   </Card>
                   <ShopRegistrationForm
                     idPrefix="buyer-seller"
+                    onLocationCheck={setLocationCheck}
                     value={{ ...shopForm, identityCardNumber }}
                     errors={Object.fromEntries(Object.entries(classifiedError?.fieldErrors ?? {}).map(([key, messages]) => [key, messages[0] ?? ""])) as ShopRegistrationErrors}
                     onChange={(value) => {
@@ -805,7 +824,7 @@ export function BecomeSellerScreen() {
                     <div className="info-row"><span>Email nhận OTP</span><strong>{shopForm.businessEmail || "Email doanh nghiệp"}</strong></div>
                     <p className="status-note seller-onboarding-note">Chọn Nộp hồ sơ để nhận OTP qua email doanh nghiệp. Hồ sơ chỉ chuyển đến Staff sau khi bạn xác nhận mã thành công.</p>
                     <div className="seller-onboarding-actions">
-                      <button type="button" className="button button-primary full-width" disabled={initialLoading || otpBusy || Object.keys(validateShopRegistrationFields({ ...shopForm, identityCardNumber })).length > 0} onClick={() => void sendBusinessOtp()}>{otpBusy ? "Đang gửi mã…" : "Nộp hồ sơ"}</button>
+                      <button type="button" className="button button-primary full-width" disabled={initialLoading || otpBusy || Object.keys(validateShopRegistrationFields({ ...shopForm, identityCardNumber })).length > 0 || ghnWriteBlock(locationCheck) !== undefined} onClick={() => void sendBusinessOtp()}>{otpBusy ? "Đang gửi mã…" : "Nộp hồ sơ"}</button>
                       <button type="button" className="button button-secondary full-width" disabled={refreshingStatus || initialLoading} onClick={() => void handleManualRefresh()}>{refreshingStatus ? "Đang kiểm tra…" : "Kiểm tra trạng thái hồ sơ"}</button>
                       {editingAfterReject && <button type="button" className="button button-secondary full-width" onClick={() => setEditingAfterReject(false)}>Hủy chỉnh sửa</button>}
                     </div>
@@ -832,7 +851,7 @@ export function BecomeSellerScreen() {
                 <p id="seller-otp-description" className="seller-otp-description">Mã OTP đã gửi tới <strong>{otpEmail}</strong>. Xác thực thành công sẽ nộp hồ sơ để Staff duyệt.</p>
                 <form className="seller-otp-form" onSubmit={(event) => void verifyBusinessOtp(event)}>
                   <label className="seller-otp-label" htmlFor="seller-business-otp">Mã xác thực gồm 6 chữ số</label>
-                  <input ref={otpInputRef} id="seller-business-otp" className="field seller-otp-input" type="text" inputMode="numeric" pattern="[0-9]{6}" autoComplete="one-time-code" maxLength={6} required value={otpCode} onChange={(event) => { setOtpCode(event.target.value.replace(/\D/g, "").slice(0, 6)); setOtpError(""); }} />
+                  <OtpCodeInput id="seller-business-otp" firstInputRef={otpInputRef} value={otpCode} onChange={(code) => { setOtpCode(code); setOtpError(""); }} status={otpSuccess ? "success" : otpBusy ? "busy" : otpError ? "error" : "idle"} errorSignal={otpSignal} />
                   {otpError && <p className="form-error" role="alert">{otpError}</p>}
                   {otpNotice && <p className="form-success" role="status">{otpNotice}</p>}
                   <div className="seller-otp-actions">

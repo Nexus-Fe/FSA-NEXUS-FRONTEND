@@ -27,8 +27,10 @@ const adminWorkspaces = [
   ["Cấu hình đấu giá", "Quy tắc chống sniping, bước giá và điểm uy tín đấu giá", ROUTES.admin.auctionConfigs],
   ["Cấu hình toàn sàn", "Tham số vận hành động của toàn hệ thống", ROUTES.admin.configs],
   ["Mã giảm giá toàn sàn", "Thiết lập và quản lý các chương trình khuyến mãi", ROUTES.admin.coupons],
-  ["Sổ cái & Đối soát ví", "Duyệt yêu cầu rút tiền và điều chỉnh số dư ví theo ID", ROUTES.admin.ledger],
+  ["Điều chỉnh số dư ví", "Ghi nhận bút toán tăng hoặc giảm số dư ví kèm lý do đối soát", ROUTES.admin.ledger],
+  ["Duyệt rút tiền", "Xử lý yêu cầu rút tiền trên màn dùng chung với Staff", ROUTES.admin.withdrawals],
   ["Thông báo & Event Logs", "Tra cứu lịch sử thông báo và nhật ký sự kiện đồng bộ", ROUTES.admin.notifications],
+  ["Vận đơn & Giả lập GHN", "Quản lý vận đơn, kiểm tra mã GHN và mô phỏng trạng thái giao hàng", ROUTES.admin.shipments],
 ] as const;
 
 type OverviewSnapshot = {
@@ -58,15 +60,17 @@ function extractTotalCount(raw: unknown): number {
 
 export function AdminOverviewScreen() {
   const overview = useApiResource("admin-overview-metrics", async (signal) => {
-    const [usersRes, penaltiesRes] = await Promise.allSettled([
+    const [usersRes, auctionsRes, penaltiesRes] = await Promise.allSettled([
       api.get<ApiResponse<any>>("/api/v1/admin/users?page=1&pageSize=1", { signal }),
+      api.get<ApiResponse<any>>("/api/v1/auctions?page=1&pageSize=1", { signal }),
       api.get<ApiResponse<any>>("/api/v1/admin/penalties?page=1&limit=1", { signal }),
     ]);
 
     const snapshot: OverviewSnapshot = {
       usersCount:
         usersRes.status === "fulfilled" ? extractTotalCount(usersRes.value) : null,
-      auctionsCount: null,
+      auctionsCount:
+        auctionsRes.status === "fulfilled" ? extractTotalCount(auctionsRes.value) : null,
       penaltiesCount:
         penaltiesRes.status === "fulfilled" ? extractTotalCount(penaltiesRes.value) : null,
     };
@@ -117,18 +121,27 @@ export function AdminOverviewScreen() {
 
         <Card className="card-pad">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: "13px", color: "var(--muted)" }}>Quy tắc đấu giá</span>
-            <Badge tone="amber">Anti-sniping</Badge>
+            <span style={{ fontSize: "13px", color: "var(--muted)" }}>Phiên đấu giá</span>
+            <Badge tone="amber">Đấu giá</Badge>
           </div>
           <strong style={{ display: "block", fontSize: "24px", margin: "10px 0 4px" }}>
-            Cấu hình sàn
+            {data?.auctionsCount != null
+              ? data.auctionsCount.toLocaleString("vi-VN")
+              : overview.loading
+                ? "Đang tải…"
+                : "—"}
           </strong>
           <small style={{ display: "block", color: "var(--muted)", marginBottom: "10px" }}>
-            Chính sách gia hạn & chống tỉa giá đấu giá
+            Tổng số phiên đấu giá trên toàn sàn
           </small>
-          <Link className="button button-secondary button-small" href={ROUTES.admin.auctionConfigs}>
-            Xem cấu hình
-          </Link>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <Link className="button button-secondary button-small" href={ROUTES.admin.auctions}>
+              Giám sát đấu giá
+            </Link>
+            <Link className="button button-secondary button-small" href={ROUTES.admin.auctionConfigs}>
+              Cấu hình
+            </Link>
+          </div>
         </Card>
 
         <Card className="card-pad">

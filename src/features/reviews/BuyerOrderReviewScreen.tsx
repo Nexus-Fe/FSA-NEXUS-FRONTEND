@@ -1,7 +1,9 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { NoData, PageHeading } from "@/components/ui/Primitives";
+import { ButtonLink, NoData, PageHeading } from "@/components/ui/Primitives";
+import { ErrorState } from "@/components/ui/States";
+import { ROUTES } from "@/constants/routes";
 import { api, unwrap, type ApiResponse } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { PartnerReviewCard } from "./PartnerReviewCard";
@@ -39,8 +41,13 @@ export function BuyerOrderReviewScreen() {
   const subOrders = order.data?.subOrders ?? [];
 
   return <>
-    <PageHeading overline="Sau khi nhận hàng" title="Đánh giá đơn hàng" description="Đánh giá từng sản phẩm và người bán sau khi đơn hàng hoàn tất. Mỗi sản phẩm và mỗi người bán được đánh giá một lần cho mỗi đơn." />
-    {order.error && <p className="notice" role="alert">{order.error.message} <button type="button" className="button button-secondary" onClick={order.reload}>Thử lại</button></p>}
+    <PageHeading
+      overline="Sau khi nhận hàng"
+      title="Đánh giá đơn hàng"
+      description="Đánh giá từng sản phẩm và người bán sau khi đơn hàng hoàn tất. Mỗi sản phẩm và mỗi người bán được đánh giá một lần cho mỗi đơn."
+      action={orderId ? <ButtonLink href={ROUTES.buyer.order(orderId)} variant="secondary" small>Quay lại đơn hàng</ButtonLink> : undefined}
+    />
+    {order.error && <ErrorState cause={order.error} onRetry={order.reload} />}
     {order.loading && !order.data && <NoData title="Đang tải đơn hàng…" />}
     {order.data && !subOrders.length && <NoData title="Đơn hàng chưa có đơn gian hàng nào để đánh giá." />}
     {subOrders.map((sub, index) => {

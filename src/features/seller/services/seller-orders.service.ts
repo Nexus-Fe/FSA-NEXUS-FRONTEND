@@ -1,5 +1,34 @@
 import { api, unwrap, type ApiResponse } from "@/lib/api/client";
 
+export type SubOrderFinancialBreakdown = {
+  subOrderId: string;
+  subOrderNo: string;
+  sellerId: string;
+  buyerId: string;
+  totalAmount: number;
+  itemsAmount: number;
+  productDiscountAmount: number;
+  shopDiscountAmount: number;
+  systemDiscountAmount: number;
+  shippingFeeAmount: number;
+  platformFeeAmount: number;
+  sellerReceiveAmount: number;
+  isEscrowSettled: boolean;
+  status: string;
+  paymentMethod: string;
+  completedAt: string | null;
+};
+
+export type SellerAcceptOrderResult = {
+  subOrderId: string;
+  subOrderNo?: string;
+  status: string;
+  acceptedAt: string;
+  trackingCode?: string | null;
+  carrierCode?: string | null;
+  labelPrintUrl?: string | null;
+};
+
 export const sellerOrdersService = {
   async list<T>(page: number, signal?: AbortSignal, pageSize = 20, status?: string): Promise<T> {
     const query = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
@@ -19,14 +48,29 @@ export const sellerOrdersService = {
     return unwrap(response);
   },
 
-  async accept(orderId: string, subOrderId: string): Promise<void> {
-    await api.post("/api/v1/orders/" + encodeURIComponent(orderId) + "/accept", { subOrderId });
+  async financialBreakdown(subOrderId: string, signal?: AbortSignal): Promise<SubOrderFinancialBreakdown> {
+    const response = await api.get<ApiResponse<SubOrderFinancialBreakdown> | SubOrderFinancialBreakdown>(
+      `/api/v1/sub-orders/${encodeURIComponent(subOrderId)}/financial-breakdown`,
+      { signal },
+    );
+    return unwrap(response);
+  },
+
+  async accept(orderId: string, subOrderId: string, pickShiftId?: number | null): Promise<SellerAcceptOrderResult> {
+    const response = await api.post<ApiResponse<SellerAcceptOrderResult> | SellerAcceptOrderResult>(
+      "/api/v1/orders/" + encodeURIComponent(orderId) + "/accept",
+      {
+        subOrderId,
+        pickShiftId: pickShiftId ?? undefined,
+      },
+    );
+    return unwrap(response);
   },
 
   async reject(orderId: string, subOrderId: string, reasonText: string): Promise<void> {
     await api.post("/api/v1/orders/" + encodeURIComponent(orderId) + "/reject", {
       subOrderId,
-      reasonCode: "OutOfStock",
+      reasonCode: "SellerRejected",
       reasonText,
     });
   },

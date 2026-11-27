@@ -1,6 +1,6 @@
 import { api, unwrap, type ApiResponse } from "@/lib/api/client";
-import type { AuctionDetail, AuctionResult, AuctionSaga, AuctionStatus, AuctionSummary, BidItem, BidRequest, CreateAuctionRequest, DepositRequirement, MyAuctionDeposit, MyBidItem, MySecondChanceOffer, PagedData, PlaceBidResponse, UpdateAuctionRequest, WinnerOffer } from "../types";
-import { parseAuctionList } from "../contract";
+import type { SellerAuctionPricing, BuyNowResponse, MyDepositItem, MyWatchlistItem, ReserveApprovalResponse, SellerReserveStatus, WatchState, AuctionDetail, AuctionResult, AuctionSaga, AuctionStatus, AuctionSummary, BidItem, BidRequest, CreateAuctionReportRequest, CreateAuctionReportResponse, CreateAuctionRequest, DepositRequirement, MyAuctionDeposit, MyAuctionReportItem, MyBidItem, MySecondChanceOffer, PagedData, PlaceBidResponse, UpdateAuctionRequest, WinnerOffer } from "../types";
+import { parseAuctionList, parseMyDeposits, parseMyWatchlist } from "../contract";
 
 const idPath = (id: string) => encodeURIComponent(id);
 const envelope = <T>(data: T): ApiResponse<T> => ({ success: true, statusCode: 200, data });
@@ -14,6 +14,7 @@ async function auctionList(path: string, signal?: AbortSignal): Promise<ApiRespo
 
 export const auctionService = {
   list: (page = 1, pageSize = 20, status?: AuctionStatus | "ALL", signal?: AbortSignal) => auctionList(`/api/v1/auctions${query(page, pageSize, status)}`, signal),
+  adminList: (page = 1, pageSize = 20, status?: AuctionStatus | "ALL", signal?: AbortSignal) => auctionList(`/api/v1/admin/auctions${query(page, pageSize, status)}`, signal),
   sellerList: (page = 1, status?: AuctionStatus | "ALL", signal?: AbortSignal) => auctionList(`/api/v1/seller/auctions${query(page, 20, status)}`, signal),
   detail: async (id: string, signal?: AbortSignal) => {
     const response = await api.getWithMetadata<ApiResponse<AuctionDetail> | AuctionDetail>(`/api/v1/auctions/${idPath(id)}`, { signal });
@@ -58,5 +59,29 @@ export const auctionService = {
   placeBid: async (id: string, input: BidRequest, ifMatch: string, idempotencyKey = crypto.randomUUID()): Promise<PlaceBidResponse> => unwrap(await api.post<ApiResponse<PlaceBidResponse> | PlaceBidResponse>(`/api/v1/auctions/${idPath(id)}/bids`, input, { headers: { "If-Match": ifMatch, "Idempotency-Key": idempotencyKey } })),
   history: async (id: string, page = 1, signal?: AbortSignal) => envelope(unwrap(await api.get<ApiResponse<PagedData<{ historyId: string; changedAt: string; toStatus: string; reason: string | null }>> | PagedData<{ historyId: string; changedAt: string; toStatus: string; reason: string | null }>>(`/api/v1/auctions/${idPath(id)}/status-history?page=${page}&pageSize=50`, { signal }))),
   saga: async (id: string, signal?: AbortSignal): Promise<ApiResponse<AuctionSaga>> => envelope(unwrap(await api.get<ApiResponse<AuctionSaga> | AuctionSaga>(`/api/v1/admin/auctions/${idPath(id)}/saga`, { signal }))),
+  /** Locks the full goods price in the buyer's wallet. Needs an Idempotency-Key; If-Match carries the auction's rowVersion. */
+  buyNow: async (id: string, idempotencyKey: string, ifMatch?: string): Promise<BuyNowResponse> =>
+    unwrap(await api.post<ApiResponse<BuyNowResponse> | BuyNowResponse>(`/api/v1/auctions/${idPath(id)}/buy-now`, {}, { headers: { "Idempotency-Key": idempotencyKey, ...(ifMatch ? { "If-Match": ifMatch } : {}) } })),
+  acceptBelowReserve: async (id: string): Promise<ReserveApprovalResponse> =>
+    unwrap(await api.post<ApiResponse<ReserveApprovalResponse> | ReserveApprovalResponse>(`/api/v1/auctions/${idPath(id)}/reserve-approval/accept`, {})),
+  declineBelowReserve: async (id: string, reason?: string): Promise<ReserveApprovalResponse> =>
+    unwrap(await api.post<ApiResponse<ReserveApprovalResponse> | ReserveApprovalResponse>(`/api/v1/auctions/${idPath(id)}/reserve-approval/decline`, reason ? { reason } : {})),
+  /** The prices the seller set on their own auction, including the secret reserve price. Needs the server to have this call (older servers answer 404). */
+  sellerPricing: async (id: string, signal?: AbortSignal): Promise<SellerAuctionPricing> =>
+    unwrap(await api.get<ApiResponse<SellerAuctionPricing> | SellerAuctionPricing>(`/api/v1/seller/auctions/${idPath(id)}/pricing`, { signal })),
+  sellerReserveStatus: async (signal?: AbortSignal): Promise<SellerReserveStatus> =>
+    unwrap(await api.get<ApiResponse<SellerReserveStatus> | SellerReserveStatus>("/api/v1/seller/reserve-status", { signal })),
+  myDeposits: async (page = 1, status = "", signal?: AbortSignal) =>
+    parseMyDeposits(unwrap(await api.get<ApiResponse<unknown> | unknown>(`/api/v1/me/deposits?page=${page}&pageSize=20${status ? `&status=${encodeURIComponent(status)}` : ""}`, { signal }))) as { items: MyDepositItem[]; pagination: PagedData<MyDepositItem>["pagination"] },
+  myWatchlist: async (page = 1, signal?: AbortSignal) =>
+    parseMyWatchlist(unwrap(await api.get<ApiResponse<unknown> | unknown>(`/api/v1/me/watchlist?page=${page}&pageSize=20`, { signal }))) as { items: MyWatchlistItem[]; pagination: PagedData<MyWatchlistItem>["pagination"] },
+  watch: async (id: string, notifyOnNewBid = true): Promise<WatchState> =>
+    unwrap(await api.post<ApiResponse<WatchState> | WatchState>(`/api/v1/auctions/${idPath(id)}/watch`, { notifyOnNewBid })),
+  unwatch: async (id: string): Promise<WatchState> =>
+    unwrap(await api.delete<ApiResponse<WatchState> | WatchState>(`/api/v1/auctions/${idPath(id)}/watch`)),
+  report: async (id: string, body: CreateAuctionReportRequest): Promise<CreateAuctionReportResponse> =>
+    unwrap(await api.post<ApiResponse<CreateAuctionReportResponse> | CreateAuctionReportResponse>(`/api/v1/auctions/${idPath(id)}/reports`, body)),
+  myReports: async (page = 1, pageSize = 20, signal?: AbortSignal): Promise<PagedData<MyAuctionReportItem>> =>
+    unwrap(await api.get<ApiResponse<PagedData<MyAuctionReportItem>> | PagedData<MyAuctionReportItem>>(`/api/v1/me/auction-reports?page=${page}&pageSize=${pageSize}`, { signal })),
   forceCancel: (id: string, reason: string) => api.post(`/api/v1/admin/auctions/${idPath(id)}/force-cancel`, { reason }),
 };
