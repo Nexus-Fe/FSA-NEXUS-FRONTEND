@@ -224,6 +224,7 @@ export const adminNavigationSections: NavigationSection[] = [
       label: "Đấu giá & Khuyến mãi",
       icon: "gavel",
       items: [
+        { label: "Giám sát đấu giá", href: ROUTES.admin.auctions, icon: "gavel" },
         { label: "Vận hành đấu giá", href: ROUTES.admin.auctionOps, icon: "activity" },
         { label: "Cài đặt đấu giá", href: ROUTES.admin.auctionConfigs, icon: "slidersHorizontal" },
         { label: "Quyết toán đấu giá", href: ROUTES.admin.auctionSettlements, icon: "checkSquare" },
